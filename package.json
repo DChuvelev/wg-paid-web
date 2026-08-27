@@ -14,13 +14,16 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @wg-paid/access && npm run build --workspace @wg-paid/admin",
+    "dev": "npm run dev --workspace @wg-paid/access",
+    "dev:admin": "npm run dev --workspace @wg-paid/admin",
     "generate:api": "node scripts/generate-api.mjs",
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit --pretty false -p packages/api && tsc --noEmit --pretty false -p packages/common && tsc --noEmit --pretty false -p packages/ui && tsc --noEmit --pretty false -p apps/access && tsc --noEmit --pretty false -p apps/admin"
+    "typecheck": "tsc --noEmit --pretty false -p tsconfig.tools.json && tsc --noEmit --pretty false -p packages/api && tsc --noEmit --pretty false -p packages/common && tsc --noEmit --pretty false -p packages/ui && tsc --noEmit --pretty false -p apps/access && tsc --noEmit --pretty false -p apps/admin"
   },
   "devDependencies": {
     "@eslint/js": "9.34.0",
+    "@hey-api/openapi-ts": "0.99.0",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "16.3.0",
     "@types/node": "24.3.0",
@@ -32,7 +35,6 @@
     "eslint-plugin-react-refresh": "0.4.20",
     "globals": "16.3.0",
     "jsdom": "26.1.0",
-    "openapi-typescript": "7.9.1",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "typescript": "5.9.2",

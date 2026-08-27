@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { assertPinnedOpenApi } from './openapi-contract.mjs';
 
 const input = new URL('../openapi/openapi.json', import.meta.url);
-const expectedHash = 'e2ada374ad8e25db217380196ad2b1ae4d4050def84ef45566f28c758c6708f8';
 
 let bytes;
 try {
@@ -13,26 +15,28 @@ try {
   process.exit(1);
 }
 
-const actualHash = createHash('sha256').update(bytes).digest('hex');
-if (actualHash !== expectedHash) {
-  console.error(`OpenAPI SHA-256 mismatch: expected ${expectedHash}, received ${actualHash}`);
+let document;
+try {
+  document = JSON.parse(bytes.toString('utf8'));
+} catch (error) {
+  console.error(`Pinned openapi/openapi.json is not valid JSON: ${error.message}`);
   process.exit(1);
 }
 
-const schema = JSON.parse(bytes.toString('utf8'));
-const operationCount = Object.values(schema.paths ?? {}).reduce(
-  (count, path) => count + Object.keys(path).filter((key) => ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'].includes(key)).length,
-  0
-);
-const schemaCount = Object.keys(schema.components?.schemas ?? {}).length;
-if (schema.openapi !== '3.1.0' || operationCount !== 40 || schemaCount !== 39) {
-  console.error(`OpenAPI metadata mismatch: version=${schema.openapi}, operations=${operationCount}, schemas=${schemaCount}`);
+try {
+  const verified = assertPinnedOpenApi(document);
+  const rawSha256 = createHash('sha256').update(bytes).digest('hex');
+  console.info(`Verified pinned OpenAPI: canonical SHA-256 ${verified.canonicalSha256}; raw SHA-256 ${rawSha256}`);
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
 
+const packagePath = fileURLToPath(import.meta.resolve('@hey-api/openapi-ts/package.json'));
+const cliPath = resolve(dirname(packagePath), 'bin/run.js');
 const result = spawnSync(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['openapi-typescript', 'openapi/openapi.json', '--output', 'packages/api/src/generated/schema.ts'],
+  process.execPath,
+  [cliPath],
   { stdio: 'inherit' }
 );
 process.exit(result.status ?? 1);
