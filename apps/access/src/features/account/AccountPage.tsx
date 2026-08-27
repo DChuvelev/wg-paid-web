@@ -54,14 +54,44 @@ export function AccountPage() {
     ]);
   };
 
-  const createMutation = useMutation({ mutationFn: createProfile, onSuccess: invalidateAccount });
-  const revokeMutation = useMutation({ mutationFn: revokeProfile, onSuccess: invalidateAccount });
-  const reissueMutation = useMutation({ mutationFn: reissueProfile, onSuccess: invalidateAccount });
+  const clearAccountState = () => {
+    queryClient.removeQueries({ queryKey: accountKey });
+    queryClient.removeQueries({ queryKey: profilesKey });
+  };
+
+  const handleMutationError = (error: unknown) => {
+    if (isUnauthorized(error)) {
+      clearAccountState();
+      navigate('/', { replace: true });
+    }
+  };
+
+  const createMutation = useMutation({
+    mutationFn: createProfile,
+    onError: handleMutationError,
+    onSuccess: invalidateAccount
+  });
+  const revokeMutation = useMutation({
+    mutationFn: revokeProfile,
+    onError: handleMutationError,
+    onSuccess: invalidateAccount
+  });
+  const reissueMutation = useMutation({
+    mutationFn: reissueProfile,
+    onError: handleMutationError,
+    onSuccess: invalidateAccount
+  });
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
-      queryClient.clear();
+      clearAccountState();
       navigate('/', { replace: true });
+    },
+    onError: (error) => {
+      if (isUnauthorized(error)) {
+        clearAccountState();
+        navigate('/', { replace: true });
+      }
     }
   });
 
@@ -76,7 +106,17 @@ export function AccountPage() {
   const entitlement = selectWireGuardEntitlement(accountQuery.data.grants);
   const busy = createMutation.isPending || revokeMutation.isPending || reissueMutation.isPending;
   const notice = (location.state as { notice?: string } | null)?.notice;
-  const mutationFailed = createMutation.isError || revokeMutation.isError || reissueMutation.isError;
+  const mutationErrors = [createMutation.error, revokeMutation.error, reissueMutation.error];
+  const hasSessionValidationFailure = mutationErrors.some(
+    (error) => error instanceof AccessApiError && error.status === 403
+  );
+  const mutationErrorMessage = hasSessionValidationFailure
+    ? 'Session validation failed. Sign in again.'
+    : createMutation.isError
+      ? 'Unable to create another connection.'
+      : revokeMutation.isError || reissueMutation.isError
+        ? 'Unable to update this connection.'
+        : null;
 
   return (
     <AppShell title="Account">
@@ -92,6 +132,10 @@ export function AccountPage() {
           Logout
         </button>
       </div>
+
+      {logoutMutation.isError && !isUnauthorized(logoutMutation.error) ? (
+        <p className={styles.error} role="alert">Unable to sign out.</p>
+      ) : null}
 
       <p className={styles.summary}>
         {entitlement
@@ -113,7 +157,7 @@ export function AccountPage() {
         ) : null}
       </div>
 
-      {mutationFailed ? <p className={styles.error} role="alert">Unable to update the connection.</p> : null}
+      {mutationErrorMessage ? <p className={styles.error} role="alert">{mutationErrorMessage}</p> : null}
       <ProfileList
         busy={busy}
         profiles={profilesQuery.data}

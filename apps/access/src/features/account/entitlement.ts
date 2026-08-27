@@ -11,7 +11,7 @@ export function selectWireGuardEntitlement(
   grants: Array<GrantSummary>,
   now = new Date()
 ): WireGuardEntitlement | null {
-  for (const grant of grants) {
+  for (const grant of [...grants].reverse()) {
     if (grant.status !== 'active') continue;
     if (grant.valid_until) {
       const expiresAt = Date.parse(grant.valid_until);
