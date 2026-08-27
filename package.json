@@ -12,6 +12,11 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "@hey-api/json-schema-ref-parser": {
+      "js-yaml": "4.3.1"
+    }
+  },
   "scripts": {
     "build": "npm run build --workspace @wg-paid/access && npm run build --workspace @wg-paid/admin",
     "dev": "npm run dev --workspace @wg-paid/access",

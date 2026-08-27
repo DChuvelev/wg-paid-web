@@ -4,7 +4,8 @@ import {
   assertPinnedOpenApi,
   canonicalizeJson,
   fingerprintOpenApi,
-  inspectOpenApi
+  inspectOpenApi,
+  parseJsonForCanonicalization
 } from './openapi-contract.mjs';
 
 describe('OpenAPI canonical fingerprint guard', () => {
@@ -13,6 +14,14 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const second = { a: { y: [3, { a: 'x', b: true }], z: null }, b: 2 };
 
     expect(canonicalizeJson(first)).toBe('{"a":{"y":[3,{"a":"x","b":true}],"z":null},"b":2}');
+    expect(fingerprintOpenApi(first)).toBe(fingerprintOpenApi(second));
+  });
+
+  test('preserves JSON float type while normalizing its representation', () => {
+    const first = parseJsonForCanonicalization('{"b":1,"a":0.0}');
+    const second = parseJsonForCanonicalization('{ "a": 0.00, "b": 1 }');
+
+    expect(canonicalizeJson(first)).toBe('{"a":0.0,"b":1}');
     expect(fingerprintOpenApi(first)).toBe(fingerprintOpenApi(second));
   });
 

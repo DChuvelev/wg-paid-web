@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { assertPinnedOpenApi } from './openapi-contract.mjs';
+import { assertPinnedOpenApi, parseJsonForCanonicalization } from './openapi-contract.mjs';
 
 const input = new URL('../openapi/openapi.json', import.meta.url);
 
@@ -17,7 +17,7 @@ try {
 
 let document;
 try {
-  document = JSON.parse(bytes.toString('utf8'));
+  document = parseJsonForCanonicalization(bytes.toString('utf8'));
 } catch (error) {
   console.error(`Pinned openapi/openapi.json is not valid JSON: ${error.message}`);
   process.exit(1);

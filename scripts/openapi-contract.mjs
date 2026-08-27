@@ -8,25 +8,54 @@ export const expectedOpenApi = Object.freeze({
 });
 
 const httpMethods = new Set(['delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace']);
+const numberSource = Symbol('numberSource');
 
-function sortJsonValue(value) {
+function canonicalizeNumber(source) {
+  const value = Number(source);
+  const isFloat = source.includes('.') || source.toLowerCase().includes('e');
+
+  if (!isFloat) {
+    return BigInt(source).toString();
+  }
+
+  if (Number.isInteger(value)) {
+    return `${Object.is(value, -0) ? '-0' : String(value)}.0`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function serializeJsonValue(value) {
+  if (value !== null && typeof value === 'object' && numberSource in value) {
+    return canonicalizeNumber(value[numberSource]);
+  }
+
   if (Array.isArray(value)) {
-    return value.map(sortJsonValue);
+    return `[${value.map(serializeJsonValue).join(',')}]`;
   }
 
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.keys(value)
-        .sort()
-        .map((key) => [key, sortJsonValue(value[key])])
-    );
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${serializeJsonValue(value[key])}`)
+      .join(',')}}`;
   }
 
-  return value;
+  return JSON.stringify(value);
+}
+
+export function parseJsonForCanonicalization(source) {
+  return JSON.parse(source, (_key, value, context) => {
+    if (typeof value !== 'number') {
+      return value;
+    }
+
+    return Object.freeze({ [numberSource]: context.source });
+  });
 }
 
 export function canonicalizeJson(document) {
-  return JSON.stringify(sortJsonValue(document));
+  return serializeJsonValue(document);
 }
 
 export function fingerprintOpenApi(document) {
