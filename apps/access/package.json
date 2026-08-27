@@ -1,0 +1,16 @@
+{
+  "name": "@wg-paid/access",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "vite build" },
+  "dependencies": {
+    "@tanstack/react-query": "5.85.5",
+    "@wg-paid/common": "0.1.0",
+    "@wg-paid/ui": "0.1.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "react-hook-form": "7.62.0",
+    "react-router": "7.18.2"
+  }
+}

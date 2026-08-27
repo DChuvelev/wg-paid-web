@@ -1,0 +1,12 @@
+.page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+}
+
+.heading {
+  margin: 0;
+  max-width: 32rem;
+  text-align: center;
+}
