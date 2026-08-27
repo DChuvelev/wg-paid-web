@@ -1,6 +1,6 @@
 # Pinned FastAPI contract
 
-The canonical `openapi.json` is intentionally absent. Do not generate or hand-write schema contents.
+The canonical `openapi.json` is committed from the deliberately imported and independently verified VM121 contract. Do not regenerate it from a live backend during ordinary builds and do not hand-write schema contents.
 
 The deliberate import must verify all of the following before generation:
 
@@ -12,4 +12,4 @@ The deliberate import must verify all of the following before generation:
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 
-After a deliberately imported contract is placed at `openapi/openapi.json`, run `npm run generate:api`. The command never downloads a live contract. It fails closed on any mismatch, then uses the locally installed `@hey-api/openapi-ts` to generate TypeScript types, Fetch client code, and SDK bindings under `packages/api/src/generated`.
+Run `npm run generate:api` after any deliberate contract replacement. The command never downloads a live contract. It fails closed on any mismatch, then uses the locally installed `@hey-api/openapi-ts` to generate TypeScript types, Fetch client code, and SDK bindings under `packages/api/src/generated`.
