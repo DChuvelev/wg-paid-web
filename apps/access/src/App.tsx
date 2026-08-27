@@ -1,6 +1,18 @@
-import { FoundationPage } from '@wg-paid/ui';
-import { productName } from '@wg-paid/common';
+import { Navigate, Route, Routes } from 'react-router';
+import { AccountPage } from './features/account/AccountPage';
+import { InvitePage } from './features/auth/InvitePage';
+import { LoginPage } from './features/auth/LoginPage';
+import { MagicPage } from './features/auth/MagicPage';
 
 export function App() {
-  return <FoundationPage>{productName} Access — Web Foundation</FoundationPage>;
+  return (
+    <Routes>
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/invite" element={<InvitePage />} />
+      <Route path="/auth/magic" element={<MagicPage />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
