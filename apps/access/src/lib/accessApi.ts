@@ -1,8 +1,6 @@
 import {
   accountMeV2AccountMeGet,
   accountProfileCreateV2AccountProfilesPost,
-  accountProfileReissueV2AccountProfilesProfileIdReissuePost,
-  accountProfileRevokeV2AccountProfilesProfileIdRevokePost,
   accountProfilesV2AccountProfilesGet,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   loginRequestV2AuthLoginRequestPost,
@@ -101,20 +99,6 @@ export async function createProfile(grantId: string) {
   await requireSuccessfulMutation(await accountProfileCreateV2AccountProfilesPost({
     ...mutationOptions(),
     body: { grant_id: grantId, protocol: 'wireguard' }
-  }));
-}
-
-export async function revokeProfile(profileId: string) {
-  await requireSuccessfulMutation(await accountProfileRevokeV2AccountProfilesProfileIdRevokePost({
-    ...mutationOptions(),
-    path: { profile_id: profileId }
-  }));
-}
-
-export async function reissueProfile(profileId: string) {
-  await requireSuccessfulMutation(await accountProfileReissueV2AccountProfilesProfileIdReissuePost({
-    ...mutationOptions(),
-    path: { profile_id: profileId }
   }));
 }
 

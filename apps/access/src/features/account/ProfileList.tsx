@@ -2,13 +2,10 @@ import type { ProfileSummary } from '@wg-paid/api';
 import styles from './Account.module.css';
 
 interface ProfileListProps {
-  busy: boolean;
-  onReissue: (profileId: string) => void;
-  onRevoke: (profileId: string) => void;
   profiles: Array<ProfileSummary>;
 }
 
-export function ProfileList({ busy, onReissue, onRevoke, profiles }: ProfileListProps) {
+export function ProfileList({ profiles }: ProfileListProps) {
   const wireGuardProfiles = profiles.filter(({ protocol }) => protocol === 'wireguard');
 
   if (wireGuardProfiles.length === 0) {
@@ -33,26 +30,6 @@ export function ProfileList({ busy, onReissue, onRevoke, profiles }: ProfileList
               <div className={styles.actions}>
                 <a className={styles.linkButton} href={configHref}>Download config</a>
                 <a className={styles.linkButton} href={qrHref} target="_blank" rel="noreferrer">Show QR</a>
-                <button
-                  className={`${styles.button} ${styles.danger}`}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onRevoke(profile.id)}
-                >
-                  Disable
-                </button>
-              </div>
-            ) : null}
-            {profile.status === 'disabled' ? (
-              <div className={styles.actions}>
-                <button
-                  className={styles.button}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onReissue(profile.id)}
-                >
-                  Reissue
-                </button>
               </div>
             ) : null}
           </li>

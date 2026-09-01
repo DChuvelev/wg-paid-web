@@ -7,9 +7,7 @@ import {
   createProfile,
   loadAccount,
   loadProfiles,
-  logout,
-  reissueProfile,
-  revokeProfile
+  logout
 } from '../../lib/accessApi';
 import { selectWireGuardEntitlement } from './entitlement';
 import { hasTransitionalProfile, profilePollingInterval } from './profileState';
@@ -71,16 +69,6 @@ export function AccountPage() {
     onError: handleMutationError,
     onSuccess: invalidateAccount
   });
-  const revokeMutation = useMutation({
-    mutationFn: revokeProfile,
-    onError: handleMutationError,
-    onSuccess: invalidateAccount
-  });
-  const reissueMutation = useMutation({
-    mutationFn: reissueProfile,
-    onError: handleMutationError,
-    onSuccess: invalidateAccount
-  });
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
@@ -104,19 +92,14 @@ export function AccountPage() {
   }
 
   const entitlement = selectWireGuardEntitlement(accountQuery.data.grants);
-  const busy = createMutation.isPending || revokeMutation.isPending || reissueMutation.isPending;
   const notice = (location.state as { notice?: string } | null)?.notice;
-  const mutationErrors = [createMutation.error, revokeMutation.error, reissueMutation.error];
-  const hasSessionValidationFailure = mutationErrors.some(
-    (error) => error instanceof AccessApiError && error.status === 403
-  );
+  const hasSessionValidationFailure = createMutation.error instanceof AccessApiError
+    && createMutation.error.status === 403;
   const mutationErrorMessage = hasSessionValidationFailure
     ? 'Session validation failed. Sign in again.'
     : createMutation.isError
       ? 'Unable to create another connection.'
-      : revokeMutation.isError || reissueMutation.isError
-        ? 'Unable to update this connection.'
-        : null;
+      : null;
 
   return (
     <AppShell title="Account">
@@ -149,7 +132,7 @@ export function AccountPage() {
           <button
             className={`${styles.button} ${styles.primary}`}
             type="button"
-            disabled={busy}
+            disabled={createMutation.isPending}
             onClick={() => createMutation.mutate(entitlement.grantId)}
           >
             Add connection
@@ -158,12 +141,7 @@ export function AccountPage() {
       </div>
 
       {mutationErrorMessage ? <p className={styles.error} role="alert">{mutationErrorMessage}</p> : null}
-      <ProfileList
-        busy={busy}
-        profiles={profilesQuery.data}
-        onReissue={(profileId) => reissueMutation.mutate(profileId)}
-        onRevoke={(profileId) => revokeMutation.mutate(profileId)}
-      />
+      <ProfileList profiles={profilesQuery.data} />
     </AppShell>
   );
 }

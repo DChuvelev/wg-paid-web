@@ -20,9 +20,7 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     loadProfiles: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
-    reissueProfile: vi.fn(),
-    requestLogin: vi.fn(),
-    revokeProfile: vi.fn()
+    requestLogin: vi.fn()
   };
 });
 

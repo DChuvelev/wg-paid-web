@@ -20,9 +20,7 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     loadProfiles: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
-    reissueProfile: vi.fn(),
-    requestLogin: vi.fn(),
-    revokeProfile: vi.fn()
+    requestLogin: vi.fn()
   };
 });
 
@@ -59,7 +57,7 @@ test('401 from account data replace-navigates to login', async () => {
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
 });
 
-test('renders quota, active/disabled actions, and add visibility from can_create', async () => {
+test('renders quota, stable profile details, config/QR, and no user retirement actions', async () => {
   renderApp('/account');
 
   await screen.findByText('WireGuard connections: 2 / 3');
@@ -68,8 +66,8 @@ test('renders quota, active/disabled actions, and add visibility from can_create
   expect(screen.queryByText('Other')).toBeNull();
   expect(screen.getByRole('link', { name: 'Download config' }).getAttribute('href')).toBe('/v2/account/profiles/active-1/config');
   expect(screen.getByRole('link', { name: 'Show QR' }).getAttribute('href')).toBe('/v2/account/profiles/active-1/qr.svg');
-  expect(screen.getByRole('button', { name: 'Disable' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Reissue' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /disable|revoke/i })).toBeNull();
+  expect(screen.queryByRole('button', { name: /reissue/i })).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: 'Add connection' }));
   await waitFor(() => expect(vi.mocked(createProfile)).toHaveBeenCalledWith('grant-1'));

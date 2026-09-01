@@ -7,16 +7,12 @@ const sdk = vi.hoisted(() => ({
   login: vi.fn(),
   logout: vi.fn(),
   profiles: vi.fn(),
-  redeemInvite: vi.fn(),
-  reissueProfile: vi.fn(),
-  revokeProfile: vi.fn()
+  redeemInvite: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
   accountMeV2AccountMeGet: sdk.accountMe,
   accountProfileCreateV2AccountProfilesPost: sdk.createProfile,
-  accountProfileReissueV2AccountProfilesProfileIdReissuePost: sdk.reissueProfile,
-  accountProfileRevokeV2AccountProfilesProfileIdRevokePost: sdk.revokeProfile,
   accountProfilesV2AccountProfilesGet: sdk.profiles,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
   loginRequestV2AuthLoginRequestPost: sdk.login,
