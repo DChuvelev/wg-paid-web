@@ -4,11 +4,12 @@ The canonical `openapi.json` is committed from the deliberately imported and ind
 
 The deliberate import must verify all of the following before generation:
 
+- Backend source commit: `176972f04e1a1d61e3b12a23e0cea72e65803248`
 - OpenAPI version: `3.1.0`
-- operations: `40`
+- operations: `38`
 - schemas: `39`
-- observed raw SHA-256: `5455c22db9cf95a1809f0562c72ef82677c34555cf6c87d319aa0125246e34d7`
-- canonical SHA-256: `e2ada374ad8e25db217380196ad2b1ae4d4050def84ef45566f28c758c6708f8`
+- observed raw SHA-256: `9d31b722aa69d330526ba1b4e3f0546ac487bd0484b52675ad5bd65232269601`
+- canonical SHA-256: `a8963d5854d7a8e1166c4492c35f196a0675d113b975e78d446db22d8ab15f49`
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 

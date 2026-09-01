@@ -37,9 +37,9 @@ const account: AccountMeResponse = {
 };
 
 const profiles: Array<ProfileSummary> = [
-  { created_at: '2026-01-01T00:00:00Z', id: 'active-1', label: null, protocol: 'wireguard', status: 'active', tunnel_ip: '10.0.0.2', updated_at: '2026-01-01T00:00:00Z' },
-  { created_at: '2026-01-01T00:00:00Z', id: 'disabled-1', label: 'Laptop', protocol: 'wireguard', status: 'disabled', tunnel_ip: null, updated_at: '2026-01-01T00:00:00Z' },
-  { created_at: '2026-01-01T00:00:00Z', id: 'other-1', label: 'Other', protocol: 'future', status: 'active', tunnel_ip: null, updated_at: '2026-01-01T00:00:00Z' }
+  { access_grant_id: 'grant-1', created_at: '2026-01-01T00:00:00Z', id: 'active-1', label: null, protocol: 'wireguard', status: 'active', tunnel_ip: '10.0.0.2', updated_at: '2026-01-01T00:00:00Z' },
+  { access_grant_id: 'grant-1', created_at: '2026-01-01T00:00:00Z', id: 'disabled-1', label: 'Laptop', protocol: 'wireguard', status: 'disabled', tunnel_ip: null, updated_at: '2026-01-01T00:00:00Z' },
+  { access_grant_id: 'grant-1', created_at: '2026-01-01T00:00:00Z', id: 'other-1', label: 'Other', protocol: 'future', status: 'active', tunnel_ip: null, updated_at: '2026-01-01T00:00:00Z' }
 ];
 
 beforeEach(() => {

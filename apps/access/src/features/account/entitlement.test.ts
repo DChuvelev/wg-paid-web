@@ -46,6 +46,7 @@ test('selects the newest eligible WireGuard grant from oldest-first VM121 input'
 
 test('profile polling stops as soon as transitional state becomes stable', () => {
   const profile = (status: string): ProfileSummary => ({
+    access_grant_id: 'grant-1',
     created_at: '2026-01-01T00:00:00Z',
     id: 'profile-1',
     label: null,

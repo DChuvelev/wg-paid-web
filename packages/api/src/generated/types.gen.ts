@@ -134,6 +134,10 @@ export type AdminProtocolLimitUpdateRequest = {
      * Profile Limit
      */
     profile_limit: number;
+    /**
+     * Retire Profile Ids
+     */
+    retire_profile_ids?: Array<string>;
 };
 
 /**
@@ -160,6 +164,18 @@ export type AdminProtocolLimitUpdateResponse = {
      * Can Create
      */
     can_create: boolean;
+    /**
+     * Retire Profile Ids
+     */
+    retire_profile_ids: Array<string>;
+    /**
+     * Disable Jobs Created
+     */
+    disable_jobs_created: number;
+    /**
+     * Retirement In Progress
+     */
+    retirement_in_progress: boolean;
 };
 
 /**
@@ -849,6 +865,10 @@ export type ProfileSummary = {
      * Id
      */
     id: string;
+    /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
     /**
      * Protocol
      */
@@ -1883,66 +1903,6 @@ export type AccountProfileQrV2AccountProfilesProfileIdQrSvgGetResponses = {
      */
     200: unknown;
 };
-
-export type AccountProfileRevokeV2AccountProfilesProfileIdRevokePostData = {
-    body?: never;
-    path: {
-        /**
-         * Profile Id
-         */
-        profile_id: string;
-    };
-    query?: never;
-    url: '/v2/account/profiles/{profile_id}/revoke';
-};
-
-export type AccountProfileRevokeV2AccountProfilesProfileIdRevokePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountProfileRevokeV2AccountProfilesProfileIdRevokePostError = AccountProfileRevokeV2AccountProfilesProfileIdRevokePostErrors[keyof AccountProfileRevokeV2AccountProfilesProfileIdRevokePostErrors];
-
-export type AccountProfileRevokeV2AccountProfilesProfileIdRevokePostResponses = {
-    /**
-     * Successful Response
-     */
-    202: ProfileMutationResponse;
-};
-
-export type AccountProfileRevokeV2AccountProfilesProfileIdRevokePostResponse = AccountProfileRevokeV2AccountProfilesProfileIdRevokePostResponses[keyof AccountProfileRevokeV2AccountProfilesProfileIdRevokePostResponses];
-
-export type AccountProfileReissueV2AccountProfilesProfileIdReissuePostData = {
-    body?: never;
-    path: {
-        /**
-         * Profile Id
-         */
-        profile_id: string;
-    };
-    query?: never;
-    url: '/v2/account/profiles/{profile_id}/reissue';
-};
-
-export type AccountProfileReissueV2AccountProfilesProfileIdReissuePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountProfileReissueV2AccountProfilesProfileIdReissuePostError = AccountProfileReissueV2AccountProfilesProfileIdReissuePostErrors[keyof AccountProfileReissueV2AccountProfilesProfileIdReissuePostErrors];
-
-export type AccountProfileReissueV2AccountProfilesProfileIdReissuePostResponses = {
-    /**
-     * Successful Response
-     */
-    202: ProfileMutationResponse;
-};
-
-export type AccountProfileReissueV2AccountProfilesProfileIdReissuePostResponse = AccountProfileReissueV2AccountProfilesProfileIdReissuePostResponses[keyof AccountProfileReissueV2AccountProfilesProfileIdReissuePostResponses];
 
 export type AdminListPlansV2AdminPlansGetData = {
     body?: never;
