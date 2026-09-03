@@ -34,6 +34,7 @@ interface DeletionOperation {
 export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const [draftFilter, setDraftFilter] = useState('');
   const [filter, setFilter] = useState('');
+  const [userRequestPending, setUserRequestPending] = useState(false);
   const [status, setStatus] = useState('');
   const [retirementSelection, setRetirementSelection] = useState<RetirementSelection | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUserSummary | null>(null);
@@ -52,6 +53,12 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     refetchIntervalInBackground: false,
     retry: false
   });
+
+  useEffect(() => {
+    if (!userRequestPending || usersQuery.isFetching) return;
+    setUserRequestPending(false);
+    setStatus((current) => current === 'Loading users…' ? '' : current);
+  }, [userRequestPending, usersQuery.isFetching]);
 
   useEffect(() => {
     if (!usersQuery.error) return;
@@ -124,6 +131,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     setDeletions(new Map());
     const nextFilter = draftFilter.trim();
     setFilter(nextFilter);
+    setUserRequestPending(true);
     setStatus('Loading users…');
     if (nextFilter === filter) void usersQuery.refetch();
   };
@@ -133,6 +141,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     setRetirements(new Map());
     setDeletions(new Map());
     setFilter('');
+    setUserRequestPending(true);
     setStatus('Loading users…');
     if (!filter) void usersQuery.refetch();
   };

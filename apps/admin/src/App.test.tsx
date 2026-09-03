@@ -151,6 +151,29 @@ describe('admin session and invites', () => {
 });
 
 describe('users, limits, and retirement', () => {
+  test('clears transient loading status after Search and List users complete', async () => {
+    let resolveSearch!: (users: Array<AdminUserSummary>) => void;
+    let resolveList!: (users: Array<AdminUserSummary>) => void;
+    vi.mocked(loadUsers)
+      .mockResolvedValueOnce([makeUser()])
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSearch = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveList = resolve; }));
+    await renderDashboard();
+
+    fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Loading users…')).not.toBeNull();
+    await act(async () => resolveSearch([makeUser()]));
+    await screen.findByText('1 user(s).');
+    expect(screen.queryByText('Loading users…')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'List users' }));
+    expect(await screen.findByText('Loading users…')).not.toBeNull();
+    await act(async () => resolveList([]));
+    await screen.findByText('No users found.');
+    expect(screen.queryByText('Loading users…')).toBeNull();
+  });
+
   test('renders searchable users with secondary technical identifiers', async () => {
     await renderDashboard();
     expect(screen.getByText('10.253.1.10')).not.toBeNull();
