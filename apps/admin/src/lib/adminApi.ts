@@ -1,0 +1,138 @@
+import {
+  adminCreateInviteV2AdminInvitesPost,
+  adminDeleteUserV2AdminUsersUserIdDelete,
+  adminListInvitesV2AdminInvitesGet,
+  adminListPlansV2AdminPlansGet,
+  adminListUsersV2AdminUsersGet,
+  adminRevokeInviteV2AdminInvitesInviteIdRevokePost,
+  adminSessionLoginV2AdminSessionLoginPost,
+  adminSessionLogoutV2AdminSessionLogoutPost,
+  adminSessionStatusV2AdminSessionGet,
+  adminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPut,
+  type AdminInviteRequest,
+  type AdminInviteResponse,
+  type AdminInviteSummary,
+  type AdminPlanSummary,
+  type AdminProtocolLimitUpdateResponse,
+  type AdminUserDeleteResponse,
+  type AdminUserSummary
+} from '@wg-paid/api';
+
+const csrfCookieName = 'wg_admin_csrf';
+
+export class AdminApiError extends Error {
+  status: number | undefined;
+
+  constructor(status?: number, message?: string) {
+    super(message ?? (status ? `Admin API request failed with status ${status}` : 'Admin API request failed'));
+    this.name = 'AdminApiError';
+    this.status = status;
+  }
+}
+
+export function isUnauthorized(error: unknown): error is AdminApiError {
+  return error instanceof AdminApiError && error.status === 401;
+}
+
+export function getAdminCsrfHeaders(cookie = document.cookie): Record<string, string> | undefined {
+  const prefix = `${csrfCookieName}=`;
+  const encodedToken = cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length);
+  if (!encodedToken) return undefined;
+  try {
+    return { 'x-admin-csrf-token': decodeURIComponent(encodedToken) };
+  } catch {
+    return { 'x-admin-csrf-token': encodedToken };
+  }
+}
+
+const requestOptions = () => ({ credentials: 'same-origin' as const });
+const mutationOptions = () => ({ ...requestOptions(), headers: getAdminCsrfHeaders() });
+
+interface ApiResult<T> {
+  data?: T;
+  error?: unknown;
+  response?: Response;
+}
+
+function errorDetail(error: unknown, fallback?: string) {
+  if (error && typeof error === 'object' && 'detail' in error) {
+    const detail = (error as { detail?: unknown }).detail;
+    if (typeof detail === 'string' && detail.length <= 500) return detail;
+  }
+  return fallback;
+}
+
+function requireData<T>(result: ApiResult<T>, fallback?: string): T {
+  if (result.response?.ok && result.data !== undefined) return result.data;
+  throw new AdminApiError(result.response?.status, errorDetail(result.error, fallback));
+}
+
+function requireSuccess(result: ApiResult<unknown>, fallback?: string) {
+  if (result.response?.ok) return;
+  throw new AdminApiError(result.response?.status, errorDetail(result.error, fallback));
+}
+
+export async function checkAdminSession() {
+  const result = await adminSessionStatusV2AdminSessionGet(requestOptions());
+  if (result.response?.status === 401) return false;
+  requireSuccess(result, 'Unable to check the admin session.');
+  return true;
+}
+
+export async function loginAdmin(token: string) {
+  const result = await adminSessionLoginV2AdminSessionLoginPost({ ...requestOptions(), body: { token } });
+  requireSuccess(result, result.response?.status === 401 ? 'Invalid admin secret.' : 'Unable to sign in.');
+}
+
+export async function logoutAdmin() {
+  requireSuccess(await adminSessionLogoutV2AdminSessionLogoutPost(mutationOptions()), 'Unable to sign out.');
+}
+
+export async function loadPlans(): Promise<Array<AdminPlanSummary>> {
+  return requireData(await adminListPlansV2AdminPlansGet(requestOptions()), 'Unable to load plans.');
+}
+
+export async function loadInvites(): Promise<Array<AdminInviteSummary>> {
+  return requireData(await adminListInvitesV2AdminInvitesGet(requestOptions()), 'Unable to load invites.');
+}
+
+export async function createInvite(body: AdminInviteRequest): Promise<AdminInviteResponse> {
+  return requireData(await adminCreateInviteV2AdminInvitesPost({ ...mutationOptions(), body }), 'Unable to create invite.');
+}
+
+export async function revokeInvite(inviteId: string): Promise<AdminInviteSummary> {
+  return requireData(await adminRevokeInviteV2AdminInvitesInviteIdRevokePost({
+    ...mutationOptions(),
+    path: { invite_id: inviteId }
+  }), 'Unable to revoke invite.');
+}
+
+export async function loadUsers(email = ''): Promise<Array<AdminUserSummary>> {
+  return requireData(await adminListUsersV2AdminUsersGet({
+    ...requestOptions(),
+    query: email ? { email } : undefined
+  }), 'Unable to load users.');
+}
+
+export async function setWireGuardLimit(
+  grantId: string,
+  profileLimit: number,
+  retireProfileIds: Array<string>
+): Promise<AdminProtocolLimitUpdateResponse> {
+  return requireData(await adminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPut({
+    ...mutationOptions(),
+    body: { profile_limit: profileLimit, retire_profile_ids: retireProfileIds },
+    path: { grant_id: grantId, protocol: 'wireguard' }
+  }), 'Unable to update profile limit.');
+}
+
+export async function deleteUser(userId: string): Promise<AdminUserDeleteResponse> {
+  return requireData(await adminDeleteUserV2AdminUsersUserIdDelete({
+    ...mutationOptions(),
+    path: { user_id: userId }
+  }), 'Unable to delete user.');
+}
