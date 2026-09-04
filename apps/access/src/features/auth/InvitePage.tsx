@@ -4,56 +4,59 @@ import { Link } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { redeemInvite } from '../../lib/accessApi';
 import { useFragmentToken } from '../../lib/fragmentToken';
+import { useLocale } from '../../i18n/localeContext';
+import type { TranslationKey } from '../../i18n/resources';
 import styles from './Auth.module.css';
 
 interface InviteFormValues {
   email: string;
 }
 
-function inviteMessage(status: number | undefined) {
-  if (status === 202) return 'Check your email for a link to verify the address and complete registration.';
-  if (status === 400) return 'This invitation is invalid, expired, or already used.';
-  if (status === 429) return 'Please try again later.';
-  return 'Unable to continue registration.';
-}
-
 export function InvitePage() {
+  const { t } = useLocale();
   const fragment = useFragmentToken();
-  const [message, setMessage] = useState<string | null>(null);
+  const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
   const { formState, handleSubmit, register } = useForm<InviteFormValues>();
   const invalid = fragment.ready && !fragment.token;
 
   const submit = handleSubmit(async ({ email }) => {
     if (!fragment.token) return;
-    setMessage(null);
+    setMessageKey(null);
     try {
-      setMessage(inviteMessage(await redeemInvite(fragment.token, email)));
+      const status = await redeemInvite(fragment.token, email);
+      setMessageKey(status === 202
+        ? 'inviteAccepted'
+        : status === 400
+          ? 'inviteRejected'
+          : status === 429
+            ? 'tryAgainLater'
+            : 'registrationFailed');
     } catch {
-      setMessage(inviteMessage(undefined));
+      setMessageKey('registrationFailed');
     }
   });
 
   return (
-    <AppShell title="Register" description="Use your invitation to register an email address.">
-      {invalid ? <p className={styles.message} role="alert">This invitation link is invalid.</p> : null}
+    <AppShell title={t('register')} description={t('registerDescription')}>
+      {invalid ? <p className={styles.message} role="alert">{t('inviteInvalid')}</p> : null}
       <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
-          Email
+          {t('email')}
           <input
             className={styles.input}
             type="email"
             autoComplete="email"
             disabled={!fragment.ready || invalid}
-            {...register('email', { required: 'Enter your email address.' })}
+            {...register('email', { required: true })}
           />
-          {formState.errors.email ? <span className={styles.error}>{formState.errors.email.message}</span> : null}
+          {formState.errors.email ? <span className={styles.error}>{t('emailRequired')}</span> : null}
         </label>
         <button className={styles.button} type="submit" disabled={!fragment.ready || invalid || formState.isSubmitting}>
-          Continue registration
+          {t('continueRegistration')}
         </button>
       </form>
-      {message ? <p className={styles.message} role="status">{message}</p> : null}
-      <Link className={styles.link} to="/">Back to sign in</Link>
+      {messageKey ? <p className={styles.message} role="status">{t(messageKey)}</p> : null}
+      <Link className={styles.link} to="/">{t('backToSignIn')}</Link>
     </AppShell>
   );
 }

@@ -19,6 +19,61 @@
   background: #eef3fb;
 }
 
+.identityCard {
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 0.75rem;
+  background: #fafbfd;
+}
+
+.identityCard h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.identityCard > p {
+  margin: 0.35rem 0 0.9rem;
+  color: #52627a;
+  font-size: 0.9rem;
+}
+
+.nameForm,
+.profileNameEditor {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.nameForm label,
+.profileNameEditor label {
+  display: grid;
+  gap: 0.35rem;
+  color: #34435a;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.nameForm input,
+.profileNameEditor input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #aebbd0;
+  border-radius: 0.5rem;
+  color: #172033;
+  background: #ffffff;
+}
+
+.nameActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.success {
+  color: #1e6437;
+  font-size: 0.875rem;
+}
+
 .notice {
   margin: 0 0 1.25rem;
   padding: 0.8rem 1rem;
@@ -53,6 +108,39 @@
   margin: 0.45rem 0 0;
   color: #52627a;
   font-size: 0.9rem;
+}
+
+.profileId {
+  overflow-wrap: anywhere;
+}
+
+.profileNameAction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+}
+
+.profileNameEditor {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.55rem;
+  background: #f5f7fb;
+}
+
+.profileNameEditor .error {
+  margin: 0;
+}
+
+.textButton {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.2rem;
+  border: 0;
+  color: #2857a4;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 650;
 }
 
 .actions {

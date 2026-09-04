@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import {
   assertPinnedOpenApi,
   canonicalizeJson,
@@ -41,5 +42,27 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('fails closed when the pinned document is not an exact match', () => {
     expect(() => assertPinnedOpenApi({ openapi: '3.1.0', paths: {}, components: { schemas: {} } }))
       .toThrow(/Pinned OpenAPI verification failed/);
+  });
+
+  test('pins the accepted account/profile/admin metadata and server-sort boundary', async () => {
+    const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
+    const document = JSON.parse(source);
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 41, schemas: 43 });
+
+    const schemas = document.components.schemas;
+    expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
+    expect(schemas.AccountMeResponse.properties).not.toHaveProperty('admin_note');
+    expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[0]).toMatchObject({ type: 'string', maxLength: 160 });
+    expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[1]).toEqual({ type: 'null' });
+    expect(schemas.ProfileLabelUpdateRequest.properties.label.anyOf[0].maxLength).toBe(160);
+    expect(schemas.AdminUserMetadataUpdateRequest.properties.admin_note.anyOf[0].maxLength).toBe(4000);
+
+    const query = document.paths['/v2/admin/users'].get.parameters;
+    expect(query.find((parameter) => parameter.name === 'limit').schema).toMatchObject({ default: 100, type: 'integer' });
+    expect(query.find((parameter) => parameter.name === 'offset').schema).toMatchObject({ default: 0, type: 'integer' });
+    expect(query.find((parameter) => parameter.name === 'sort_by').schema.enum).toEqual([
+      'email', 'display_name', 'created_at', 'invite_issued_at', 'invite_redeemed_at', 'invited_by_label'
+    ]);
+    expect(query.find((parameter) => parameter.name === 'sort_dir').schema.enum).toEqual(['asc', 'desc']);
   });
 });

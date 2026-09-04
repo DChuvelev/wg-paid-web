@@ -17,9 +17,23 @@ export type AccountMeResponse = {
      */
     email: string;
     /**
+     * Display Name
+     */
+    display_name: string | null;
+    /**
      * Grants
      */
     grants: Array<GrantSummary>;
+};
+
+/**
+ * AccountMetadataUpdateRequest
+ */
+export type AccountMetadataUpdateRequest = {
+    /**
+     * Display Name
+     */
+    display_name: string | null;
 };
 
 /**
@@ -90,6 +104,18 @@ export type AdminInviteSummary = {
      * Created At
      */
     created_at: string;
+    /**
+     * Created By Kind
+     */
+    created_by_kind: string;
+    /**
+     * Created By User Id
+     */
+    created_by_user_id: string | null;
+    /**
+     * Created By Label
+     */
+    created_by_label: string;
     /**
      * State
      */
@@ -325,6 +351,34 @@ export type AdminUserJobResponse = {
 };
 
 /**
+ * AdminUserMetadataUpdateRequest
+ */
+export type AdminUserMetadataUpdateRequest = {
+    /**
+     * Admin Note
+     */
+    admin_note: string | null;
+};
+
+/**
+ * AdminUserMetadataUpdateResponse
+ */
+export type AdminUserMetadataUpdateResponse = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Display Name
+     */
+    display_name: string | null;
+    /**
+     * Admin Note
+     */
+    admin_note: string | null;
+};
+
+/**
  * AdminUserPeerResponse
  */
 export type AdminUserPeerResponse = {
@@ -379,6 +433,14 @@ export type AdminUserSummary = {
      */
     email: string;
     /**
+     * Display Name
+     */
+    display_name: string | null;
+    /**
+     * Admin Note
+     */
+    admin_note: string | null;
+    /**
      * Email Verified At
      */
     email_verified_at: string;
@@ -390,6 +452,30 @@ export type AdminUserSummary = {
      * Deletion Requested At
      */
     deletion_requested_at: string | null;
+    /**
+     * Registration Invite Id
+     */
+    registration_invite_id: string | null;
+    /**
+     * Invite Issued At
+     */
+    invite_issued_at: string | null;
+    /**
+     * Invite Redeemed At
+     */
+    invite_redeemed_at: string | null;
+    /**
+     * Invited By Kind
+     */
+    invited_by_kind: string | null;
+    /**
+     * Invited By User Id
+     */
+    invited_by_user_id: string | null;
+    /**
+     * Invited By Label
+     */
+    invited_by_label: string | null;
     /**
      * Grants
      */
@@ -840,6 +926,16 @@ export type ProfileCreateRequest = {
      * Label
      */
     label?: string | null;
+};
+
+/**
+ * ProfileLabelUpdateRequest
+ */
+export type ProfileLabelUpdateRequest = {
+    /**
+     * Label
+     */
+    label: string | null;
 };
 
 /**
@@ -1771,6 +1867,31 @@ export type AccountMeV2AccountMeGetResponses = {
 
 export type AccountMeV2AccountMeGetResponse = AccountMeV2AccountMeGetResponses[keyof AccountMeV2AccountMeGetResponses];
 
+export type AccountMeUpdateV2AccountMePatchData = {
+    body: AccountMetadataUpdateRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/account/me';
+};
+
+export type AccountMeUpdateV2AccountMePatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountMeUpdateV2AccountMePatchError = AccountMeUpdateV2AccountMePatchErrors[keyof AccountMeUpdateV2AccountMePatchErrors];
+
+export type AccountMeUpdateV2AccountMePatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AccountMeResponse;
+};
+
+export type AccountMeUpdateV2AccountMePatchResponse = AccountMeUpdateV2AccountMePatchResponses[keyof AccountMeUpdateV2AccountMePatchResponses];
+
 export type LogoutV2AuthLogoutPostData = {
     body?: never;
     path?: never;
@@ -1847,6 +1968,36 @@ export type AccountProfileCreateV2AccountProfilesPostResponses = {
 };
 
 export type AccountProfileCreateV2AccountProfilesPostResponse = AccountProfileCreateV2AccountProfilesPostResponses[keyof AccountProfileCreateV2AccountProfilesPostResponses];
+
+export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchData = {
+    body: ProfileLabelUpdateRequest;
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/{profile_id}';
+};
+
+export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchError = AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchErrors[keyof AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchErrors];
+
+export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProfileSummary;
+};
+
+export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponse = AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses[keyof AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses];
 
 export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetData = {
     body?: never;
@@ -1991,6 +2142,18 @@ export type AdminListUsersV2AdminUsersGetData = {
          * Limit
          */
         limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Sort By
+         */
+        sort_by?: 'email' | 'display_name' | 'created_at' | 'invite_issued_at' | 'invite_redeemed_at' | 'invited_by_label';
+        /**
+         * Sort Dir
+         */
+        sort_dir?: 'asc' | 'desc';
     };
     url: '/v2/admin/users';
 };
@@ -2050,6 +2213,42 @@ export type AdminDeleteUserV2AdminUsersUserIdDeleteResponses = {
 };
 
 export type AdminDeleteUserV2AdminUsersUserIdDeleteResponse = AdminDeleteUserV2AdminUsersUserIdDeleteResponses[keyof AdminDeleteUserV2AdminUsersUserIdDeleteResponses];
+
+export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchData = {
+    body: AdminUserMetadataUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/users/{user_id}';
+};
+
+export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchError = AdminUpdateUserMetadataV2AdminUsersUserIdPatchErrors[keyof AdminUpdateUserMetadataV2AdminUsersUserIdPatchErrors];
+
+export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminUserMetadataUpdateResponse;
+};
+
+export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponse = AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses[keyof AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses];
 
 export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutData = {
     body: AdminProtocolLimitUpdateRequest;

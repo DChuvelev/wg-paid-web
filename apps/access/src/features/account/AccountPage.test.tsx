@@ -1,12 +1,15 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { focusManager } from '@tanstack/react-query';
 import type { AccountMeResponse, ProfileSummary } from '@wg-paid/api';
 import {
   AccessApiError,
   createProfile,
   loadAccount,
   loadProfiles,
-  logout
+  logout,
+  updateDisplayName,
+  updateProfileLabel
 } from '../../lib/accessApi';
 import { renderApp } from '../../test/renderApp';
 
@@ -20,11 +23,14 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     loadProfiles: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
-    requestLogin: vi.fn()
+    requestLogin: vi.fn(),
+    updateDisplayName: vi.fn(),
+    updateProfileLabel: vi.fn()
   };
 });
 
 const account: AccountMeResponse = {
+  display_name: 'Mitya',
   email: 'person@example.test',
   grants: [{
     id: 'grant-1',
@@ -47,6 +53,12 @@ beforeEach(() => {
   vi.mocked(loadAccount).mockResolvedValue(account);
   vi.mocked(loadProfiles).mockResolvedValue(profiles);
   vi.mocked(createProfile).mockResolvedValue();
+  vi.mocked(updateDisplayName).mockImplementation(async (displayName) => ({ ...account, display_name: displayName }));
+  vi.mocked(updateProfileLabel).mockImplementation(async (profileId, label) => ({
+    ...profiles.find((profile) => profile.id === profileId)!,
+    label,
+    updated_at: '2026-01-02T00:00:00Z'
+  }));
 });
 
 test('401 from account data replace-navigates to login', async () => {
@@ -132,4 +144,53 @@ test('non-401 logout failure keeps the account page and shows its error', async 
 
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to sign out.');
   expect(screen.getByTestId('location').textContent).toBe('/account');
+});
+
+test('loads, saves, changes, and clears the optional display name, including an empty value', async () => {
+  renderApp('/account');
+  const input = await screen.findByLabelText('Name');
+  expect((input as HTMLInputElement).value).toBe('Mitya');
+
+  fireEvent.change(input, { target: { value: '  Studio user  ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(updateDisplayName).toHaveBeenCalledWith('Studio user'));
+  expect((input as HTMLInputElement).value).toBe('Studio user');
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Clear' })[0]!);
+  await waitFor(() => expect(updateDisplayName).toHaveBeenLastCalledWith(null));
+  expect((input as HTMLInputElement).value).toBe('');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(updateDisplayName).toHaveBeenLastCalledWith(null));
+});
+
+test('adds, edits, and clears only the selected profile label', async () => {
+  renderApp('/account');
+  await screen.findByText('WireGuard connection 1');
+  fireEvent.click(screen.getByRole('button', { name: 'Add name' }));
+  const input = screen.getByLabelText('Connection name: active-1');
+  fireEvent.change(input, { target: { value: 'My phone' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[1]!);
+  await waitFor(() => expect(updateProfileLabel).toHaveBeenCalledWith('active-1', 'My phone'));
+  expect(screen.getByText('My phone')).not.toBeNull();
+  expect(screen.getByText('Laptop')).not.toBeNull();
+
+  fireEvent.click(screen.getAllByRole('button', { name: 'Edit name' })[0]!);
+  fireEvent.click(screen.getAllByRole('button', { name: 'Clear' })[1]!);
+  await waitFor(() => expect(updateProfileLabel).toHaveBeenLastCalledWith('active-1', null));
+  expect(screen.getByText('WireGuard connection 1')).not.toBeNull();
+  expect(screen.getByText('Laptop')).not.toBeNull();
+});
+
+test('refetches account and profiles through TanStack Query when focus returns', async () => {
+  renderApp('/account');
+  await screen.findByText('WireGuard connections: 2 / 3');
+  expect(loadAccount).toHaveBeenCalledTimes(1);
+  expect(loadProfiles).toHaveBeenCalledTimes(1);
+
+  focusManager.setFocused(false);
+  focusManager.setFocused(true);
+  await waitFor(() => expect(loadAccount).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(loadProfiles).toHaveBeenCalledTimes(2));
+  focusManager.setFocused(undefined);
 });

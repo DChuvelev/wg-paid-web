@@ -8,7 +8,7 @@ import './global.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     mutations: { retry: false },
-    queries: { refetchOnWindowFocus: false, retry: false }
+    queries: { refetchOnWindowFocus: true, retry: false }
   }
 });
 createRoot(document.getElementById('root')!).render(

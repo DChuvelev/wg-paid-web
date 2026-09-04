@@ -1,7 +1,9 @@
 import {
+  accountMeUpdateV2AccountMePatch,
   accountMeV2AccountMeGet,
   accountProfileCreateV2AccountProfilesPost,
   accountProfilesV2AccountProfilesGet,
+  accountProfileUpdateLabelV2AccountProfilesProfileIdPatch,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   loginRequestV2AuthLoginRequestPost,
   logoutV2AuthLogoutPost,
@@ -86,6 +88,25 @@ export async function loadProfiles(): Promise<Array<ProfileSummary>> {
   if (result.data) {
     return result.data;
   }
+  throw new AccessApiError(result.response?.status);
+}
+
+export async function updateDisplayName(displayName: string | null): Promise<AccountMeResponse> {
+  const result = await accountMeUpdateV2AccountMePatch({
+    ...mutationOptions(),
+    body: { display_name: displayName }
+  });
+  if (result.data) return result.data;
+  throw new AccessApiError(result.response?.status);
+}
+
+export async function updateProfileLabel(profileId: string, label: string | null): Promise<ProfileSummary> {
+  const result = await accountProfileUpdateLabelV2AccountProfilesProfileIdPatch({
+    ...mutationOptions(),
+    body: { label },
+    path: { profile_id: profileId }
+  });
+  if (result.data) return result.data;
   throw new AccessApiError(result.response?.status);
 }
 

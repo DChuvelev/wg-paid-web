@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
   AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadUsers,
-  loginAdmin, logoutAdmin, revokeInvite, setWireGuardLimit
+  loginAdmin, logoutAdmin, revokeInvite, setWireGuardLimit, updateAdminNote
 } from './lib/adminApi';
 
 vi.mock('./lib/adminApi', async (importOriginal) => {
@@ -14,7 +14,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
     ...actual,
     checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
     loadPlans: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
-    revokeInvite: vi.fn(), setWireGuardLimit: vi.fn()
+    revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn()
   };
 });
 
@@ -23,6 +23,7 @@ const plan = {
   display_name: 'Standard', id: 'plan-1'
 };
 const invite = {
+  created_by_kind: 'admin_secret', created_by_label: 'Admin', created_by_user_id: null,
   created_at: '2026-01-01T00:00:00Z', expires_at: '2026-02-01T00:00:00Z',
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
   revoked_at: null, state: 'active', used_count: 0
@@ -53,14 +54,17 @@ function makeUser(
   deletionRequestedAt: string | null = null
 ): AdminUserSummary {
   return {
-    created_at: '2026-01-01T00:00:00Z', deletion_requested_at: deletionRequestedAt,
+    admin_note: 'Customer prefers weekend support.', created_at: '2026-01-01T00:00:00Z', deletion_requested_at: deletionRequestedAt,
+    display_name: 'Mitya',
     email: 'operator-target@example.test', email_verified_at: '2026-01-01T01:00:00Z',
     grants: [{
       id: 'grant-1', plan_id: 'plan-1',
       protocol_limits: [{ can_create: profileCount < profileLimit, profile_count: profileCount, profile_limit: profileLimit, protocol: 'wireguard' }],
       status: 'active', valid_until: null
     }],
-    profiles,
+    invite_issued_at: '2025-12-30T00:00:00Z', invite_redeemed_at: '2026-01-01T01:00:00Z',
+    invited_by_kind: 'admin_secret', invited_by_label: 'Admin', invited_by_user_id: null,
+    profiles, registration_invite_id: 'invite-1',
     user_id: 'user-1'
   };
 }
@@ -119,6 +123,11 @@ beforeEach(() => {
   vi.mocked(revokeInvite).mockResolvedValue({ ...invite, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
   vi.mocked(setWireGuardLimit).mockResolvedValue(limitResponse());
   vi.mocked(deleteUser).mockResolvedValue(deleteResponse('deleted'));
+  vi.mocked(updateAdminNote).mockImplementation(async (userId, adminNote) => ({
+    admin_note: adminNote,
+    display_name: 'Mitya',
+    user_id: userId
+  }));
 });
 
 afterEach(() => {
@@ -223,6 +232,122 @@ describe('admin session and invites', () => {
 });
 
 describe('users, limits, and retirement', () => {
+  test('uses a bounded internal scroll area with a sticky column header', async () => {
+    await renderDashboard();
+    const list = screen.getByLabelText('Users list');
+    const header = screen.getAllByRole('row')[0]!;
+    expect(list.className).toContain('userListViewport');
+    expect(header.className).toContain('userTableHeader');
+    expect(screen.queryByRole('button', { name: /Page / })).toBeNull();
+  });
+
+  test('loads offset batches continuously and removes duplicate rows at a batch boundary', async () => {
+    const firstBatch = Array.from({ length: 100 }, (_, index) => ({
+      ...makeUser(), email: `user-${index}@example.test`, user_id: `user-${index}`
+    }));
+    const nextUser = { ...makeUser(), email: 'user-100@example.test', user_id: 'user-100' };
+    vi.mocked(loadUsers)
+      .mockResolvedValueOnce(firstBatch)
+      .mockResolvedValueOnce([firstBatch[99]!, nextUser]);
+    renderAdmin();
+    await screen.findByText('user-0@example.test');
+    expect(loadUsers).toHaveBeenNthCalledWith(1, {
+      email: '', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    });
+
+    const list = screen.getByLabelText('Users list');
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 500 },
+      scrollHeight: { configurable: true, value: 2000 },
+      scrollTop: { configurable: true, value: 1550 }
+    });
+    fireEvent.scroll(list);
+
+    await waitFor(() => expect(loadUsers).toHaveBeenNthCalledWith(2, {
+      email: '', limit: 100, offset: 100, sortBy: 'created_at', sortDir: 'desc'
+    }));
+    await screen.findByText('user-100@example.test');
+    expect(screen.getAllByText('user-99@example.test')).toHaveLength(1);
+    expect(screen.getByText('Loaded 101')).not.toBeNull();
+  }, 20000);
+
+  test('resets batching when server-side sort changes and sends exact sort parameters', async () => {
+    vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
+    await renderDashboard();
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by Email' }));
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      email: '', limit: 100, offset: 0, sortBy: 'email', sortDir: 'asc'
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by Email' }));
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      email: '', limit: 100, offset: 0, sortBy: 'email', sortDir: 'desc'
+    }));
+    expect(screen.getByRole('button', { name: 'Sort by Email' }).closest('[role="columnheader"]')?.getAttribute('aria-sort')).toBe('descending');
+  });
+
+  test('maps every sortable desktop header to its exact backend field', async () => {
+    vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
+    await renderDashboard();
+    const mappings = [
+      ['Name', 'display_name', 'asc'],
+      ['User since', 'created_at', 'desc'],
+      ['Invite issued', 'invite_issued_at', 'asc'],
+      ['Joined', 'invite_redeemed_at', 'asc'],
+      ['Invited by', 'invited_by_label', 'asc']
+    ] as const;
+    for (const [label, field, direction] of mappings) {
+      fireEvent.click(screen.getByRole('button', { name: `Sort by ${label}` }));
+      await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+        email: '', limit: 100, offset: 0, sortBy: field, sortDir: direction
+      }));
+    }
+  });
+
+  test('maps name, dates, and invite provenance from exact backend fields and keeps nulls neutral', async () => {
+    const complete = makeUser();
+    const empty: AdminUserSummary = {
+      ...makeUser(),
+      display_name: null,
+      email: 'no-provenance@example.test',
+      invite_issued_at: null,
+      invite_redeemed_at: null,
+      invited_by_kind: null,
+      invited_by_label: null,
+      invited_by_user_id: null,
+      registration_invite_id: null,
+      user_id: 'user-no-provenance'
+    };
+    vi.mocked(loadUsers).mockResolvedValue([complete, empty]);
+    renderAdmin();
+    const firstEmail = await screen.findByText(complete.email);
+    const firstSummary = firstEmail.closest('summary')!;
+    expect(within(firstSummary).getByText('Mitya')).not.toBeNull();
+    expect(within(firstSummary).getByText('Admin')).not.toBeNull();
+    expect(within(firstSummary).getByText(new Date(complete.created_at).toLocaleString())).not.toBeNull();
+    expect(within(firstSummary).getByText(new Date(complete.invite_issued_at!).toLocaleString())).not.toBeNull();
+    expect(within(firstSummary).getByText(new Date(complete.invite_redeemed_at!).toLocaleString())).not.toBeNull();
+
+    const emptySummary = (await screen.findByText(empty.email)).closest('summary')!;
+    expect(within(emptySummary).getAllByText('—')).toHaveLength(4);
+  });
+
+  test('loads, edits, saves, and clears a private admin note only in expanded details', async () => {
+    await renderDashboard();
+    const summary = screen.getByText('operator-target@example.test').closest('summary')!;
+    expect(within(summary).queryByText('Customer prefers weekend support.')).toBeNull();
+    expandUser();
+    const note = screen.getByLabelText('Private admin note for operator-target@example.test');
+    expect((note as HTMLTextAreaElement).value).toBe('Customer prefers weekend support.');
+    fireEvent.change(note, { target: { value: 'Call before changing quota.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() => expect(updateAdminNote).toHaveBeenCalledWith('user-1', 'Call before changing quota.'));
+    await screen.findByText('Admin note saved.');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await waitFor(() => expect(updateAdminNote).toHaveBeenLastCalledWith('user-1', null));
+    expect((note as HTMLTextAreaElement).value).toBe('');
+    await screen.findByText('Admin note cleared.');
+  });
+
   test('renders one compact collapsed row per user and keeps disabled history closed', async () => {
     const first = makeUser(3, 1, [
       profile('profile-active', 'active', '10.253.1.10'),
@@ -259,6 +384,14 @@ describe('users, limits, and retirement', () => {
     expect(screen.getByText('10.253.1.99')).not.toBeNull();
   });
 
+  test('shows user-owned profile labels in expanded admin details without edit controls', async () => {
+    const labeled = { ...profile('profile-labeled', 'active', '10.253.1.42'), label: 'Studio computer' };
+    await renderDashboard(makeUser(1, 1, [labeled]));
+    expandUser();
+    expect(screen.getByText('Studio computer')).not.toBeNull();
+    expect(screen.queryByLabelText(/Connection name/)).toBeNull();
+  });
+
   test('clears transient loading status after Search and List users complete', async () => {
     let resolveSearch!: (users: Array<AdminUserSummary>) => void;
     let resolveList!: (users: Array<AdminUserSummary>) => void;
@@ -272,7 +405,7 @@ describe('users, limits, and retirement', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText('Loading users…')).not.toBeNull();
     await act(async () => resolveSearch([makeUser()]));
-    await screen.findByText('1 user(s).');
+    await screen.findByText('Loaded 1 user(s).');
     expect(screen.queryByText('Loading users…')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'List users' }));
@@ -288,7 +421,9 @@ describe('users, limits, and retirement', () => {
     expect((screen.getByText('operator-target@example.test').closest('details') as HTMLDetailsElement).open).toBe(false);
     fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith('target@example.test'));
+    await waitFor(() => expect(loadUsers).toHaveBeenCalledWith({
+      email: 'target@example.test', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }));
     await screen.findByText('operator-target@example.test');
     expandUser();
     expect(screen.getByText('10.253.1.10')).not.toBeNull();
@@ -358,7 +493,6 @@ describe('users, limits, and retirement', () => {
 
 describe('user deletion lifecycle', () => {
   test('handles immediate deletion', async () => {
-    vi.mocked(loadUsers).mockResolvedValueOnce([makeUser()]).mockResolvedValueOnce([]);
     await renderDashboard();
     const dialog = await openDeleteDialog();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete user' }));

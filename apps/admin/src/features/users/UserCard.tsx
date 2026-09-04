@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import { useMutation } from '@tanstack/react-query';
+import type { AdminUserMetadataUpdateResponse, AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
 import { consumesQuota, formatDate, wireGuardLimit, wireGuardProfiles } from './userDomain';
+import { AdminApiError, updateAdminNote } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
 interface GrantCardProps {
@@ -116,6 +118,56 @@ function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, 
   );
 }
 
+interface AdminNoteEditorProps {
+  user: AdminUserSummary;
+  onError: (error: unknown) => void;
+  onUpdated: (updated: AdminUserMetadataUpdateResponse) => void;
+}
+
+function AdminNoteEditor({ user, onError, onUpdated }: AdminNoteEditorProps) {
+  const [draft, setDraft] = useState(user.admin_note ?? '');
+  const [feedback, setFeedback] = useState('');
+  const mutation = useMutation({
+    mutationFn: (note: string | null) => updateAdminNote(user.user_id, note),
+    onError: (error) => {
+      onError(error);
+      setFeedback(error instanceof AdminApiError ? error.message : 'Unable to update the admin note.');
+    },
+    onSuccess: (updated) => {
+      onUpdated(updated);
+      setDraft(updated.admin_note ?? '');
+      setFeedback(updated.admin_note ? 'Admin note saved.' : 'Admin note cleared.');
+    }
+  });
+
+  useEffect(() => setDraft(user.admin_note ?? ''), [user.admin_note]);
+
+  return (
+    <section className={styles.adminNote} aria-labelledby={`admin-note-${user.user_id}`}>
+      <div>
+        <h3 id={`admin-note-${user.user_id}`}>Private admin note</h3>
+        <span>Visible only in Admin. It is not user identity or a connection label.</span>
+      </div>
+      <textarea
+        aria-label={`Private admin note for ${user.email}`}
+        maxLength={4000}
+        rows={4}
+        value={draft}
+        onChange={(event) => { setDraft(event.target.value); setFeedback(''); }}
+      />
+      <div className={styles.noteActions}>
+        <button className={styles.primaryButton} disabled={mutation.isPending} type="button" onClick={() => mutation.mutate(draft.trim() || null)}>
+          {mutation.isPending ? 'Saving…' : 'Save note'}
+        </button>
+        <button className={styles.secondaryButton} disabled={mutation.isPending} type="button" onClick={() => mutation.mutate(null)}>
+          Clear
+        </button>
+      </div>
+      {feedback ? <p className={mutation.isError ? styles.fieldError : styles.noteSuccess} role={mutation.isError ? 'alert' : 'status'}>{feedback}</p> : null}
+    </section>
+  );
+}
+
 interface UserCardProps {
   deletingActive: boolean;
   limitPending: Set<string>;
@@ -128,10 +180,12 @@ interface UserCardProps {
     profiles: Array<ProfileSummary>,
     nextLimit: number
   ) => void;
+  onMetadataUpdated: (updated: AdminUserMetadataUpdateResponse) => void;
+  onRequestError: (error: unknown) => void;
   onRefreshDeleting: () => void;
 }
 
-export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onRefreshDeleting }: UserCardProps) {
+export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onMetadataUpdated, onRequestError, onRefreshDeleting }: UserCardProps) {
   const deleting = Boolean(user.deletion_requested_at) || deletingActive;
   const wireGuardLimits = user.grants.map(wireGuardLimit).filter((limit) => limit !== undefined);
   const profileCount = wireGuardLimits.reduce((total, limit) => total + limit.profile_count, 0);
@@ -140,8 +194,15 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
     <article className={styles.userCard} aria-label={user.email}>
       <details className={styles.userDisclosure}>
         <summary className={styles.userSummaryRow}>
-          <strong className={styles.userEmail}>{user.email}</strong>
+          <span className={styles.userPrimary}>
+            <strong className={styles.userEmail}>{user.email}</strong>
+            <span className={styles.userName}>{user.display_name || '—'}</span>
+          </span>
           <span className={styles.userQuota}>{deleting ? 'Deleting · ' : ''}In use {profileCount} / {profileLimit}</span>
+          <span className={styles.userListCell}>{formatDate(user.created_at)}</span>
+          <span className={styles.userListCell}>{formatDate(user.invite_issued_at)}</span>
+          <span className={styles.userListCell}>{formatDate(user.invite_redeemed_at)}</span>
+          <span className={styles.userListCell}>{user.invited_by_label || '—'}</span>
           <span className={styles.disclosureChevron} aria-hidden="true" />
         </summary>
 
@@ -160,6 +221,8 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
               <span>Sessions and grants are revoked; remaining profiles are being disabled.</span>
             </div>
           ) : null}
+
+          <AdminNoteEditor user={user} onError={onRequestError} onUpdated={onMetadataUpdated} />
 
           <div className={styles.grantList}>
             {user.grants.length ? user.grants.map((grant) => {
@@ -182,6 +245,11 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
             <summary>User details</summary>
             <CopyableId label="User ID" value={user.user_id} />
             <dl className={styles.compactDetails}>
+              <div><dt>Name</dt><dd>{user.display_name || '—'}</dd></div>
+              <div><dt>User since</dt><dd>{formatDate(user.created_at)}</dd></div>
+              <div><dt>Invite issued</dt><dd>{formatDate(user.invite_issued_at)}</dd></div>
+              <div><dt>Joined</dt><dd>{formatDate(user.invite_redeemed_at)}</dd></div>
+              <div><dt>Invited by</dt><dd>{user.invited_by_label || '—'}</dd></div>
               <div><dt>Email verified</dt><dd>{formatDate(user.email_verified_at)}</dd></div>
               <div><dt>Deletion requested</dt><dd>{formatDate(user.deletion_requested_at)}</dd></div>
             </dl>

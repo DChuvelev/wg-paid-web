@@ -3,19 +3,16 @@ import { useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { consumeMagicLink } from '../../lib/accessApi';
 import { useFragmentToken } from '../../lib/fragmentToken';
+import { useLocale } from '../../i18n/localeContext';
+import type { TranslationKey } from '../../i18n/resources';
 import styles from './Auth.module.css';
 
-function magicMessage(status: number | undefined) {
-  if (status === 404) return 'Sign-in is not active yet.';
-  if (status === undefined) return 'Unable to complete sign-in.';
-  return 'This sign-in link is invalid or expired.';
-}
-
 export function MagicPage() {
+  const { t } = useLocale();
   const fragment = useFragmentToken();
   const navigate = useNavigate();
   const consumeStarted = useRef(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
 
   useEffect(() => {
     if (!fragment.ready || !fragment.token || consumeStarted.current) {
@@ -27,22 +24,22 @@ export function MagicPage() {
       try {
         const status = await consumeMagicLink(fragment.token!);
         if (status === 200) {
-          navigate('/account', { replace: true, state: { notice: 'Signed in successfully.' } });
+          navigate('/account', { replace: true, state: { noticeKey: 'signedIn' } });
           return;
         }
-        setMessage(magicMessage(status));
+        setMessageKey(status === 404 ? 'signInInactive' : 'magicInvalidOrExpired');
       } catch {
-        setMessage(magicMessage(undefined));
+        setMessageKey('magicFailed');
       }
     })();
-  }, [fragment.ready, fragment.token, navigate]);
+  }, [fragment.ready, fragment.token, navigate, t]);
 
   const visibleMessage = fragment.ready && !fragment.token
-    ? 'This sign-in link is invalid.'
-    : message ?? 'Completing sign-in…';
+    ? t('magicInvalid')
+    : messageKey ? t(messageKey) : t('completingSignIn');
 
   return (
-    <AppShell title="Sign in">
+    <AppShell title={t('signIn')}>
       <p className={styles.message} role={fragment.ready && !fragment.token ? 'alert' : 'status'}>
         {visibleMessage}
       </p>

@@ -6,7 +6,9 @@ import {
   loadAccount,
   loadProfiles,
   redeemInvite,
-  requestLogin
+  requestLogin,
+  updateDisplayName,
+  updateProfileLabel
 } from '../../lib/accessApi';
 import { renderApp } from '../../test/renderApp';
 
@@ -20,11 +22,13 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     loadProfiles: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
-    requestLogin: vi.fn()
+    requestLogin: vi.fn(),
+    updateDisplayName: vi.fn(),
+    updateProfileLabel: vi.fn()
   };
 });
 
-const account = { email: 'person@example.test', grants: [], user_id: 'user-1' };
+const account = { display_name: null, email: 'person@example.test', grants: [], user_id: 'user-1' };
 
 beforeEach(() => {
   vi.mocked(loadAccount).mockRejectedValue(new AccessApiError(401));
@@ -32,6 +36,8 @@ beforeEach(() => {
   vi.mocked(requestLogin).mockResolvedValue(202);
   vi.mocked(redeemInvite).mockResolvedValue(202);
   vi.mocked(consumeMagicLink).mockResolvedValue(200);
+  vi.mocked(updateDisplayName).mockResolvedValue(account);
+  vi.mocked(updateProfileLabel).mockRejectedValue(new Error('not used'));
   window.history.replaceState({}, '', '/');
 });
 
@@ -89,4 +95,15 @@ test('authenticated root replace-navigates to account', async () => {
   renderApp('/');
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/account'));
+});
+
+test('the explicit switch localizes login and invite routes and persists the choice', async () => {
+  window.localStorage.setItem('wg-paid-access-locale', 'en');
+  renderApp('/');
+  await screen.findByRole('heading', { name: 'Sign in' });
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  expect(screen.getByRole('heading', { name: 'Войти' })).not.toBeNull();
+  fireEvent.click(screen.getByRole('link', { name: 'Зарегистрироваться по приглашению' }));
+  expect(await screen.findByRole('heading', { name: 'Регистрация' })).not.toBeNull();
+  expect(window.localStorage.getItem('wg-paid-access-locale')).toBe('ru');
 });

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
+import { useLocale } from '../../i18n/localeContext';
 import {
   AccessApiError,
   createProfile,
@@ -12,16 +13,16 @@ import {
 import { selectWireGuardEntitlement } from './entitlement';
 import { hasTransitionalProfile, profilePollingInterval } from './profileState';
 import { ProfileList } from './ProfileList';
+import { DisplayNameForm } from './DisplayNameForm';
+import { accountKey, profilesKey } from './queryKeys';
 import styles from './Account.module.css';
-
-const accountKey = ['access', 'account'] as const;
-const profilesKey = ['access', 'profiles'] as const;
 
 function isUnauthorized(error: unknown) {
   return error instanceof AccessApiError && error.status === 401;
 }
 
 export function AccountPage() {
+  const { t } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -29,6 +30,7 @@ export function AccountPage() {
     queryKey: profilesKey,
     queryFn: loadProfiles,
     refetchInterval: ({ state }) => profilePollingInterval(state.data),
+    refetchOnWindowFocus: true,
     retry: false
   });
   const transitional = hasTransitionalProfile(profilesQuery.data);
@@ -36,6 +38,7 @@ export function AccountPage() {
     queryKey: accountKey,
     queryFn: loadAccount,
     refetchInterval: transitional ? 3000 : false,
+    refetchOnWindowFocus: true,
     retry: false
   });
 
@@ -84,26 +87,26 @@ export function AccountPage() {
   });
 
   if (accountQuery.isPending || profilesQuery.isPending) {
-    return <AppShell title="Account"><p>Loading account…</p></AppShell>;
+    return <AppShell title={t('account')}><p>{t('loadingAccount')}</p></AppShell>;
   }
 
   if (!accountQuery.data || !profilesQuery.data) {
-    return <AppShell title="Account"><p className={styles.error}>Unable to load the account.</p></AppShell>;
+    return <AppShell title={t('account')}><p className={styles.error}>{t('accountLoadFailed')}</p></AppShell>;
   }
 
   const entitlement = selectWireGuardEntitlement(accountQuery.data.grants);
-  const notice = (location.state as { notice?: string } | null)?.notice;
+  const noticeKey = (location.state as { noticeKey?: 'signedIn' } | null)?.noticeKey;
   const hasSessionValidationFailure = createMutation.error instanceof AccessApiError
     && createMutation.error.status === 403;
   const mutationErrorMessage = hasSessionValidationFailure
-    ? 'Session validation failed. Sign in again.'
+    ? t('sessionValidationFailed')
     : createMutation.isError
-      ? 'Unable to create another connection.'
+      ? t('createConnectionFailed')
       : null;
 
   return (
-    <AppShell title="Account">
-      {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
+    <AppShell title={t('account')}>
+      {noticeKey ? <p className={styles.notice} role="status">{t(noticeKey)}</p> : null}
       <div className={styles.header}>
         <p className={styles.email}>{accountQuery.data.email}</p>
         <button
@@ -112,22 +115,24 @@ export function AccountPage() {
           disabled={logoutMutation.isPending}
           onClick={() => logoutMutation.mutate()}
         >
-          Logout
+          {t('logout')}
         </button>
       </div>
 
       {logoutMutation.isError && !isUnauthorized(logoutMutation.error) ? (
-        <p className={styles.error} role="alert">Unable to sign out.</p>
+        <p className={styles.error} role="alert">{t('logoutFailed')}</p>
       ) : null}
+
+      <DisplayNameForm account={accountQuery.data} onError={handleMutationError} />
 
       <p className={styles.summary}>
         {entitlement
-          ? `WireGuard connections: ${entitlement.profileCount} / ${entitlement.profileLimit}`
-          : 'WireGuard is not enabled for this account.'}
+          ? t('wireGuardConnections', { count: entitlement.profileCount, limit: entitlement.profileLimit })
+          : t('wireGuardUnavailable')}
       </p>
 
       <div className={styles.sectionHeader}>
-        <h2>Connections</h2>
+        <h2>{t('connections')}</h2>
         {entitlement?.canCreate ? (
           <button
             className={`${styles.button} ${styles.primary}`}
@@ -135,13 +140,13 @@ export function AccountPage() {
             disabled={createMutation.isPending}
             onClick={() => createMutation.mutate(entitlement.grantId)}
           >
-            Add connection
+            {t('addConnection')}
           </button>
         ) : null}
       </div>
 
       {mutationErrorMessage ? <p className={styles.error} role="alert">{mutationErrorMessage}</p> : null}
-      <ProfileList profiles={profilesQuery.data} />
+      <ProfileList profiles={profilesQuery.data} onUnauthorized={handleMutationError} />
     </AppShell>
   );
 }

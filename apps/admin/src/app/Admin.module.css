@@ -15,6 +15,7 @@
 .sectionHeading { margin-bottom: 1.15rem; }
 .sectionHeading h2 { margin: 0; color: #101828; font-size: clamp(1.4rem, 3vw, 1.85rem); letter-spacing: -0.02em; }
 .count { display: grid; min-width: 2.15rem; height: 2.15rem; place-items: center; padding: 0 0.55rem; border-radius: 999px; color: #2857a4; background: #eaf1fd; font-weight: 800; }
+.loadedCount { padding: 0.45rem 0.7rem; border-radius: 999px; color: #2857a4; background: #eaf1fd; font-size: 0.8rem; font-weight: 800; white-space: nowrap; }
 .searchForm, .inviteForm { display: grid; grid-template-columns: minmax(15rem, 1fr) auto auto; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #e1e7f0; border-radius: 0.75rem; background: #f8fafc; }
 .inviteForm { grid-template-columns: minmax(12rem, 0.7fr) minmax(15rem, 1fr) auto; }
 .field, .limitControl label { display: grid; gap: 0.35rem; min-width: 0; color: #34435a; font-size: 0.875rem; font-weight: 700; }
@@ -34,12 +35,22 @@
 .alert { padding: 0.8rem 1rem; border: 1px solid #f2c7c3; border-radius: 0.6rem; background: #fff5f4; }
 .fieldError { margin: 0.5rem 0 0; font-size: 0.85rem; }
 .userList, .grantList, .inviteList, .profileList { display: grid; gap: 0.85rem; }
-.userCard { overflow: hidden; border-radius: 0.85rem; box-shadow: none; }
+.userListViewport { overflow-x: hidden; overflow-y: auto; max-height: min(66vh, 54rem); border: 1px solid #d7dfeb; border-radius: 0.85rem; background: #fff; }
+.userListViewport .userList { gap: 0; }
+.userCard { min-width: 0; overflow: hidden; border: 0; border-bottom: 1px solid #d7dfeb; border-radius: 0; box-shadow: none; }
+.userCard:last-child { border-bottom: 0; }
+.userTableHeader { position: sticky; z-index: 3; top: 0; display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.8fr) auto repeat(4, minmax(0, 0.85fr)) 1rem; align-items: center; gap: 0.65rem; min-height: 3rem; padding: 0.55rem 0.8rem; border-bottom: 1px solid #cdd7e5; color: #52627a; background: #eef3f9; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+.userMobileHeader { display: none; }
+.sortButton { width: 100%; min-height: 2.25rem; padding: 0.3rem 0; border: 0; color: inherit; background: transparent; cursor: pointer; font: inherit; text-align: left; text-transform: inherit; }
+.sortButton:hover { color: #173e79; }
 .userDisclosure > summary { list-style: none; }
 .userDisclosure > summary::-webkit-details-marker { display: none; }
-.userSummaryRow { display: grid; grid-template-columns: minmax(0, 1fr) auto 1rem; align-items: center; gap: 0.8rem; min-height: 3.5rem; padding: 0.7rem 1rem; cursor: pointer; }
+.userSummaryRow { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.8fr) auto repeat(4, minmax(0, 0.85fr)) 1rem; align-items: center; gap: 0.65rem; min-height: 3.75rem; padding: 0.65rem 0.8rem; cursor: pointer; }
 .userSummaryRow:hover { background: #f7f9fc; }
+.userPrimary { display: contents; }
 .userEmail { overflow: hidden; color: #101828; text-overflow: ellipsis; white-space: nowrap; }
+.userName, .userListCell { overflow: hidden; color: #40516c; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.userName { font-weight: 650; }
 .userQuota { flex: none; color: #40516c; font-size: 0.86rem; font-weight: 750; white-space: nowrap; }
 .disclosureChevron { width: 0.6rem; height: 0.6rem; border-right: 2px solid #52627a; border-bottom: 2px solid #52627a; transform: rotate(45deg) translate(-0.1rem, 0.1rem); transition: transform 150ms ease; }
 .userDisclosure[open] .disclosureChevron { transform: rotate(225deg) translate(-0.1rem, 0.1rem); }
@@ -92,6 +103,14 @@
 .dangerZone span { color: #725c5a; font-size: 0.8rem; }
 .dangerActions { display: flex; gap: 0.55rem; }
 .emptyState { margin: 0; color: #6d7c90; }
+.loadingMore { margin: 0; padding: 0.85rem; color: #52627a; background: #f8fafc; text-align: center; }
+.adminNote { display: grid; gap: 0.7rem; margin: 1rem 1.2rem 0; padding: 0.9rem; border: 1px solid #d8e1ed; border-radius: 0.65rem; background: #f8fafc; }
+.adminNote > div:first-child { display: grid; gap: 0.1rem; }
+.adminNote h3 { margin: 0; color: #263750; font-size: 0.95rem; }
+.adminNote > div:first-child span { color: #68778c; font-size: 0.78rem; }
+.adminNote textarea { width: 100%; max-width: 100%; min-height: 6rem; resize: vertical; padding: 0.7rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #172033; background: #fff; font: inherit; }
+.noteActions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.noteSuccess { margin: 0; color: #166534; font-size: 0.85rem; font-weight: 650; }
 .recentInvites { margin-top: 1rem; padding: 0.9rem; border: 1px solid #bcd0ef; border-radius: 0.65rem; background: #f0f6ff; }
 .recentInvitesHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 .recentInvitesHeading span, .recentInvites > p { color: #63738a; font-size: 0.8rem; }
@@ -133,6 +152,14 @@
 .selectionCount { color: #34435a; font-weight: 800; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+@media (max-width: 70rem) {
+  .userTableHeader { display: none; }
+  .userMobileHeader { position: sticky; z-index: 3; top: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto 1rem; align-items: center; gap: 0.65rem; min-height: 2.75rem; padding: 0.55rem 0.8rem; border-bottom: 1px solid #cdd7e5; color: #52627a; background: #eef3f9; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+  .userSummaryRow { grid-template-columns: minmax(0, 1fr) auto 1rem; }
+  .userPrimary { display: grid; min-width: 0; gap: 0.08rem; }
+  .userListCell { display: none; }
+}
+
 @media (max-width: 48rem) {
   .app { width: min(100% - 1rem, 92rem); padding-top: 0.5rem; }
   .appHeader { align-items: flex-start; }
@@ -164,6 +191,7 @@
   .profileRow .inlineDetails { grid-column: 1 / -1; }
   .technicalDetails { margin-inline: 1rem; }
   .dangerZone { align-items: stretch; flex-direction: column; padding: 1rem; }
+  .adminNote { margin-inline: 1rem; }
   .dangerActions { display: grid; grid-template-columns: 1fr; }
   .recentInvites { padding: 0.7rem; }
   .recentInvitesHeading { display: grid; gap: 0.1rem; }

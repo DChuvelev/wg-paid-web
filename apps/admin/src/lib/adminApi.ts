@@ -9,12 +9,15 @@ import {
   adminSessionLogoutV2AdminSessionLogoutPost,
   adminSessionStatusV2AdminSessionGet,
   adminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPut,
+  adminUpdateUserMetadataV2AdminUsersUserIdPatch,
   type AdminInviteRequest,
   type AdminInviteResponse,
   type AdminInviteSummary,
   type AdminPlanSummary,
   type AdminProtocolLimitUpdateResponse,
+  type AdminListUsersV2AdminUsersGetData,
   type AdminUserDeleteResponse,
+  type AdminUserMetadataUpdateResponse,
   type AdminUserSummary
 } from '@wg-paid/api';
 
@@ -111,11 +114,37 @@ export async function revokeInvite(inviteId: string): Promise<AdminInviteSummary
   }), 'Unable to revoke invite.');
 }
 
-export async function loadUsers(email = ''): Promise<Array<AdminUserSummary>> {
+type AdminUserListQuery = NonNullable<AdminListUsersV2AdminUsersGetData['query']>;
+export type AdminUserSortBy = NonNullable<AdminUserListQuery['sort_by']>;
+export type AdminUserSortDir = NonNullable<AdminUserListQuery['sort_dir']>;
+
+export interface LoadUsersOptions {
+  email?: string;
+  limit: number;
+  offset: number;
+  sortBy: AdminUserSortBy;
+  sortDir: AdminUserSortDir;
+}
+
+export async function loadUsers({ email = '', limit, offset, sortBy, sortDir }: LoadUsersOptions): Promise<Array<AdminUserSummary>> {
   return requireData(await adminListUsersV2AdminUsersGet({
     ...requestOptions(),
-    query: email ? { email } : undefined
+    query: {
+      ...(email ? { email } : {}),
+      limit,
+      offset,
+      sort_by: sortBy,
+      sort_dir: sortDir
+    }
   }), 'Unable to load users.');
+}
+
+export async function updateAdminNote(userId: string, adminNote: string | null): Promise<AdminUserMetadataUpdateResponse> {
+  return requireData(await adminUpdateUserMetadataV2AdminUsersUserIdPatch({
+    ...mutationOptions(),
+    body: { admin_note: adminNote },
+    path: { user_id: userId }
+  }), 'Unable to update the admin note.');
 }
 
 export async function setWireGuardLimit(

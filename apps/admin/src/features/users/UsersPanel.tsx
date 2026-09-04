@@ -1,15 +1,33 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import type { AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import { type FormEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import type { AdminUserMetadataUpdateResponse, AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
-import { AdminApiError, deleteUser, isUnauthorized, loadUsers, setWireGuardLimit } from '../../lib/adminApi';
+import {
+  AdminApiError,
+  type AdminUserSortBy,
+  type AdminUserSortDir,
+  deleteUser,
+  isUnauthorized,
+  loadUsers,
+  setWireGuardLimit
+} from '../../lib/adminApi';
 import { RetirementDialog, type RetirementSelection } from './RetirementDialog';
 import { UserCard } from './UserCard';
 import { consumesQuota, wireGuardLimit } from './userDomain';
 import styles from '../../app/Admin.module.css';
 
-export const operationPollIntervalMs = 2500;
-export const operationPollTimeoutMs = 60000;
+const operationPollIntervalMs = 2500;
+const operationPollTimeoutMs = 60000;
+const userBatchSize = 100;
+
+function mergeUserPages(pages: Array<Array<AdminUserSummary>> | undefined) {
+  const seen = new Set<string>();
+  return (pages ?? []).flatMap((page) => page.filter((user) => {
+    if (seen.has(user.user_id)) return false;
+    seen.add(user.user_id);
+    return true;
+  }));
+}
 
 interface UsersPanelProps {
   onSessionExpired: () => void;
@@ -32,8 +50,11 @@ interface DeletionOperation {
 }
 
 export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
+  const queryClient = useQueryClient();
   const [draftFilter, setDraftFilter] = useState('');
   const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState<AdminUserSortBy>('created_at');
+  const [sortDir, setSortDir] = useState<AdminUserSortDir>('desc');
   const [userRequestPending, setUserRequestPending] = useState(false);
   const [status, setStatus] = useState('');
   const [retirementSelection, setRetirementSelection] = useState<RetirementSelection | null>(null);
@@ -45,14 +66,28 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const pendingLimitIds = useRef(new Set<string>());
   const pendingDeleteIds = useRef(new Set<string>());
   const hasPolling = retirements.size > 0 || deletions.size > 0;
+  const usersKey = ['admin', 'users', filter, sortBy, sortDir] as const;
 
-  const usersQuery = useQuery({
-    queryKey: ['admin', 'users', filter],
-    queryFn: () => loadUsers(filter),
+  const usersQuery = useInfiniteQuery({
+    queryKey: usersKey,
+    queryFn: ({ pageParam }) => loadUsers({
+      email: filter,
+      limit: userBatchSize,
+      offset: pageParam,
+      sortBy,
+      sortDir
+    }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => (
+      lastPage.length < userBatchSize
+        ? undefined
+        : pages.reduce((count, page) => count + page.length, 0)
+    ),
     refetchInterval: hasPolling ? operationPollIntervalMs : false,
     refetchIntervalInBackground: false,
     retry: false
   });
+  const rows = useMemo(() => mergeUserPages(usersQuery.data?.pages), [usersQuery.data?.pages]);
 
   useEffect(() => {
     if (!userRequestPending || usersQuery.isFetching) return;
@@ -74,8 +109,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   }, [hasPolling, onSessionExpired, usersQuery.error]);
 
   useEffect(() => {
-    const rows = usersQuery.data;
-    if (!rows) return;
+    if (!usersQuery.data) return;
     const now = Date.now();
     let terminalMessage = '';
     const nextRetirements = new Map(retirements);
@@ -123,7 +157,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     if (nextRetirements.size !== retirements.size) setRetirements(nextRetirements);
     if (nextDeletions.size !== deletions.size) setDeletions(nextDeletions);
     if (terminalMessage) setStatus(terminalMessage);
-  }, [deletions, retirements, usersQuery.data, usersQuery.dataUpdatedAt]);
+  }, [deletions, retirements, rows, usersQuery.data, usersQuery.dataUpdatedAt]);
 
   const runSearch = (event?: FormEvent) => {
     event?.preventDefault();
@@ -144,6 +178,27 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     setUserRequestPending(true);
     setStatus('Loading users…');
     if (!filter) void usersQuery.refetch();
+  };
+
+  const changeSort = (nextSortBy: AdminUserSortBy) => {
+    setRetirements(new Map());
+    setDeletions(new Map());
+    setStatus('Loading users…');
+    setUserRequestPending(true);
+    if (nextSortBy === sortBy) {
+      setSortDir((current) => current === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(nextSortBy);
+      setSortDir(nextSortBy === 'created_at' ? 'desc' : 'asc');
+    }
+  };
+
+  const loadNextBatch = (event: UIEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    const remaining = list.scrollHeight - list.scrollTop - list.clientHeight;
+    if (remaining <= 320 && usersQuery.hasNextPage && !usersQuery.isFetchingNextPage) {
+      void usersQuery.fetchNextPage();
+    }
   };
 
   const handleError = (error: unknown, fallback: string) => {
@@ -257,19 +312,39 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     return result;
   }, [retirements]);
 
+  const updateCachedMetadata = (updated: AdminUserMetadataUpdateResponse) => {
+    queryClient.setQueryData<InfiniteData<Array<AdminUserSummary>>>(usersKey, (current) => current ? ({
+      ...current,
+      pages: current.pages.map((page) => page.map((user) => user.user_id === updated.user_id
+        ? { ...user, admin_note: updated.admin_note, display_name: updated.display_name }
+        : user))
+    }) : current);
+  };
+
   const defaultStatus = usersQuery.isPending
     ? 'Loading users…'
     : usersQuery.isError
       ? 'Unable to load users.'
-      : usersQuery.data?.length
-        ? `${usersQuery.data.length} user(s).`
+      : rows.length
+        ? `Loaded ${rows.length} user(s).`
         : 'No users found.';
+
+  const sortHeader = (label: string, field: AdminUserSortBy) => (
+    <button
+      className={styles.sortButton}
+      type="button"
+      aria-label={`Sort by ${label}`}
+      onClick={() => changeSort(field)}
+    >
+      {label}<span aria-hidden="true">{sortBy === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</span>
+    </button>
+  );
 
   return (
     <section className={styles.sectionCard} id="users" aria-labelledby="users-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>Accounts & connections</p><h2 id="users-title">Users</h2></div>
-        {usersQuery.data ? <span className={styles.count}>{usersQuery.data.length}</span> : null}
+        {usersQuery.data ? <span className={styles.loadedCount}>Loaded {rows.length}</span> : null}
       </div>
       <form className={styles.searchForm} onSubmit={runSearch}>
         <label className={styles.field}>
@@ -280,19 +355,44 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
         <button className={styles.secondaryButton} type="button" onClick={listAll}>List users</button>
       </form>
       <p className={styles.statusLine} role="status" aria-live="polite">{status || defaultStatus}</p>
-      <div className={styles.userList} aria-busy={usersQuery.isFetching}>
-        {usersQuery.data?.map((user) => (
+      <div
+        className={styles.userListViewport}
+        aria-busy={usersQuery.isFetching}
+        aria-label="Users list"
+        onScroll={loadNextBatch}
+      >
+        <div className={styles.userTableHeader} role="row">
+          <span role="columnheader" aria-sort={sortBy === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('Email', 'email')}</span>
+          <span role="columnheader" aria-sort={sortBy === 'display_name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('Name', 'display_name')}</span>
+          <span role="columnheader">Connections</span>
+          <span role="columnheader" aria-sort={sortBy === 'created_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('User since', 'created_at')}</span>
+          <span role="columnheader" aria-sort={sortBy === 'invite_issued_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('Invite issued', 'invite_issued_at')}</span>
+          <span role="columnheader" aria-sort={sortBy === 'invite_redeemed_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('Joined', 'invite_redeemed_at')}</span>
+          <span role="columnheader" aria-sort={sortBy === 'invited_by_label' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>{sortHeader('Invited by', 'invited_by_label')}</span>
+          <span aria-hidden="true" />
+        </div>
+        <div className={styles.userMobileHeader} role="row">
+          <span role="columnheader">Email / Name</span>
+          <span role="columnheader">Connections</span>
+          <span aria-hidden="true" />
+        </div>
+        <div className={styles.userList}>
+        {rows.map((user) => (
           <UserCard
             deletingActive={deletions.has(user.user_id) || pendingDeletes.has(user.user_id)}
             key={user.user_id}
             limitPending={pendingLimits}
             retirementGrants={retirementGrantsByUser.get(user.user_id) ?? new Set()}
             user={user}
+            onMetadataUpdated={updateCachedMetadata}
+            onRequestError={(error) => handleError(error, 'Unable to update the admin note.')}
             onDelete={() => setDeleteTarget(user)}
             onLimitRequest={(grant, limit, profiles, nextLimit) => requestLimit(user, grant, limit, profiles, nextLimit)}
             onRefreshDeleting={() => void refreshDeleting(user)}
           />
         ))}
+        </div>
+        {usersQuery.isFetchingNextPage ? <p className={styles.loadingMore} role="status">Loading more users…</p> : null}
       </div>
 
       {retirementSelection ? (

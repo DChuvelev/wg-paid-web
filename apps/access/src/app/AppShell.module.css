@@ -15,12 +15,45 @@
 }
 
 .brand {
-  margin: 0 0 0.5rem;
+  margin: 0;
   color: #52627a;
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.topLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.languageSwitch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #52627a;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.languageSwitch button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: 0.4rem;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.languageSwitch button[aria-pressed="true"] {
+  color: #2857a4;
+  background: #eaf1fd;
 }
 
 .title {

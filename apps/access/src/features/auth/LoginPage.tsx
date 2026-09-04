@@ -4,22 +4,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { loadAccount, requestLogin } from '../../lib/accessApi';
+import { useLocale } from '../../i18n/localeContext';
+import type { TranslationKey } from '../../i18n/resources';
 import styles from './Auth.module.css';
 
 interface LoginFormValues {
   email: string;
 }
 
-function loginMessage(status: number | undefined) {
-  if (status === 202) return 'If this address is registered, a sign-in link will be sent.';
-  if (status === 404) return 'Sign-in is not active yet.';
-  if (status === 429) return 'Please try again later.';
-  return 'Unable to request a sign-in link.';
-}
-
 export function LoginPage() {
+  const { t } = useLocale();
   const navigate = useNavigate();
-  const [message, setMessage] = useState<string | null>(null);
+  const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
   const sessionQuery = useQuery({ queryKey: ['access', 'account'], queryFn: loadAccount, retry: false });
   const { formState, handleSubmit, register } = useForm<LoginFormValues>();
 
@@ -30,33 +26,40 @@ export function LoginPage() {
   }, [navigate, sessionQuery.data]);
 
   const submit = handleSubmit(async ({ email }) => {
-    setMessage(null);
+    setMessageKey(null);
     try {
-      setMessage(loginMessage(await requestLogin(email)));
+      const status = await requestLogin(email);
+      setMessageKey(status === 202
+        ? 'loginAccepted'
+        : status === 404
+          ? 'signInInactive'
+          : status === 429
+            ? 'tryAgainLater'
+            : 'loginFailed');
     } catch {
-      setMessage(loginMessage(undefined));
+      setMessageKey('loginFailed');
     }
   });
 
   return (
-    <AppShell title="Sign in" description="Enter your email address to request a sign-in link.">
+    <AppShell title={t('signIn')} description={t('signInDescription')}>
       <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
-          Email
+          {t('email')}
           <input
             className={styles.input}
             type="email"
             autoComplete="email"
-            {...register('email', { required: 'Enter your email address.' })}
+            {...register('email', { required: true })}
           />
-          {formState.errors.email ? <span className={styles.error}>{formState.errors.email.message}</span> : null}
+          {formState.errors.email ? <span className={styles.error}>{t('emailRequired')}</span> : null}
         </label>
         <button className={styles.button} type="submit" disabled={formState.isSubmitting}>
-          Send sign-in link
+          {t('sendSignInLink')}
         </button>
       </form>
-      {message ? <p className={styles.message} role="status">{message}</p> : null}
-      <Link className={styles.link} to="/invite">Register with an invitation</Link>
+      {messageKey ? <p className={styles.message} role="status">{t(messageKey)}</p> : null}
+      <Link className={styles.link} to="/invite">{t('registerWithInvitation')}</Link>
     </AppShell>
   );
 }
