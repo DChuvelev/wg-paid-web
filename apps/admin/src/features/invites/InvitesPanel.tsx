@@ -1,18 +1,27 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AdminInviteSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
 import { StatusBadge } from '../../components/StatusBadge';
-import {
-  createInvite,
-  isUnauthorized,
-  loadInvites,
-  loadPlans,
-  revokeInvite
-} from '../../lib/adminApi';
+import { createInvite, isUnauthorized, loadInvites, loadPlans, revokeInvite } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
 interface InvitesPanelProps {
   onSessionExpired: () => void;
+}
+
+interface RecentlyCreatedInvite {
+  intendedEmail: string | null;
+  inviteId: string;
+  state: string;
+  url: string;
+}
+
+interface InviteRowProps {
+  invite: AdminInviteSummary;
+  planName: (id: string | null) => string;
+  revokePending: boolean;
+  onRevoke?: (inviteId: string) => void;
 }
 
 const plansKey = ['admin', 'plans'] as const;
@@ -22,11 +31,33 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : 'No expiration';
 }
 
+function InviteRow({ invite, planName, revokePending, onRevoke }: InviteRowProps) {
+  return (
+    <article className={styles.inviteRow}>
+      <div className={styles.invitePrimary}>
+        <strong title={invite.intended_email || 'Any email'}>{invite.intended_email || 'Any email'}</strong>
+        <StatusBadge status={invite.state} />
+      </div>
+      <span className={styles.invitePlan} title={planName(invite.plan_id)}>{planName(invite.plan_id)}</span>
+      <span className={styles.inviteExpiry}>Expires {formatDate(invite.expires_at)}</span>
+      {onRevoke ? (
+        <button
+          aria-label={`Revoke invite for ${invite.intended_email || invite.invite_id}`}
+          className={styles.dangerTextButton}
+          disabled={revokePending}
+          type="button"
+          onClick={() => onRevoke(invite.invite_id)}
+        >Revoke</button>
+      ) : null}
+    </article>
+  );
+}
+
 export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
   const queryClient = useQueryClient();
   const [planId, setPlanId] = useState('');
   const [email, setEmail] = useState('');
-  const [newInviteUrl, setNewInviteUrl] = useState('');
+  const [recentInvites, setRecentInvites] = useState<Array<RecentlyCreatedInvite>>([]);
   const [status, setStatus] = useState('');
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const plansQuery = useQuery({ queryKey: plansKey, queryFn: loadPlans, retry: false });
@@ -40,10 +71,23 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     if (isUnauthorized(plansQuery.error) || isUnauthorized(invitesQuery.error)) onSessionExpired();
   }, [invitesQuery.error, onSessionExpired, plansQuery.error]);
 
+  useEffect(() => {
+    if (!invitesQuery.data) return;
+    setRecentInvites((current) => current.map((recent) => {
+      const summary = invitesQuery.data.find((item) => item.invite_id === recent.inviteId);
+      return summary && summary.state !== 'active' ? { ...recent, state: summary.state } : recent;
+    }));
+  }, [invitesQuery.data]);
+
   const createMutation = useMutation({
     mutationFn: createInvite,
-    onSuccess: async (result) => {
-      setNewInviteUrl(`https://access.secret-studio.ru/invite#token=${encodeURIComponent(result.invite_token)}`);
+    onSuccess: async (result, variables) => {
+      setRecentInvites((current) => [{
+        intendedEmail: variables.intended_email ?? null,
+        inviteId: result.invite_id,
+        state: 'active',
+        url: `https://access.secret-studio.ru/invite#token=${encodeURIComponent(result.invite_token)}`
+      }, ...current]);
       setEmail('');
       setStatus('Invite created.');
       await queryClient.invalidateQueries({ queryKey: invitesKey });
@@ -56,7 +100,10 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
 
   const revokeMutation = useMutation({
     mutationFn: revokeInvite,
-    onSuccess: async () => {
+    onSuccess: async (result, inviteId) => {
+      setRecentInvites((current) => current.map((invite) => (
+        invite.inviteId === inviteId ? { ...invite, state: result.state } : invite
+      )));
       setRevokeTarget(null);
       setStatus('Invite revoked.');
       await queryClient.invalidateQueries({ queryKey: invitesKey });
@@ -75,9 +122,10 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     createMutation.mutate({ intended_email: email.trim() || null, plan_id: planId });
   };
 
-  const copyUrl = async () => {
+  const copyUrl = async (invite: RecentlyCreatedInvite) => {
+    if (invite.state !== 'active') return;
     try {
-      await navigator.clipboard.writeText(newInviteUrl);
+      await navigator.clipboard.writeText(invite.url);
       setStatus('Registration URL copied.');
     } catch {
       setStatus('Copy failed; select the URL manually.');
@@ -89,14 +137,14 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     return plan ? `${plan.display_name} (${plan.code})` : id ?? 'Unknown plan';
   };
 
+  const operationalInvites = invitesQuery.data?.filter((item) => item.state === 'active') ?? [];
+  const archivedInvites = invitesQuery.data?.filter((item) => item.state !== 'active') ?? [];
+
   return (
     <section className={styles.sectionCard} id="invites" aria-labelledby="invites-title">
       <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.eyebrow}>Access onboarding</p>
-          <h2 id="invites-title">Invites</h2>
-        </div>
-        {invitesQuery.data ? <span className={styles.count}>{invitesQuery.data.length}</span> : null}
+        <div><p className={styles.eyebrow}>Access onboarding</p><h2 id="invites-title">Invites</h2></div>
+        {invitesQuery.data ? <span className={styles.count}>{operationalInvites.length}</span> : null}
       </div>
 
       <form className={styles.inviteForm} onSubmit={submit}>
@@ -115,43 +163,59 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
         </button>
       </form>
 
-      {newInviteUrl ? (
-        <div className={styles.inviteUrlBox}>
-          <strong>New registration URL</strong>
-          <div>
-            <code>{newInviteUrl}</code>
-            <button className={styles.secondaryButton} type="button" onClick={copyUrl}>Copy URL</button>
+      {recentInvites.length ? (
+        <div className={styles.recentInvites}>
+          <div className={styles.recentInvitesHeading}>
+            <strong>Recently created</strong>
+            <span>Available only on this page until it is reloaded.</span>
           </div>
-          <p>Contains a registration token. Share only with the intended recipient.</p>
+          <div className={styles.recentInviteList}>
+            {recentInvites.map((invite) => (
+              <article className={styles.recentInviteRow} key={invite.inviteId}>
+                <div className={styles.recentInviteIdentity}>
+                  <strong title={invite.intendedEmail || 'Any email'}>{invite.intendedEmail || 'Any email'}</strong>
+                  <span>Invite <code>{invite.inviteId}</code></span>
+                </div>
+                {invite.state !== 'active' ? (
+                  <><StatusBadge status={invite.state} /><span className={styles.revokedInviteText}>Registration URL {invite.state}</span></>
+                ) : (
+                  <>
+                    <code className={styles.recentInviteUrl} title={invite.url}>{invite.url}</code>
+                    <button
+                      aria-label={`Copy invite ${invite.inviteId}`}
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() => void copyUrl(invite)}
+                    >Copy</button>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+          <p>Registration URLs contain tokens. Share each only with its intended recipient.</p>
         </div>
       ) : null}
 
       <p className={styles.statusLine} role="status" aria-live="polite">
-        {status || (invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : invitesQuery.data?.length ? `${invitesQuery.data.length} invite(s).` : 'No invites.')}
+        {status || (invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : invitesQuery.data?.length ? `${operationalInvites.length} operational invite(s).` : 'No invites.')}
       </p>
 
-      <div className={styles.inviteList}>
-        {invitesQuery.data?.map((invite) => (
-          <article className={styles.inviteRow} key={invite.invite_id}>
-            <div className={styles.invitePrimary}>
-              <StatusBadge status={invite.state} />
-              <strong>{invite.intended_email || 'Any email'}</strong>
-            </div>
-            <dl className={styles.compactDetails}>
-              <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
-              <div><dt>Expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
-            </dl>
-            {invite.state === 'active' ? (
-              <button
-                className={styles.dangerTextButton}
-                disabled={revokeMutation.isPending}
-                type="button"
-                onClick={() => setRevokeTarget(invite.invite_id)}
-              >Revoke</button>
-            ) : null}
-          </article>
-        ))}
+      <div className={styles.inviteList} aria-label="Operational invites">
+        {operationalInvites.length ? operationalInvites.map((item) => (
+          <InviteRow invite={item} key={item.invite_id} planName={planName} revokePending={revokeMutation.isPending} onRevoke={setRevokeTarget} />
+        )) : invitesQuery.data ? <p className={styles.emptyState}>No operational invites.</p> : null}
       </div>
+
+      {archivedInvites.length ? (
+        <details className={styles.inviteArchive}>
+          <summary>Archive ({archivedInvites.length})</summary>
+          <div className={styles.inviteList} aria-label="Archived invites">
+            {archivedInvites.map((item) => (
+              <InviteRow invite={item} key={item.invite_id} planName={planName} revokePending={false} />
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       {revokeTarget ? (
         <ModalDialog title="Revoke invite?" onClose={() => !revokeMutation.isPending && setRevokeTarget(null)}>

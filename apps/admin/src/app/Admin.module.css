@@ -35,8 +35,16 @@
 .fieldError { margin: 0.5rem 0 0; font-size: 0.85rem; }
 .userList, .grantList, .inviteList, .profileList { display: grid; gap: 0.85rem; }
 .userCard { overflow: hidden; border-radius: 0.85rem; box-shadow: none; }
+.userDisclosure > summary { list-style: none; }
+.userDisclosure > summary::-webkit-details-marker { display: none; }
+.userSummaryRow { display: grid; grid-template-columns: minmax(0, 1fr) auto 1rem; align-items: center; gap: 0.8rem; min-height: 3.5rem; padding: 0.7rem 1rem; cursor: pointer; }
+.userSummaryRow:hover { background: #f7f9fc; }
+.userEmail { overflow: hidden; color: #101828; text-overflow: ellipsis; white-space: nowrap; }
+.userQuota { flex: none; color: #40516c; font-size: 0.86rem; font-weight: 750; white-space: nowrap; }
+.disclosureChevron { width: 0.6rem; height: 0.6rem; border-right: 2px solid #52627a; border-bottom: 2px solid #52627a; transform: rotate(45deg) translate(-0.1rem, 0.1rem); transition: transform 150ms ease; }
+.userDisclosure[open] .disclosureChevron { transform: rotate(225deg) translate(-0.1rem, 0.1rem); }
+.userDetails { border-top: 1px solid #e5eaf1; }
 .userHeader { padding: 1.1rem 1.2rem; border-bottom: 1px solid #e5eaf1; }
-.userHeader h3 { overflow-wrap: anywhere; margin: 0 0 0.5rem; color: #101828; font-size: 1.2rem; }
 .userStatuses { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .userCreated { color: #68778c; font-size: 0.82rem; text-align: right; }
 .badge { display: inline-flex; align-items: center; width: fit-content; padding: 0.22rem 0.52rem; border: 1px solid #cad4e2; border-radius: 999px; color: #41516a; background: #f2f5f9; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.025em; line-height: 1.25; text-transform: capitalize; }
@@ -63,8 +71,11 @@
 .profileIdentity { display: grid; min-width: 0; }
 .profileIdentity strong { overflow-wrap: anywhere; }
 .profileIdentity span { overflow-wrap: anywhere; color: #6a788b; font-size: 0.8rem; }
-.inlineDetails summary, .technicalDetails summary { color: #2857a4; cursor: pointer; font-size: 0.82rem; font-weight: 750; }
+.inlineDetails summary, .technicalDetails summary, .profileHistory > summary, .inviteArchive > summary { color: #2857a4; cursor: pointer; font-size: 0.82rem; font-weight: 750; }
 .inlineDetails[open] { grid-column: 1 / -1; }
+.profileHistory { margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #e1e7f0; }
+.profileHistory > summary { min-height: 2.75rem; padding: 0.55rem; border-radius: 0.45rem; background: #f4f6f9; }
+.profileHistory[open] > summary { margin-bottom: 0.7rem; }
 .technicalDetails { margin: 0 1.2rem 1rem; padding-top: 0.2rem; }
 .technicalDetails[open] { padding: 0.8rem; border: 1px solid #e1e7f0; border-radius: 0.55rem; background: #fafbfd; }
 .identifier { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.55rem; margin-top: 0.6rem; color: #617086; font-size: 0.78rem; }
@@ -81,14 +92,26 @@
 .dangerZone span { color: #725c5a; font-size: 0.8rem; }
 .dangerActions { display: flex; gap: 0.55rem; }
 .emptyState { margin: 0; color: #6d7c90; }
-.inviteUrlBox { margin-top: 1rem; padding: 0.9rem; border: 1px solid #bcd0ef; border-radius: 0.65rem; background: #f0f6ff; }
-.inviteUrlBox > div { display: flex; align-items: center; gap: 0.7rem; margin-top: 0.55rem; }
-.inviteUrlBox code { flex: 1; min-width: 0; overflow-wrap: anywhere; color: #173e79; }
-.inviteUrlBox p { margin: 0.5rem 0 0; color: #63738a; font-size: 0.8rem; }
-.inviteRow { display: grid; grid-template-columns: minmax(10rem, 0.75fr) minmax(16rem, 1fr) auto; align-items: center; gap: 1rem; padding: 0.85rem; border: 1px solid #e0e6ee; border-radius: 0.65rem; }
-.invitePrimary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; min-width: 0; }
-.invitePrimary strong { overflow-wrap: anywhere; }
-.inviteRow .compactDetails { margin: 0; }
+.recentInvites { margin-top: 1rem; padding: 0.9rem; border: 1px solid #bcd0ef; border-radius: 0.65rem; background: #f0f6ff; }
+.recentInvitesHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.recentInvitesHeading span, .recentInvites > p { color: #63738a; font-size: 0.8rem; }
+.recentInvites > p { margin: 0.65rem 0 0; }
+.recentInviteList { display: grid; gap: 0.45rem; margin-top: 0.65rem; }
+.recentInviteRow { display: grid; grid-template-columns: minmax(8rem, 0.65fr) minmax(10rem, 1.35fr) auto; align-items: center; gap: 0.65rem; min-width: 0; padding: 0.55rem; border: 1px solid #d3e0f3; border-radius: 0.5rem; background: #fff; }
+.recentInviteIdentity { display: grid; min-width: 0; }
+.recentInviteIdentity strong, .recentInviteIdentity span, .recentInviteUrl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recentInviteIdentity span { color: #68778c; font-size: 0.72rem; }
+.recentInviteUrl { color: #173e79; }
+.revokedInviteText { color: #68778c; font-size: 0.82rem; font-weight: 700; }
+.recentInviteRow .revokedInviteText { grid-column: 2 / -1; }
+.inviteRow { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 0.75fr) auto auto; align-items: center; gap: 0.8rem; min-width: 0; min-height: 3.5rem; padding: 0.55rem 0.7rem; border: 1px solid #e0e6ee; border-radius: 0.65rem; }
+.invitePrimary { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.invitePrimary strong, .invitePlan, .inviteExpiry { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invitePrimary strong { flex: 1; min-width: 0; }
+.invitePlan, .inviteExpiry { color: #5f6f84; font-size: 0.82rem; }
+.inviteArchive { margin-top: 0.85rem; border-top: 1px solid #e1e7f0; }
+.inviteArchive > summary { min-height: 3rem; padding: 0.8rem 0.55rem; }
+.inviteArchive[open] > summary { margin-bottom: 0.2rem; }
 .centeredPage { display: grid; min-height: 100vh; place-items: center; padding: 1rem; }
 .loginCard { width: min(100%, 32rem); padding: clamp(1.4rem, 5vw, 2.5rem); border-radius: 1rem; }
 .lead { margin: 0.8rem 0 1.5rem; color: #52627a; }
@@ -107,7 +130,6 @@
 .profileChoiceBody > span:nth-child(2) { overflow-wrap: anywhere; color: #68778c; font-size: 0.78rem; }
 .profileChoiceBody code { overflow-wrap: anywhere; }
 .profileChoiceBody small { color: #68778c; }
-.historicalProfile { cursor: not-allowed; opacity: 0.68; background: #f5f6f8; }
 .selectionCount { color: #34435a; font-weight: 800; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
@@ -119,7 +141,7 @@
   .searchForm .field, .inviteForm .field { grid-column: 1 / -1; }
   .inviteForm .primaryButton { grid-column: 1 / -1; }
   .inviteRow { grid-template-columns: minmax(0, 1fr) auto; }
-  .inviteRow .compactDetails { grid-column: 1 / -1; grid-row: 2; }
+  .invitePlan, .inviteExpiry { display: none; }
 }
 
 @media (max-width: 32rem) {
@@ -130,7 +152,9 @@
   .searchForm { grid-template-columns: 1fr 1fr; padding: 0.8rem; }
   .inviteForm { grid-template-columns: 1fr; padding: 0.8rem; }
   .inviteForm .field, .inviteForm .primaryButton { grid-column: auto; }
-  .userHeader { display: grid; padding: 1rem; }
+  .userSummaryRow { gap: 0.55rem; padding-inline: 0.75rem; }
+  .userQuota { font-size: 0.78rem; }
+  .userHeader { padding: 0.8rem 1rem; }
   .userCreated { text-align: left; }
   .grantList { padding: 0.75rem; }
   .limitPanel { grid-template-columns: 1fr; }
@@ -141,10 +165,15 @@
   .technicalDetails { margin-inline: 1rem; }
   .dangerZone { align-items: stretch; flex-direction: column; padding: 1rem; }
   .dangerActions { display: grid; grid-template-columns: 1fr; }
-  .inviteUrlBox > div { align-items: stretch; flex-direction: column; }
-  .inviteRow { grid-template-columns: minmax(0, 1fr); }
-  .inviteRow .compactDetails { grid-column: auto; grid-row: auto; grid-template-columns: 1fr; }
-  .inviteRow .dangerTextButton { width: 100%; }
+  .recentInvites { padding: 0.7rem; }
+  .recentInvitesHeading { display: grid; gap: 0.1rem; }
+  .recentInviteRow { grid-template-columns: minmax(0, 1fr) auto; }
+  .recentInviteUrl { grid-column: 1; grid-row: 2; }
+  .recentInviteRow .secondaryButton { grid-column: 2; grid-row: 1 / span 2; }
+  .recentInviteRow .badge { justify-self: end; }
+  .recentInviteRow .revokedInviteText { grid-column: 1 / -1; }
+  .invitePrimary .badge { flex: none; }
+  .inviteRow .dangerTextButton { padding-inline: 0.7rem; }
   .compactDetails { grid-template-columns: 1fr; }
   .identifier { grid-template-columns: minmax(0, 1fr) auto; }
   .identifier > span { grid-column: 1 / -1; }

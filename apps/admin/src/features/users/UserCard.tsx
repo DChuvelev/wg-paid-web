@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
-import { formatDate, wireGuardLimit, wireGuardProfiles } from './userDomain';
+import { consumesQuota, formatDate, wireGuardLimit, wireGuardProfiles } from './userDomain';
 import styles from '../../app/Admin.module.css';
 
 interface GrantCardProps {
@@ -14,8 +14,26 @@ interface GrantCardProps {
   onLimitRequest: (limit: GrantProtocolLimitSummary, nextLimit: number) => void;
 }
 
+function ProfileRow({ profile }: { profile: ProfileSummary }) {
+  return (
+    <article className={styles.profileRow}>
+      <div className={styles.profileIdentity}>
+        <strong>{profile.tunnel_ip || profile.label || 'No tunnel IP'}</strong>
+        {profile.label && profile.label !== profile.tunnel_ip ? <span>{profile.label}</span> : null}
+      </div>
+      <StatusBadge status={profile.status} />
+      <details className={styles.inlineDetails}>
+        <summary>Details</summary>
+        <CopyableId label="Profile ID" value={profile.id} />
+      </details>
+    </article>
+  );
+}
+
 function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, onLimitRequest }: GrantCardProps) {
   const limit = wireGuardLimit(grant);
+  const currentProfiles = profiles.filter(consumesQuota);
+  const historicalProfiles = profiles.filter((profile) => !consumesQuota(profile));
   const [nextLimit, setNextLimit] = useState(limit?.profile_limit.toString() ?? '');
   const [validation, setValidation] = useState('');
 
@@ -69,21 +87,22 @@ function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, 
       ) : null}
 
       <div className={styles.profileList}>
-        <h4>Connections</h4>
-        {profiles.length ? profiles.map((profile) => (
-          <article className={styles.profileRow} key={profile.id}>
-            <div className={styles.profileIdentity}>
-              <strong>{profile.tunnel_ip || profile.label || 'No tunnel IP'}</strong>
-              {profile.label && profile.label !== profile.tunnel_ip ? <span>{profile.label}</span> : null}
-            </div>
-            <StatusBadge status={profile.status} />
-            <details className={styles.inlineDetails}>
-              <summary>Details</summary>
-              <CopyableId label="Profile ID" value={profile.id} />
-            </details>
-          </article>
-        )) : <p className={styles.emptyState}>No WireGuard profiles.</p>}
+        <h4>Current connections ({currentProfiles.length})</h4>
+        {currentProfiles.length ? currentProfiles.map((profile) => (
+          <ProfileRow key={profile.id} profile={profile} />
+        )) : <p className={styles.emptyState}>No quota-consuming WireGuard profiles.</p>}
       </div>
+
+      {historicalProfiles.length ? (
+        <details className={styles.profileHistory}>
+          <summary>Disabled / retired ({historicalProfiles.length})</summary>
+          <div className={styles.profileList}>
+            {historicalProfiles.map((profile) => (
+              <ProfileRow key={profile.id} profile={profile} />
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       <details className={styles.technicalDetails}>
         <summary>Grant details</summary>
@@ -114,61 +133,71 @@ interface UserCardProps {
 
 export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onRefreshDeleting }: UserCardProps) {
   const deleting = Boolean(user.deletion_requested_at) || deletingActive;
+  const wireGuardLimits = user.grants.map(wireGuardLimit).filter((limit) => limit !== undefined);
+  const profileCount = wireGuardLimits.reduce((total, limit) => total + limit.profile_count, 0);
+  const profileLimit = wireGuardLimits.reduce((total, limit) => total + limit.profile_limit, 0);
   return (
-    <article className={styles.userCard}>
-      <header className={styles.userHeader}>
-        <div>
-          <h3>{user.email}</h3>
-          <div className={styles.userStatuses}>
-            <StatusBadge status={user.email_verified_at ? 'verified' : 'unverified'} />
-            {user.deletion_requested_at ? <StatusBadge status="deleting" /> : null}
+    <article className={styles.userCard} aria-label={user.email}>
+      <details className={styles.userDisclosure}>
+        <summary className={styles.userSummaryRow}>
+          <strong className={styles.userEmail}>{user.email}</strong>
+          <span className={styles.userQuota}>{deleting ? 'Deleting · ' : ''}In use {profileCount} / {profileLimit}</span>
+          <span className={styles.disclosureChevron} aria-hidden="true" />
+        </summary>
+
+        <div className={styles.userDetails}>
+          <header className={styles.userHeader}>
+            <div className={styles.userStatuses}>
+              <StatusBadge status={user.email_verified_at ? 'verified' : 'unverified'} />
+              {user.deletion_requested_at ? <StatusBadge status="deleting" /> : null}
+            </div>
+            <span className={styles.userCreated}>Created {formatDate(user.created_at)}</span>
+          </header>
+
+          {deleting ? (
+            <div className={styles.progressBox} role="status">
+              <strong>Deletion in progress</strong>
+              <span>Sessions and grants are revoked; remaining profiles are being disabled.</span>
+            </div>
+          ) : null}
+
+          <div className={styles.grantList}>
+            {user.grants.length ? user.grants.map((grant) => {
+              const profiles = wireGuardProfiles(user, grant.id);
+              return (
+                <GrantCard
+                  deleting={deleting}
+                  grant={grant}
+                  key={grant.id}
+                  limitPending={limitPending.has(grant.id)}
+                  profiles={profiles}
+                  retirementActive={retirementGrants.has(grant.id)}
+                  onLimitRequest={(limit, nextLimit) => onLimitRequest(grant, limit, profiles, nextLimit)}
+                />
+              );
+            }) : <p className={styles.emptyState}>No grants.</p>}
           </div>
+
+          <details className={styles.technicalDetails}>
+            <summary>User details</summary>
+            <CopyableId label="User ID" value={user.user_id} />
+            <dl className={styles.compactDetails}>
+              <div><dt>Email verified</dt><dd>{formatDate(user.email_verified_at)}</dd></div>
+              <div><dt>Deletion requested</dt><dd>{formatDate(user.deletion_requested_at)}</dd></div>
+            </dl>
+          </details>
+
+          <footer className={styles.dangerZone}>
+            <div><strong>Danger zone</strong><span>Permanently revoke access and remove the account.</span></div>
+            <div className={styles.dangerActions}>
+              {deleting ? <button className={styles.secondaryButton} type="button" onClick={onRefreshDeleting}>Refresh</button> : null}
+              <button className={styles.dangerButton} disabled={deleting || retirementGrants.size > 0} type="button" onClick={onDelete}>
+                {deleting ? 'Deleting…' : 'Delete user'}
+              </button>
+            </div>
+          </footer>
         </div>
-        <span className={styles.userCreated}>Created {formatDate(user.created_at)}</span>
-      </header>
-
-      {deleting ? (
-        <div className={styles.progressBox} role="status">
-          <strong>Deletion in progress</strong>
-          <span>Sessions and grants are revoked; remaining profiles are being disabled.</span>
-        </div>
-      ) : null}
-
-      <div className={styles.grantList}>
-        {user.grants.length ? user.grants.map((grant) => {
-          const profiles = wireGuardProfiles(user, grant.id);
-          return (
-            <GrantCard
-              deleting={deleting}
-              grant={grant}
-              key={grant.id}
-              limitPending={limitPending.has(grant.id)}
-              profiles={profiles}
-              retirementActive={retirementGrants.has(grant.id)}
-              onLimitRequest={(limit, nextLimit) => onLimitRequest(grant, limit, profiles, nextLimit)}
-            />
-          );
-        }) : <p className={styles.emptyState}>No grants.</p>}
-      </div>
-
-      <details className={styles.technicalDetails}>
-        <summary>User details</summary>
-        <CopyableId label="User ID" value={user.user_id} />
-        <dl className={styles.compactDetails}>
-          <div><dt>Email verified</dt><dd>{formatDate(user.email_verified_at)}</dd></div>
-          <div><dt>Deletion requested</dt><dd>{formatDate(user.deletion_requested_at)}</dd></div>
-        </dl>
       </details>
-
-      <footer className={styles.dangerZone}>
-        <div><strong>Danger zone</strong><span>Permanently revoke access and remove the account.</span></div>
-        <div className={styles.dangerActions}>
-          {deleting ? <button className={styles.secondaryButton} type="button" onClick={onRefreshDeleting}>Refresh</button> : null}
-          <button className={styles.dangerButton} disabled={deleting || retirementGrants.size > 0} type="button" onClick={onDelete}>
-            {deleting ? 'Deleting…' : 'Delete user'}
-          </button>
-        </div>
-      </footer>
     </article>
   );
 }

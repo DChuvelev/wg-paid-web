@@ -23,7 +23,8 @@ interface RetirementDialogProps {
 export function RetirementDialog({ pending, selection, onCancel, onConfirm }: RetirementDialogProps) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const required = selection.limit.profile_count - selection.newLimit;
-  const eligibleCount = selection.profiles.filter(consumesQuota).length;
+  const eligibleProfiles = selection.profiles.filter(consumesQuota);
+  const eligibleCount = eligibleProfiles.length;
   const toggle = (id: string, checked: boolean) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -44,21 +45,19 @@ export function RetirementDialog({ pending, selection, onCancel, onConfirm }: Re
       </div>
       <fieldset className={styles.profileChoices} disabled={pending}>
         <legend className={styles.visuallyHidden}>WireGuard connections eligible for retirement</legend>
-        {selection.profiles.map((profile) => {
-          const eligible = consumesQuota(profile);
+        {eligibleProfiles.map((profile) => {
           const identity = profile.label || profile.tunnel_ip || profile.id;
           return (
-            <label className={`${styles.profileChoice} ${!eligible ? styles.historicalProfile : ''}`} key={profile.id}>
+            <label className={styles.profileChoice} key={profile.id}>
               <input
                 checked={selected.has(profile.id)}
-                disabled={!eligible || pending}
+                disabled={pending}
                 type="checkbox"
                 onChange={(event) => toggle(profile.id, event.target.checked)}
               />
               <span className={styles.profileChoiceBody}>
                 <span><strong>{identity}</strong><StatusBadge status={profile.status} /></span>
                 <span>{profile.tunnel_ip || 'No tunnel IP'} · <code>{profile.id}</code></span>
-                {!eligible ? <small>Historical profile — does not consume quota</small> : null}
               </span>
             </label>
           );

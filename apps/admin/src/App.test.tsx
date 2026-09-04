@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AdminProtocolLimitUpdateResponse, AdminUserDeleteResponse, AdminUserSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminUserDeleteResponse, AdminUserSummary, ProfileSummary } from '@wg-paid/api';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
@@ -27,6 +27,17 @@ const invite = {
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
   revoked_at: null, state: 'active', used_count: 0
 };
+
+function makeInvite(inviteId: string, state: string, intendedEmail: string): AdminInviteSummary {
+  return {
+    ...invite,
+    intended_email: intendedEmail,
+    invite_id: inviteId,
+    revoked_at: state === 'revoked' ? '2026-01-02T00:00:00Z' : null,
+    state,
+    used_count: state === 'redeemed' ? 1 : 0
+  };
+}
 
 function profile(id: string, status: string, tunnelIp: string): ProfileSummary {
   return {
@@ -79,14 +90,20 @@ async function renderDashboard(user: AdminUserSummary | null = makeUser()) {
   if (user) await screen.findByText(user.email);
 }
 
+function expandUser(email = 'operator-target@example.test') {
+  fireEvent.click(screen.getByText(email));
+}
+
 async function openRetirement(user: AdminUserSummary, newLimit = 1) {
   await renderDashboard(user);
+  expandUser(user.email);
   fireEvent.change(screen.getByLabelText('New WireGuard limit for grant grant-1'), { target: { value: String(newLimit) } });
   fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
   return screen.findByRole('dialog', { name: 'Select connections to retire' });
 }
 
 async function openDeleteDialog() {
+  if (!screen.queryByRole('button', { name: 'Delete user' })) expandUser();
   fireEvent.click(screen.getByRole('button', { name: 'Delete user' }));
   return screen.findByRole('dialog', { name: /Delete operator-target@example\.test/ });
 }
@@ -142,15 +159,106 @@ describe('admin session and invites', () => {
     await screen.findByText('Invite created.');
     expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: 'plan-1' });
     expect(screen.getByText('https://access.secret-studio.ru/invite#token=secret-invite-token')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke invite for invitee@example.test' }));
     const dialog = await screen.findByRole('dialog', { name: 'Revoke invite?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke invite' }));
     await screen.findByText('Invite revoked.');
     expect(revokeInvite).toHaveBeenCalledWith('invite-1');
   });
+
+  test('keeps operational invites compact and historical states in a closed archive', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([
+      invite,
+      makeInvite('invite-expired', 'expired', 'expired@example.test'),
+      makeInvite('invite-revoked', 'revoked', 'revoked@example.test'),
+      makeInvite('invite-redeemed', 'redeemed', 'redeemed@example.test')
+    ]);
+    await renderDashboard();
+
+    const operational = screen.getByLabelText('Operational invites');
+    expect(within(operational).getByText('invitee@example.test')).not.toBeNull();
+    expect(within(operational).queryByText('expired@example.test')).toBeNull();
+    const archive = screen.getByText('Archive (3)');
+    const archiveDetails = archive.closest('details') as HTMLDetailsElement;
+    expect(archiveDetails.open).toBe(false);
+
+    fireEvent.click(archive);
+    expect(archiveDetails.open).toBe(true);
+    expect(screen.getByText('expired@example.test')).not.toBeNull();
+    expect(screen.getByText('revoked@example.test')).not.toBeNull();
+    expect(screen.getByText('redeemed@example.test')).not.toBeNull();
+  });
+
+  test('preserves multiple recent URLs and makes only the revoked invite unusable', async () => {
+    const inviteA = makeInvite('invite-A', 'active', 'a@example.test');
+    const inviteB = makeInvite('invite-B', 'active', 'b@example.test');
+    vi.mocked(loadInvites).mockResolvedValue([inviteA, inviteB]);
+    vi.mocked(createInvite)
+      .mockResolvedValueOnce({ expires_at: null, invite_id: 'invite-A', invite_token: 'token-A' })
+      .mockResolvedValueOnce({ expires_at: null, invite_id: 'invite-B', invite_token: 'token-B' });
+    vi.mocked(revokeInvite).mockResolvedValue({ ...inviteA, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
+    await renderDashboard();
+    const createButton = screen.getByRole('button', { name: 'Create invite' });
+    await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.change(screen.getByLabelText(/Intended email/), { target: { value: 'a@example.test' } });
+    fireEvent.click(createButton);
+    await screen.findByRole('button', { name: 'Copy invite invite-A' });
+    fireEvent.change(screen.getByLabelText(/Intended email/), { target: { value: 'b@example.test' } });
+    fireEvent.click(createButton);
+    await screen.findByRole('button', { name: 'Copy invite invite-B' });
+
+    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-A')).not.toBeNull();
+    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-B')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke invite for a@example.test' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Revoke invite?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke invite' }));
+
+    await screen.findByText('Registration URL revoked');
+    expect(screen.queryByText('https://access.secret-studio.ru/invite#token=token-A')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy invite invite-A' })).toBeNull();
+    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-B')).not.toBeNull();
+    expect((screen.getByRole('button', { name: 'Copy invite invite-B' }) as HTMLButtonElement).disabled).toBe(false);
+  });
 });
 
 describe('users, limits, and retirement', () => {
+  test('renders one compact collapsed row per user and keeps disabled history closed', async () => {
+    const first = makeUser(3, 1, [
+      profile('profile-active', 'active', '10.253.1.10'),
+      profile('profile-old', 'disabled', '10.253.1.99')
+    ]);
+    const secondProfile = { ...profile('profile-2', 'active', '10.253.1.20'), access_grant_id: 'grant-2' };
+    const secondBase = makeUser(2, 1, [secondProfile]);
+    const second: AdminUserSummary = {
+      ...secondBase,
+      email: 'second-user@example.test',
+      grants: [{ ...secondBase.grants[0]!, id: 'grant-2' }],
+      profiles: [secondProfile],
+      user_id: 'user-2'
+    };
+    vi.mocked(loadUsers).mockResolvedValue([first, second]);
+    renderAdmin();
+    await screen.findByText(first.email);
+    await screen.findByText(second.email);
+
+    expect(screen.getByText('In use 1 / 3')).not.toBeNull();
+    expect(screen.getByText('In use 1 / 2')).not.toBeNull();
+    const firstDetails = screen.getByText(first.email).closest('details') as HTMLDetailsElement;
+    expect(firstDetails.open).toBe(false);
+    expect(screen.getAllByRole('button', { name: 'Set limit' })).toHaveLength(2);
+
+    expandUser(first.email);
+    expect(firstDetails.open).toBe(true);
+    expect(screen.getByText('10.253.1.10')).not.toBeNull();
+    const history = screen.getByText('Disabled / retired (1)');
+    const historyDetails = history.closest('details') as HTMLDetailsElement;
+    expect(historyDetails.open).toBe(false);
+    fireEvent.click(history);
+    expect(historyDetails.open).toBe(true);
+    expect(screen.getByText('10.253.1.99')).not.toBeNull();
+  });
+
   test('clears transient loading status after Search and List users complete', async () => {
     let resolveSearch!: (users: Array<AdminUserSummary>) => void;
     let resolveList!: (users: Array<AdminUserSummary>) => void;
@@ -174,18 +282,23 @@ describe('users, limits, and retirement', () => {
     expect(screen.queryByText('Loading users…')).toBeNull();
   });
 
-  test('renders searchable users with secondary technical identifiers', async () => {
+  test('renders compact user rows and reveals technical identifiers only after expansion', async () => {
     await renderDashboard();
-    expect(screen.getByText('10.253.1.10')).not.toBeNull();
+    expect(screen.getByText('In use 1 / 1')).not.toBeNull();
+    expect((screen.getByText('operator-target@example.test').closest('details') as HTMLDetailsElement).open).toBe(false);
     fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith('target@example.test'));
+    await screen.findByText('operator-target@example.test');
+    expandUser();
+    expect(screen.getByText('10.253.1.10')).not.toBeNull();
     fireEvent.click(await screen.findByText('User details'));
     expect(screen.getByText('user-1')).not.toBeNull();
   });
 
   test('increases 1 to 2 with an explicit empty retirement list', async () => {
     await renderDashboard();
+    expandUser();
     fireEvent.change(screen.getByLabelText('New WireGuard limit for grant grant-1'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
     await waitFor(() => expect(setWireGuardLimit).toHaveBeenCalledWith('grant-1', 2, []));
@@ -198,8 +311,8 @@ describe('users, limits, and retirement', () => {
     ];
     const dialog = await openRetirement(makeUser(3, 3, profiles));
     expect(setWireGuardLimit).not.toHaveBeenCalled();
-    expect(within(dialog).getAllByRole('checkbox')).toHaveLength(4);
-    expect((within(dialog).getByRole('checkbox', { name: /10\.253\.1\.99/ }) as HTMLInputElement).disabled).toBe(true);
+    expect(within(dialog).getAllByRole('checkbox')).toHaveLength(3);
+    expect(within(dialog).queryByText('10.253.1.99')).toBeNull();
     const confirm = within(dialog).getByRole('button', { name: 'Confirm retirement + set limit' });
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /10\.253\.1\.10/ }));
     expect((confirm as HTMLButtonElement).disabled).toBe(true);
@@ -234,6 +347,9 @@ describe('users, limits, and retirement', () => {
     await screen.findByText(/Profile retirement completed for/, {}, { timeout: 5000 });
     expect(screen.queryByText('retirement in progress')).toBeNull();
     expect(screen.getByText('1 / 1')).not.toBeNull();
+    const history = screen.getByText('Disabled / retired (1)');
+    expect((history.closest('details') as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(history);
     expect(screen.getByText('disabled')).not.toBeNull();
     expect((screen.getByRole('button', { name: 'Set limit' }) as HTMLButtonElement).disabled).toBe(false);
     expect(loadUsers).toHaveBeenCalledTimes(3);
@@ -299,6 +415,7 @@ describe('user deletion lifecycle', () => {
     window.dispatchEvent(new Event('resize'));
     await renderDashboard();
     expect(screen.queryByRole('table')).toBeNull();
+    expandUser();
     expect(screen.getByRole('button', { name: 'Set limit' })).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Delete user' })).not.toBeNull();
   });
