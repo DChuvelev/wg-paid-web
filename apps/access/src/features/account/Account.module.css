@@ -203,9 +203,9 @@
 
 .qrDialog {
   position: relative;
-  width: min(100%, 34rem);
-  max-height: calc(100vh - 1.5rem);
-  padding: 3.25rem 1rem 1rem;
+  width: min(calc(100vw - 1rem), 26.25rem);
+  max-height: calc(100dvh - 1rem);
+  padding: 0.75rem;
   overflow: auto;
   border-radius: 0.75rem;
   background: #ffffff;
@@ -238,8 +238,20 @@
 .qrImage {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
+  height: auto;
+  aspect-ratio: 1 / 1;
   object-fit: contain;
+}
+
+.qrStatus {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  padding: 1rem;
+  background: #ffffff;
+  text-align: center;
 }
 
 @media (max-width: 30rem) {
@@ -248,10 +260,22 @@
   }
 
   .summary,
-  .identityCard,
-  .profile {
+  .identityCard {
     padding-right: 0.75rem;
     padding-left: 0.75rem;
+  }
+
+  .profile {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  .email,
+  .identityCard > p,
+  .details,
+  .success,
+  .error {
+    font-size: 1rem;
   }
 
   .nameForm label,

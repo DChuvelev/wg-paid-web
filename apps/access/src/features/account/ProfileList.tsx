@@ -12,6 +12,11 @@ interface ProfileListProps {
   onUnauthorized: (error: unknown) => void;
 }
 
+type QrLoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; src: string }
+  | { status: 'error' };
+
 function localizedStatus(status: string, t: ReturnType<typeof useLocale>['t']) {
   if (status === 'requested') return t('statusRequested');
   if (status === 'provisioning') return t('statusProvisioning');
@@ -88,6 +93,7 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
 export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
   const { t } = useLocale();
   const [selectedQr, setSelectedQr] = useState<{ href: string; label: string } | null>(null);
+  const [qrLoadState, setQrLoadState] = useState<QrLoadState>({ status: 'loading' });
   const qrTriggerRef = useRef<HTMLButtonElement | null>(null);
   const wireGuardProfiles = profiles.filter(({ protocol }) => protocol === 'wireguard');
 
@@ -104,6 +110,35 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [closeQr, selectedQr]);
+
+  useEffect(() => {
+    if (!selectedQr) return;
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setQrLoadState({ status: 'loading' });
+
+    const loadQr = async () => {
+      try {
+        const response = await fetch(selectedQr.href, {
+          credentials: 'same-origin',
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`QR request failed with status ${response.status}`);
+        const svg = await response.text();
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+        setQrLoadState({ status: 'ready', src: objectUrl });
+      } catch {
+        if (!controller.signal.aborted) setQrLoadState({ status: 'error' });
+      }
+    };
+
+    void loadQr();
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedQr]);
 
   if (wireGuardProfiles.length === 0) {
     return <p>{t('noConnections')}</p>;
@@ -134,6 +169,7 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
                   type="button"
                   onClick={(event) => {
                     qrTriggerRef.current = event.currentTarget;
+                    setQrLoadState({ status: 'loading' });
                     setSelectedQr({ href: qrHref, label });
                   }}
                 >
@@ -155,11 +191,17 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
           >
             <button autoFocus aria-label={t('closeQr')} className={styles.qrClose} type="button" onClick={closeQr}>×</button>
             <h2 id="profile-qr-title">{t('qrDialogTitle', { name: selectedQr.label })}</h2>
-            <img
-              alt={t('qrDialogTitle', { name: selectedQr.label })}
-              className={styles.qrImage}
-              src={selectedQr.href}
-            />
+            {qrLoadState.status === 'ready' ? (
+              <img
+                alt={t('qrDialogTitle', { name: selectedQr.label })}
+                className={styles.qrImage}
+                src={qrLoadState.src}
+              />
+            ) : qrLoadState.status === 'error' ? (
+              <p className={`${styles.qrStatus} ${styles.error}`} role="alert">{t('qrLoadFailed')}</p>
+            ) : (
+              <p className={styles.qrStatus} role="status">{t('qrLoading')}</p>
+            )}
           </section>
         </div>
       ) : null}

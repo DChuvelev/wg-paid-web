@@ -48,8 +48,22 @@ const profiles: Array<ProfileSummary> = [
   { access_grant_id: 'grant-1', created_at: '2026-01-01T00:00:00Z', id: 'other-1', label: 'Other', protocol: 'future', status: 'active', tunnel_ip: null, updated_at: '2026-01-01T00:00:00Z' }
 ];
 
+const qrSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 0h100v100H0z"/></svg>';
+const fetchMock = vi.fn<typeof fetch>();
+const createObjectUrlMock = vi.fn<(blob: Blob) => string>();
+const revokeObjectUrlMock = vi.fn<(url: string) => void>();
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal('fetch', fetchMock);
+  fetchMock.mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => qrSvg
+  } as Response);
+  createObjectUrlMock.mockReturnValue('blob:profile-qr');
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectUrlMock });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrlMock });
   vi.mocked(loadAccount).mockResolvedValue(account);
   vi.mocked(loadProfiles).mockResolvedValue(profiles);
   vi.mocked(createProfile).mockResolvedValue();
@@ -91,21 +105,48 @@ test('opens the profile QR in a page dialog and closes it without navigation', a
   const showQr = await screen.findByRole('button', { name: 'Show QR' });
 
   fireEvent.click(showQr);
-  expect(screen.getByRole('dialog', { name: 'QR code for WireGuard connection 1' })).toBeTruthy();
-  expect(screen.getByRole('img', { name: 'QR code for WireGuard connection 1' }).getAttribute('src')).toBe('/v2/account/profiles/active-1/qr.svg');
+  const dialog = screen.getByRole('dialog', { name: 'QR code for WireGuard connection 1' });
+  expect(screen.getByText('Loading QR code…')).toBeTruthy();
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+    '/v2/account/profiles/active-1/qr.svg',
+    expect.objectContaining({ credentials: 'same-origin' })
+  ));
+  const image = await screen.findByRole('img', { name: 'QR code for WireGuard connection 1' });
+  expect(image.getAttribute('src')).toBe('blob:profile-qr');
+  expect(createObjectUrlMock).toHaveBeenCalledTimes(1);
+  expect(createObjectUrlMock.mock.calls[0]![0].type).toBe('image/svg+xml');
   expect(screen.getByTestId('location').textContent).toBe('/account');
+  fireEvent.click(dialog);
+  expect(screen.getByRole('dialog')).toBeTruthy();
 
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(showQr);
+  expect(revokeObjectUrlMock).toHaveBeenCalledWith('blob:profile-qr');
 
   fireEvent.click(showQr);
+  await screen.findByRole('img', { name: 'QR code for WireGuard connection 1' });
   fireEvent.click(screen.getByRole('button', { name: 'Close QR code' }));
   expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(showQr);
 
   fireEvent.click(showQr);
+  await screen.findByRole('img', { name: 'QR code for WireGuard connection 1' });
   fireEvent.click(screen.getByRole('dialog').parentElement!);
   expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(showQr);
+});
+
+test('shows a localized QR error without rendering a broken image', async () => {
+  fetchMock.mockResolvedValueOnce({ ok: false, status: 503, text: async () => '' } as Response);
+  renderApp('/account');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Show QR' }));
+
+  expect((await screen.findByRole('alert')).textContent).toBe('Unable to load the QR code.');
+  expect(screen.queryByRole('img', { name: 'QR code for WireGuard connection 1' })).toBeNull();
+  expect(createObjectUrlMock).not.toHaveBeenCalled();
+  expect(screen.getByTestId('location').textContent).toBe('/account');
 });
 
 test('hides add connection when backend can_create is false', async () => {
