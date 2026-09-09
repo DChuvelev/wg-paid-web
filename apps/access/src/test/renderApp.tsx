@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { App } from '../App';
+import { localeStorageKey } from '../i18n/localeContext';
 
 function LocationProbe() {
   const location = useLocation();
@@ -11,6 +12,7 @@ function LocationProbe() {
 }
 
 export function renderApp(route: string, options: { strict?: boolean } = {}) {
+  window.localStorage.setItem(localeStorageKey, 'en');
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },

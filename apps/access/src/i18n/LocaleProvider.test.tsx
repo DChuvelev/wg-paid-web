@@ -25,22 +25,28 @@ afterEach(() => {
   if (originalLanguages) Object.defineProperty(navigator, 'languages', originalLanguages);
 });
 
-test('uses Russian for a first Russian browser visit', () => {
-  setLanguages(['ru-RU', 'en-US']);
+test('uses Russian for a fresh visit regardless of browser language', () => {
+  setLanguages(['en-US', 'de-DE']);
   render(<LocaleProvider><Probe /></LocaleProvider>);
   expect(screen.getByText('ru')).not.toBeNull();
   expect(screen.getByText('Войти')).not.toBeNull();
 });
 
-test('uses English for a first non-Russian browser visit', () => {
-  setLanguages(['de-DE']);
+test('honors a saved English preference', () => {
+  window.localStorage.setItem(localeStorageKey, 'en');
   render(<LocaleProvider><Probe /></LocaleProvider>);
   expect(screen.getByText('en')).not.toBeNull();
   expect(screen.getByText('Sign in')).not.toBeNull();
 });
 
-test('explicit language selection overrides detection and persists', () => {
-  setLanguages(['ru-RU']);
+test('honors a saved Russian preference', () => {
+  window.localStorage.setItem(localeStorageKey, 'ru');
+  render(<LocaleProvider><Probe /></LocaleProvider>);
+  expect(screen.getByText('ru')).not.toBeNull();
+  expect(screen.getByText('Войти')).not.toBeNull();
+});
+
+test('explicit language selection persists', () => {
   const first = render(<LocaleProvider><Probe /></LocaleProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'EN' }));
   expect(window.localStorage.getItem(localeStorageKey)).toBe('en');

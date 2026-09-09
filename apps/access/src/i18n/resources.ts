@@ -1,5 +1,6 @@
 const en = {
   language: 'Language',
+  productName: 'Secret Studio',
   signIn: 'Sign in',
   signInDescription: 'Enter your email address to request a sign-in link.',
   email: 'Email',
@@ -41,6 +42,8 @@ const en = {
   profileId: 'Profile ID: {{id}}',
   downloadConfig: 'Download config',
   showQr: 'Show QR',
+  qrDialogTitle: 'QR code for {{name}}',
+  closeQr: 'Close QR code',
   addName: 'Add name',
   editName: 'Edit name',
   connectionName: 'Connection name',
@@ -71,6 +74,7 @@ type TranslationKey = keyof typeof en;
 
 const ru: Record<TranslationKey, string> = {
   language: 'Язык',
+  productName: 'Секретная студия',
   signIn: 'Войти',
   signInDescription: 'Введите адрес электронной почты, чтобы получить ссылку для входа.',
   email: 'Электронная почта',
@@ -112,6 +116,8 @@ const ru: Record<TranslationKey, string> = {
   profileId: 'ID профиля: {{id}}',
   downloadConfig: 'Скачать конфигурацию',
   showQr: 'Показать QR-код',
+  qrDialogTitle: 'QR-код: {{name}}',
+  closeQr: 'Закрыть QR-код',
   addName: 'Добавить имя',
   editName: 'Изменить имя',
   connectionName: 'Имя подключения',

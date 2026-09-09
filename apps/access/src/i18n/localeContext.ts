@@ -18,8 +18,7 @@ export function detectInitialLocale(): Locale {
   } catch {
     // Storage may be unavailable in a restricted browser context.
   }
-  const preferred = navigator.languages?.[0] ?? navigator.language;
-  return preferred?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  return 'ru';
 }
 
 export function useLocale() {

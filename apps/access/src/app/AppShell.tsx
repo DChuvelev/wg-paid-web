@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { productName } from '@wg-paid/common';
 import { useLocale } from '../i18n/localeContext';
 import styles from './AppShell.module.css';
 
@@ -15,7 +14,7 @@ export function AppShell({ children, description, title }: AppShellProps) {
     <main className={styles.page}>
       <section className={styles.panel}>
         <div className={styles.topLine}>
-          <p className={styles.brand}>{productName}</p>
+          <p className={styles.brand}>{t('productName')}</p>
           <div className={styles.languageSwitch} role="group" aria-label={t('language')}>
             <button type="button" aria-pressed={locale === 'ru'} onClick={() => setLocale('ru')}>RU</button>
             <span aria-hidden="true">|</span>

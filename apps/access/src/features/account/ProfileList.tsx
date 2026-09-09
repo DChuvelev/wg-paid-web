@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ProfileSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
@@ -87,14 +87,31 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
 
 export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
   const { t } = useLocale();
+  const [selectedQr, setSelectedQr] = useState<{ href: string; label: string } | null>(null);
+  const qrTriggerRef = useRef<HTMLButtonElement | null>(null);
   const wireGuardProfiles = profiles.filter(({ protocol }) => protocol === 'wireguard');
+
+  const closeQr = useCallback(() => {
+    qrTriggerRef.current?.focus();
+    setSelectedQr(null);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedQr) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeQr();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [closeQr, selectedQr]);
 
   if (wireGuardProfiles.length === 0) {
     return <p>{t('noConnections')}</p>;
   }
 
   return (
-    <ul className={styles.profiles}>
+    <>
+      <ul className={styles.profiles}>
       {wireGuardProfiles.map((profile, index) => {
         const label = profile.label || t('defaultConnectionName', { number: index + 1 });
         const configHref = `/v2/account/profiles/${encodeURIComponent(profile.id)}/config`;
@@ -112,12 +129,40 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
             {profile.status === 'active' ? (
               <div className={styles.actions}>
                 <a className={styles.linkButton} href={configHref}>{t('downloadConfig')}</a>
-                <a className={styles.linkButton} href={qrHref} target="_blank" rel="noreferrer">{t('showQr')}</a>
+                <button
+                  className={styles.linkButton}
+                  type="button"
+                  onClick={(event) => {
+                    qrTriggerRef.current = event.currentTarget;
+                    setSelectedQr({ href: qrHref, label });
+                  }}
+                >
+                  {t('showQr')}
+                </button>
               </div>
             ) : null}
           </li>
         );
       })}
-    </ul>
+      </ul>
+      {selectedQr ? (
+        <div className={styles.qrOverlay} onClick={(event) => { if (event.target === event.currentTarget) closeQr(); }}>
+          <section
+            aria-labelledby="profile-qr-title"
+            aria-modal="true"
+            className={styles.qrDialog}
+            role="dialog"
+          >
+            <button autoFocus aria-label={t('closeQr')} className={styles.qrClose} type="button" onClick={closeQr}>×</button>
+            <h2 id="profile-qr-title">{t('qrDialogTitle', { name: selectedQr.label })}</h2>
+            <img
+              alt={t('qrDialogTitle', { name: selectedQr.label })}
+              className={styles.qrImage}
+              src={selectedQr.href}
+            />
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }

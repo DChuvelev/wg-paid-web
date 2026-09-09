@@ -73,16 +73,39 @@ test('renders quota, stable profile details, config/QR, and no user retirement a
   renderApp('/account');
 
   await screen.findByText('WireGuard connections: 2 / 3');
+  expect(screen.getByText('Secret Studio')).toBeTruthy();
   expect(screen.getByText('WireGuard connection 1')).toBeTruthy();
   expect(screen.getByText('Laptop')).toBeTruthy();
   expect(screen.queryByText('Other')).toBeNull();
   expect(screen.getByRole('link', { name: 'Download config' }).getAttribute('href')).toBe('/v2/account/profiles/active-1/config');
-  expect(screen.getByRole('link', { name: 'Show QR' }).getAttribute('href')).toBe('/v2/account/profiles/active-1/qr.svg');
+  expect(screen.queryByRole('link', { name: 'Show QR' })).toBeNull();
   expect(screen.queryByRole('button', { name: /disable|revoke/i })).toBeNull();
   expect(screen.queryByRole('button', { name: /reissue/i })).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: 'Add connection' }));
   await waitFor(() => expect(vi.mocked(createProfile)).toHaveBeenCalledWith('grant-1'));
+});
+
+test('opens the profile QR in a page dialog and closes it without navigation', async () => {
+  renderApp('/account');
+  const showQr = await screen.findByRole('button', { name: 'Show QR' });
+
+  fireEvent.click(showQr);
+  expect(screen.getByRole('dialog', { name: 'QR code for WireGuard connection 1' })).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'QR code for WireGuard connection 1' }).getAttribute('src')).toBe('/v2/account/profiles/active-1/qr.svg');
+  expect(screen.getByTestId('location').textContent).toBe('/account');
+
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(showQr);
+
+  fireEvent.click(showQr);
+  fireEvent.click(screen.getByRole('button', { name: 'Close QR code' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+
+  fireEvent.click(showQr);
+  fireEvent.click(screen.getByRole('dialog').parentElement!);
+  expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 test('hides add connection when backend can_create is false', async () => {
