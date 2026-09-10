@@ -37,6 +37,26 @@ export type AccountMetadataUpdateRequest = {
 };
 
 /**
+ * AdminInviteLimitUpdateRequest
+ */
+export type AdminInviteLimitUpdateRequest = {
+    /**
+     * Profile Limit
+     */
+    profile_limit: number;
+};
+
+/**
+ * AdminInviteRecipientUpdateRequest
+ */
+export type AdminInviteRecipientUpdateRequest = {
+    /**
+     * Email
+     */
+    email?: string | null;
+};
+
+/**
  * AdminInviteRequest
  */
 export type AdminInviteRequest = {
@@ -48,6 +68,10 @@ export type AdminInviteRequest = {
      * Plan Id
      */
     plan_id: string;
+    /**
+     * Wireguard Profile Limit
+     */
+    wireguard_profile_limit?: number | null;
 };
 
 /**
@@ -66,6 +90,18 @@ export type AdminInviteResponse = {
      * Expires At
      */
     expires_at: string | null;
+    /**
+     * Intended Email
+     */
+    intended_email: string | null;
+    /**
+     * Wireguard Profile Limit
+     */
+    wireguard_profile_limit: number;
+    /**
+     * Email Sent
+     */
+    email_sent: boolean;
 };
 
 /**
@@ -81,9 +117,17 @@ export type AdminInviteSummary = {
      */
     intended_email: string | null;
     /**
+     * Pending Email
+     */
+    pending_email: string | null;
+    /**
      * Plan Id
      */
     plan_id: string | null;
+    /**
+     * Wireguard Profile Limit
+     */
+    wireguard_profile_limit: number;
     /**
      * Max Uses
      */
@@ -119,7 +163,31 @@ export type AdminInviteSummary = {
     /**
      * State
      */
-    state: string;
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    /**
+     * Magic Link Sent At
+     */
+    magic_link_sent_at: string | null;
+    /**
+     * Magic Link Expires At
+     */
+    magic_link_expires_at: string | null;
+    /**
+     * Resend Available At
+     */
+    resend_available_at: string | null;
+    /**
+     * Can Resend
+     */
+    can_resend: boolean;
+    /**
+     * Can Change Email
+     */
+    can_change_email: boolean;
+    /**
+     * Can Revoke
+     */
+    can_revoke: boolean;
 };
 
 /**
@@ -757,6 +825,20 @@ export type HttpValidationError = {
 };
 
 /**
+ * InviteChangeEmailRequest
+ */
+export type InviteChangeEmailRequest = {
+    /**
+     * Invite Token
+     */
+    invite_token: string;
+    /**
+     * Email
+     */
+    email: string;
+};
+
+/**
  * InviteCreateRequest
  */
 export type InviteCreateRequest = {
@@ -771,6 +853,54 @@ export type InviteCreateRequest = {
 };
 
 /**
+ * InviteInspectRequest
+ */
+export type InviteInspectRequest = {
+    /**
+     * Invite Token
+     */
+    invite_token: string;
+};
+
+/**
+ * InviteInspectResponse
+ */
+export type InviteInspectResponse = {
+    /**
+     * State
+     */
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    /**
+     * Email Bound
+     */
+    email_bound: boolean;
+    /**
+     * Pending Email Masked
+     */
+    pending_email_masked: string | null;
+    /**
+     * Magic Link Sent At
+     */
+    magic_link_sent_at: string | null;
+    /**
+     * Magic Link Expires At
+     */
+    magic_link_expires_at: string | null;
+    /**
+     * Resend Available At
+     */
+    resend_available_at: string | null;
+    /**
+     * Can Resend
+     */
+    can_resend: boolean;
+    /**
+     * Can Change Email
+     */
+    can_change_email: boolean;
+};
+
+/**
  * InviteRedeemRequest
  */
 export type InviteRedeemRequest = {
@@ -782,6 +912,16 @@ export type InviteRedeemRequest = {
      * Email
      */
     email: string;
+};
+
+/**
+ * InviteResendRequest
+ */
+export type InviteResendRequest = {
+    /**
+     * Invite Token
+     */
+    invite_token: string;
 };
 
 /**
@@ -1796,6 +1936,77 @@ export type RedeemInviteRouteV2AuthInvitesRedeemPostResponses = {
     202: unknown;
 };
 
+export type InspectInviteRouteV2AuthInvitesInspectPostData = {
+    body: InviteInspectRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/inspect';
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostError = InspectInviteRouteV2AuthInvitesInspectPostErrors[keyof InspectInviteRouteV2AuthInvitesInspectPostErrors];
+
+export type InspectInviteRouteV2AuthInvitesInspectPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: InviteInspectResponse;
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostResponse = InspectInviteRouteV2AuthInvitesInspectPostResponses[keyof InspectInviteRouteV2AuthInvitesInspectPostResponses];
+
+export type ResendInviteRouteV2AuthInvitesResendPostData = {
+    body: InviteResendRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/resend';
+};
+
+export type ResendInviteRouteV2AuthInvitesResendPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResendInviteRouteV2AuthInvitesResendPostError = ResendInviteRouteV2AuthInvitesResendPostErrors[keyof ResendInviteRouteV2AuthInvitesResendPostErrors];
+
+export type ResendInviteRouteV2AuthInvitesResendPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostData = {
+    body: InviteChangeEmailRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/change-email';
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostError = ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors[keyof ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors];
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
 export type LoginRequestV2AuthLoginRequestPostData = {
     body: LoginRequest;
     path?: never;
@@ -2087,6 +2298,114 @@ export type AdminListPlansV2AdminPlansGetResponses = {
 };
 
 export type AdminListPlansV2AdminPlansGetResponse = AdminListPlansV2AdminPlansGetResponses[keyof AdminListPlansV2AdminPlansGetResponses];
+
+export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchData = {
+    body: AdminInviteRecipientUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/invites/{invite_id}/recipient';
+};
+
+export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchError = AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchErrors[keyof AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchErrors];
+
+export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminInviteSummary;
+};
+
+export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponse = AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses[keyof AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses];
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchData = {
+    body: AdminInviteLimitUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/invites/{invite_id}/wireguard-limit';
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchError = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors];
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminInviteSummary;
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponse = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses];
+
+export type AdminResendInviteV2AdminInvitesInviteIdResendPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/invites/{invite_id}/resend';
+};
+
+export type AdminResendInviteV2AdminInvitesInviteIdResendPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminResendInviteV2AdminInvitesInviteIdResendPostError = AdminResendInviteV2AdminInvitesInviteIdResendPostErrors[keyof AdminResendInviteV2AdminInvitesInviteIdResendPostErrors];
+
+export type AdminResendInviteV2AdminInvitesInviteIdResendPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminInviteSummary;
+};
+
+export type AdminResendInviteV2AdminInvitesInviteIdResendPostResponse = AdminResendInviteV2AdminInvitesInviteIdResendPostResponses[keyof AdminResendInviteV2AdminInvitesInviteIdResendPostResponses];
 
 export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostData = {
     body?: never;

@@ -44,10 +44,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
       .toThrow(/Pinned OpenAPI verification failed/);
   });
 
-  test('pins the accepted account/profile/admin metadata and server-sort boundary', async () => {
+  test('pins the accepted account/profile/admin metadata, invite lifecycle, and server-sort boundary', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 41, schemas: 43 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 47, schemas: 49 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
@@ -56,6 +56,20 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[1]).toEqual({ type: 'null' });
     expect(schemas.ProfileLabelUpdateRequest.properties.label.anyOf[0].maxLength).toBe(160);
     expect(schemas.AdminUserMetadataUpdateRequest.properties.admin_note.anyOf[0].maxLength).toBe(4000);
+    expect(schemas.InviteInspectResponse.properties.state.enum).toEqual([
+      'active', 'awaiting_confirmation', 'used', 'revoked', 'expired'
+    ]);
+    expect(schemas.AdminInviteSummary.required).toContain('wireguard_profile_limit');
+    expect(schemas.AdminInviteSummary.required).toContain('can_resend');
+    expect(schemas.AdminInviteSummary.required).toContain('can_change_email');
+    expect(schemas.AdminInviteSummary.required).toContain('can_revoke');
+    expect(schemas.AdminInviteRequest.properties.wireguard_profile_limit.anyOf[0].minimum).toBe(0);
+    expect(schemas.AdminInviteLimitUpdateRequest.properties.profile_limit.minimum).toBe(0);
+    expect(document.paths).toHaveProperty('/v2/auth/invites/inspect');
+    expect(document.paths).toHaveProperty('/v2/auth/invites/resend');
+    expect(document.paths).toHaveProperty('/v2/auth/invites/change-email');
+    expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
+    expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
 
     const query = document.paths['/v2/admin/users'].get.parameters;
     expect(query.find((parameter) => parameter.name === 'limit').schema).toMatchObject({ default: 100, type: 'integer' });

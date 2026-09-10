@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const sdk = vi.hoisted(() => ({
   createInvite: vi.fn(), deleteUser: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
-  login: vi.fn(), logout: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(), updateUser: vi.fn()
+  login: vi.fn(), logout: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
+  updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -11,15 +12,25 @@ vi.mock('@wg-paid/api', () => ({
   adminListInvitesV2AdminInvitesGet: sdk.listInvites,
   adminListPlansV2AdminPlansGet: sdk.listPlans,
   adminListUsersV2AdminUsersGet: sdk.listUsers,
+  adminResendInviteV2AdminInvitesInviteIdResendPost: sdk.resendInvite,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost: sdk.revokeInvite,
   adminSessionLoginV2AdminSessionLoginPost: sdk.login,
   adminSessionLogoutV2AdminSessionLogoutPost: sdk.logout,
   adminSessionStatusV2AdminSessionGet: sdk.session,
   adminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPut: sdk.setLimit,
+  adminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatch: sdk.updateInviteRecipient,
+  adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch: sdk.updateInviteLimit,
   adminUpdateUserMetadataV2AdminUsersUserIdPatch: sdk.updateUser
 }));
 
-import { getAdminCsrfHeaders, loadUsers, updateAdminNote } from './adminApi';
+import {
+  getAdminCsrfHeaders,
+  loadUsers,
+  resendAdminInvite,
+  updateAdminNote,
+  updateInviteRecipient,
+  updateInviteWireGuardLimit
+} from './adminApi';
 
 afterEach(() => {
   document.cookie = 'wg_admin_csrf=; Max-Age=0; Path=/';
@@ -58,5 +69,22 @@ describe('admin CSRF cookie handling', () => {
       headers: { 'x-admin-csrf-token': 'csrf value' },
       path: { user_id: 'user-1' }
     }));
+  });
+
+  test('maps invite lifecycle mutations to generated operations with CSRF', async () => {
+    document.cookie = 'wg_admin_csrf=csrf-value; Path=/';
+    const response = { invite_id: 'invite-1' };
+    sdk.resendInvite.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+    sdk.updateInviteRecipient.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+    sdk.updateInviteLimit.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+
+    await resendAdminInvite('invite-1');
+    await updateInviteRecipient('invite-1', null);
+    await updateInviteWireGuardLimit('invite-1', 0);
+
+    const shared = { credentials: 'same-origin', headers: { 'x-admin-csrf-token': 'csrf-value' }, path: { invite_id: 'invite-1' } };
+    expect(sdk.resendInvite).toHaveBeenCalledWith(shared);
+    expect(sdk.updateInviteRecipient).toHaveBeenCalledWith({ ...shared, body: { email: null } });
+    expect(sdk.updateInviteLimit).toHaveBeenCalledWith({ ...shared, body: { profile_limit: 0 } });
   });
 });

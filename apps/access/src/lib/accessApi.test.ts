@@ -3,13 +3,16 @@ import { afterEach, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   accountMe: vi.fn(),
   accountMeUpdate: vi.fn(),
+  changeInviteEmail: vi.fn(),
   consumeMagic: vi.fn(),
   createProfile: vi.fn(),
+  inspectInvite: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   profiles: vi.fn(),
   profileUpdate: vi.fn(),
-  redeemInvite: vi.fn()
+  redeemInvite: vi.fn(),
+  resendInvite: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -18,13 +21,16 @@ vi.mock('@wg-paid/api', () => ({
   accountProfileCreateV2AccountProfilesPost: sdk.createProfile,
   accountProfilesV2AccountProfilesGet: sdk.profiles,
   accountProfileUpdateLabelV2AccountProfilesProfileIdPatch: sdk.profileUpdate,
+  changeInviteEmailRouteV2AuthInvitesChangeEmailPost: sdk.changeInviteEmail,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
+  inspectInviteRouteV2AuthInvitesInspectPost: sdk.inspectInvite,
   loginRequestV2AuthLoginRequestPost: sdk.login,
   logoutV2AuthLogoutPost: sdk.logout,
-  redeemInviteRouteV2AuthInvitesRedeemPost: sdk.redeemInvite
+  redeemInviteRouteV2AuthInvitesRedeemPost: sdk.redeemInvite,
+  resendInviteRouteV2AuthInvitesResendPost: sdk.resendInvite
 }));
 
-import { createProfile, updateDisplayName, updateProfileLabel } from './accessApi';
+import { AccessApiError, changeInviteEmail, createProfile, inspectInvite, resendInvite, updateDisplayName, updateProfileLabel } from './accessApi';
 
 afterEach(() => {
   document.cookie = 'wg_access_csrf=; Max-Age=0; Path=/';
@@ -65,5 +71,40 @@ test('sends nullable account and profile metadata through their generated PATCH 
     body: { label: null },
     headers: { 'x-csrf-token': 'csrf value' },
     path: { profile_id: 'profile-1' }
+  }));
+});
+
+test('uses generated invite lifecycle operations with same-origin credentials and CSRF on mutations', async () => {
+  document.cookie = 'wg_access_csrf=csrf-value; Path=/';
+  const inspected = {
+    can_change_email: true, can_resend: false, email_bound: false,
+    magic_link_expires_at: null, magic_link_sent_at: null, pending_email_masked: 'p***@example.test',
+    resend_available_at: null, state: 'awaiting_confirmation'
+  };
+  sdk.inspectInvite.mockResolvedValue({ data: inspected, response: new Response(null, { status: 200 }) });
+  sdk.resendInvite.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+  sdk.changeInviteEmail.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+
+  await expect(inspectInvite('invite-token')).resolves.toEqual(inspected);
+  await expect(resendInvite('invite-token')).resolves.toBeUndefined();
+  await expect(changeInviteEmail('invite-token', 'person@example.test')).resolves.toBeUndefined();
+
+  expect(sdk.inspectInvite).toHaveBeenCalledWith({ body: { invite_token: 'invite-token' }, credentials: 'same-origin' });
+  expect(sdk.resendInvite).toHaveBeenCalledWith(expect.objectContaining({
+    body: { invite_token: 'invite-token' }, credentials: 'same-origin', headers: { 'x-csrf-token': 'csrf-value' }
+  }));
+  expect(sdk.changeInviteEmail).toHaveBeenCalledWith(expect.objectContaining({
+    body: { email: 'person@example.test', invite_token: 'invite-token' }, headers: { 'x-csrf-token': 'csrf-value' }
+  }));
+});
+
+test('preserves Retry-After from an invite resend cooldown response', async () => {
+  sdk.resendInvite.mockResolvedValue({
+    response: new Response(null, { headers: { 'Retry-After': '37' }, status: 429 })
+  });
+
+  await expect(resendInvite('invite-token')).rejects.toEqual(expect.objectContaining<Partial<AccessApiError>>({
+    retryAfterSeconds: 37,
+    status: 429
   }));
 });

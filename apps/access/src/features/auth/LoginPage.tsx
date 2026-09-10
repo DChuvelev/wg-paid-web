@@ -16,6 +16,7 @@ export function LoginPage() {
   const { t } = useLocale();
   const navigate = useNavigate();
   const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
+  const [sentEmail, setSentEmail] = useState<string | null>(null);
   const sessionQuery = useQuery({ queryKey: ['access', 'account'], queryFn: loadAccount, retry: false });
   const { formState, handleSubmit, register } = useForm<LoginFormValues>();
 
@@ -29,9 +30,11 @@ export function LoginPage() {
     setMessageKey(null);
     try {
       const status = await requestLogin(email);
-      setMessageKey(status === 202
-        ? 'loginAccepted'
-        : status === 404
+      if (status === 202) {
+        setSentEmail(email);
+        return;
+      }
+      setMessageKey(status === 404
           ? 'signInInactive'
           : status === 429
             ? 'tryAgainLater'
@@ -43,7 +46,7 @@ export function LoginPage() {
 
   return (
     <AppShell title={t('signIn')} description={t('signInDescription')}>
-      <form className={styles.form} onSubmit={submit}>
+      {!sentEmail ? <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
           {t('email')}
           <input
@@ -57,7 +60,13 @@ export function LoginPage() {
         <button className={styles.button} type="submit" disabled={formState.isSubmitting}>
           {t('sendSignInLink')}
         </button>
-      </form>
+      </form> : (
+        <section className={styles.pendingPanel} aria-labelledby="login-mail-sent">
+          <h2 id="login-mail-sent">{t('loginMailSent')}</h2>
+          <p>{t('loginMailSentTo', { email: sentEmail })}</p>
+          <p>{t('checkInboxSpam')}</p>
+        </section>
+      )}
       {messageKey ? <p className={styles.message} role="status">{t(messageKey)}</p> : null}
       <Link className={styles.link} to="/invite">{t('registerWithInvitation')}</Link>
     </AppShell>

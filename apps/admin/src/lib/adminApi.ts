@@ -4,11 +4,14 @@ import {
   adminListInvitesV2AdminInvitesGet,
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
+  adminResendInviteV2AdminInvitesInviteIdResendPost,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost,
   adminSessionLoginV2AdminSessionLoginPost,
   adminSessionLogoutV2AdminSessionLogoutPost,
   adminSessionStatusV2AdminSessionGet,
   adminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPut,
+  adminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatch,
+  adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch,
   adminUpdateUserMetadataV2AdminUsersUserIdPatch,
   type AdminInviteRequest,
   type AdminInviteResponse,
@@ -112,6 +115,29 @@ export async function revokeInvite(inviteId: string): Promise<AdminInviteSummary
     ...mutationOptions(),
     path: { invite_id: inviteId }
   }), 'Unable to revoke invite.');
+}
+
+export async function resendAdminInvite(inviteId: string): Promise<AdminInviteSummary> {
+  return requireData(await adminResendInviteV2AdminInvitesInviteIdResendPost({
+    ...mutationOptions(),
+    path: { invite_id: inviteId }
+  }), 'Unable to resend the registration email.');
+}
+
+export async function updateInviteRecipient(inviteId: string, email: string | null): Promise<AdminInviteSummary> {
+  return requireData(await adminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatch({
+    ...mutationOptions(),
+    body: { email },
+    path: { invite_id: inviteId }
+  }), 'Unable to change the invite recipient.');
+}
+
+export async function updateInviteWireGuardLimit(inviteId: string, profileLimit: number): Promise<AdminInviteSummary> {
+  return requireData(await adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch({
+    ...mutationOptions(),
+    body: { profile_limit: profileLimit },
+    path: { invite_id: inviteId }
+  }), 'Unable to change the invite WireGuard limit.');
 }
 
 type AdminUserListQuery = NonNullable<AdminListUsersV2AdminUsersGetData['query']>;

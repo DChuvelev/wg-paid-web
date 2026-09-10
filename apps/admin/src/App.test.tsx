@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
   AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadUsers,
-  loginAdmin, logoutAdmin, revokeInvite, setWireGuardLimit, updateAdminNote
+  loginAdmin, logoutAdmin, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
+  updateInviteRecipient, updateInviteWireGuardLimit
 } from './lib/adminApi';
 
 vi.mock('./lib/adminApi', async (importOriginal) => {
@@ -14,7 +15,8 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
     ...actual,
     checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
     loadPlans: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
-    revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn()
+    resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
+    updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn()
   };
 });
 
@@ -22,21 +24,27 @@ const plan = {
   active: true, code: 'standard', default_amneziawg_limit: 0, default_wireguard_limit: 2,
   display_name: 'Standard', id: 'plan-1'
 };
-const invite = {
+const invite: AdminInviteSummary = {
+  can_change_email: true, can_resend: true, can_revoke: true,
   created_by_kind: 'admin_secret', created_by_label: 'Admin', created_by_user_id: null,
   created_at: '2026-01-01T00:00:00Z', expires_at: '2026-02-01T00:00:00Z',
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
-  revoked_at: null, state: 'active', used_count: 0
+  magic_link_expires_at: null, magic_link_sent_at: null, pending_email: null,
+  resend_available_at: null, revoked_at: null, state: 'active', used_count: 0, wireguard_profile_limit: 2
 };
 
-function makeInvite(inviteId: string, state: string, intendedEmail: string): AdminInviteSummary {
+function makeInvite(inviteId: string, state: AdminInviteSummary['state'], intendedEmail: string): AdminInviteSummary {
   return {
     ...invite,
+    can_change_email: state === 'active' || state === 'awaiting_confirmation',
+    can_resend: state === 'awaiting_confirmation',
+    can_revoke: state === 'active' || state === 'awaiting_confirmation',
     intended_email: intendedEmail,
     invite_id: inviteId,
+    pending_email: state === 'awaiting_confirmation' ? intendedEmail : null,
     revoked_at: state === 'revoked' ? '2026-01-02T00:00:00Z' : null,
     state,
-    used_count: state === 'redeemed' ? 1 : 0
+    used_count: state === 'used' ? 1 : 0
   };
 }
 
@@ -119,8 +127,14 @@ beforeEach(() => {
   vi.mocked(loadPlans).mockResolvedValue([plan]);
   vi.mocked(loadInvites).mockResolvedValue([invite]);
   vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
-  vi.mocked(createInvite).mockResolvedValue({ expires_at: null, invite_id: 'invite-new', invite_token: 'secret-invite-token' });
-  vi.mocked(revokeInvite).mockResolvedValue({ ...invite, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
+  vi.mocked(createInvite).mockResolvedValue({
+    email_sent: false, expires_at: null, intended_email: null, invite_id: 'invite-new',
+    invite_token: 'secret-invite-token', wireguard_profile_limit: 2
+  });
+  vi.mocked(resendAdminInvite).mockResolvedValue({ ...invite, state: 'awaiting_confirmation' });
+  vi.mocked(revokeInvite).mockResolvedValue({ ...invite, can_change_email: false, can_resend: false, can_revoke: false, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
+  vi.mocked(updateInviteRecipient).mockImplementation(async (_inviteId, recipient) => ({ ...invite, intended_email: recipient, pending_email: recipient, state: recipient ? 'awaiting_confirmation' : 'active' }));
+  vi.mocked(updateInviteWireGuardLimit).mockImplementation(async (_inviteId, profileLimit) => ({ ...invite, wireguard_profile_limit: profileLimit }));
   vi.mocked(setWireGuardLimit).mockResolvedValue(limitResponse());
   vi.mocked(deleteUser).mockResolvedValue(deleteResponse('deleted'));
   vi.mocked(updateAdminNote).mockImplementation(async (userId, adminNote) => ({
@@ -160,74 +174,136 @@ describe('admin session and invites', () => {
     await screen.findByText('Invalid admin secret.');
   });
 
-  test('creates an invite URL and revokes an active invite through confirmation', async () => {
+  test('initializes the WireGuard snapshot from the selected plan and sends it explicitly', async () => {
     await renderDashboard();
     const createButton = screen.getByRole('button', { name: 'Create invite' });
     await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('2');
     fireEvent.click(createButton);
-    await screen.findByText('Invite created.');
-    expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: 'plan-1' });
+    await screen.findByText('Transferable invite created. Copy its registration URL for manual delivery.');
+    expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: 'plan-1', wireguard_profile_limit: 2 });
     expect(screen.getByText('https://access.secret-studio.ru/invite#token=secret-invite-token')).not.toBeNull();
+  });
+
+  test('resets the pending WireGuard snapshot to a newly selected plan default', async () => {
+    vi.mocked(loadPlans).mockResolvedValue([plan, { ...plan, code: 'zero', default_wireguard_limit: 0, display_name: 'Zero', id: 'plan-2' }]);
+    await renderDashboard();
+    fireEvent.change(screen.getByLabelText('Number of WireGuard connections'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'plan-2' } });
+    expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('0');
+  });
+
+  test('email mode reports confirmed delivery and never exposes its raw invite URL', async () => {
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: true, expires_at: null, intended_email: 'direct@example.test', invite_id: 'invite-direct',
+      invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
+    });
+    await renderDashboard();
+    fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'direct@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+
+    expect((await screen.findAllByText('Invite created; registration email sent to direct@example.test.')).length).toBeGreaterThan(0);
+    expect(createInvite).toHaveBeenCalledWith({ intended_email: 'direct@example.test', plan_id: 'plan-1', wireguard_profile_limit: 2 });
+    expect(document.body.textContent).not.toContain('must-not-be-visible');
+    expect(screen.queryByRole('button', { name: 'Copy invite invite-direct' })).toBeNull();
+  });
+
+  test('email mode keeps an undelivered invite visible and actionable without claiming success', async () => {
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: false, expires_at: null, intended_email: 'retry@example.test', invite_id: 'invite-retry',
+      invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
+    });
+    await renderDashboard();
+    fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'retry@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+
+    await screen.findByText('Invite exists, but delivery to retry@example.test was not confirmed. Use the operational invite actions below.');
+    expect(screen.queryByText(/email sent to retry@example.test/i)).toBeNull();
+    expect(screen.getByText('invite-retry')).not.toBeNull();
+    expect(document.body.textContent).not.toContain('must-not-be-visible');
+  });
+
+  test('awaiting confirmation stays operational while only terminal states enter Archive', async () => {
+    const awaiting = {
+      ...makeInvite('invite-awaiting', 'awaiting_confirmation', 'pending@example.test'),
+      magic_link_expires_at: '2026-01-01T00:15:00Z', magic_link_sent_at: '2026-01-01T00:00:00Z',
+      resend_available_at: '2026-01-01T00:01:00Z', wireguard_profile_limit: 4
+    };
+    vi.mocked(loadInvites).mockResolvedValue([
+      invite,
+      awaiting,
+      makeInvite('invite-expired', 'expired', 'expired@example.test'),
+      makeInvite('invite-revoked', 'revoked', 'revoked@example.test'),
+      makeInvite('invite-used', 'used', 'used@example.test')
+    ]);
+    await renderDashboard();
+
+    const operational = screen.getByLabelText('Operational invites');
+    expect(within(operational).getByText('pending@example.test')).not.toBeNull();
+    expect(within(operational).getByText('4')).not.toBeNull();
+    expect(within(operational).getByText('Registration email issued')).not.toBeNull();
+    expect(within(operational).getByText('Current link expires')).not.toBeNull();
+    expect(within(operational).queryByText('expired@example.test')).toBeNull();
+    const archive = screen.getByText('Archive (3)');
+    expect((archive.closest('details') as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(archive);
+    expect(screen.getByText('expired@example.test')).not.toBeNull();
+    expect(screen.getByText('revoked@example.test')).not.toBeNull();
+    expect(screen.getByText('used@example.test')).not.toBeNull();
+  });
+
+  test('uses generated lifecycle actions and refreshes invites after each success', async () => {
+    await renderDashboard();
+    const initialLoads = vi.mocked(loadInvites).mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resend email' }));
+    await waitFor(() => expect(resendAdminInvite).toHaveBeenCalledWith('invite-1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change recipient' }));
+    const recipientDialog = await screen.findByRole('dialog', { name: 'Change invite recipient' });
+    fireEvent.change(within(recipientDialog).getByLabelText('Email'), { target: { value: 'changed@example.test' } });
+    fireEvent.click(within(recipientDialog).getByRole('button', { name: 'Save recipient' }));
+    await waitFor(() => expect(updateInviteRecipient).toHaveBeenCalledWith('invite-1', 'changed@example.test'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change recipient' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Change invite recipient' })).getByRole('button', { name: 'Clear recipient' }));
+    await waitFor(() => expect(updateInviteRecipient).toHaveBeenCalledWith('invite-1', null));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change WireGuard limit' }));
+    const limitDialog = await screen.findByRole('dialog', { name: 'Change pending WireGuard limit' });
+    fireEvent.change(within(limitDialog).getByLabelText('Number of WireGuard connections'), { target: { value: '0' } });
+    fireEvent.click(within(limitDialog).getByRole('button', { name: 'Save limit' }));
+    await waitFor(() => expect(updateInviteWireGuardLimit).toHaveBeenCalledWith('invite-1', 0));
+
     fireEvent.click(screen.getByRole('button', { name: 'Revoke invite for invitee@example.test' }));
     const dialog = await screen.findByRole('dialog', { name: 'Revoke invite?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke invite' }));
     await screen.findByText('Invite revoked.');
     expect(revokeInvite).toHaveBeenCalledWith('invite-1');
+    await waitFor(() => expect(vi.mocked(loadInvites).mock.calls.length).toBeGreaterThan(initialLoads));
   });
 
-  test('keeps operational invites compact and historical states in a closed archive', async () => {
-    vi.mocked(loadInvites).mockResolvedValue([
-      invite,
-      makeInvite('invite-expired', 'expired', 'expired@example.test'),
-      makeInvite('invite-revoked', 'revoked', 'revoked@example.test'),
-      makeInvite('invite-redeemed', 'redeemed', 'redeemed@example.test')
-    ]);
+  test('capability booleans control resend, recipient, and revoke actions', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([{ ...invite, can_change_email: false, can_resend: false, can_revoke: false }]);
     await renderDashboard();
-
-    const operational = screen.getByLabelText('Operational invites');
-    expect(within(operational).getByText('invitee@example.test')).not.toBeNull();
-    expect(within(operational).queryByText('expired@example.test')).toBeNull();
-    const archive = screen.getByText('Archive (3)');
-    const archiveDetails = archive.closest('details') as HTMLDetailsElement;
-    expect(archiveDetails.open).toBe(false);
-
-    fireEvent.click(archive);
-    expect(archiveDetails.open).toBe(true);
-    expect(screen.getByText('expired@example.test')).not.toBeNull();
-    expect(screen.getByText('revoked@example.test')).not.toBeNull();
-    expect(screen.getByText('redeemed@example.test')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change recipient' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Revoke invite/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Change WireGuard limit' })).not.toBeNull();
   });
 
-  test('preserves multiple recent URLs and makes only the revoked invite unusable', async () => {
-    const inviteA = makeInvite('invite-A', 'active', 'a@example.test');
-    const inviteB = makeInvite('invite-B', 'active', 'b@example.test');
-    vi.mocked(loadInvites).mockResolvedValue([inviteA, inviteB]);
-    vi.mocked(createInvite)
-      .mockResolvedValueOnce({ expires_at: null, invite_id: 'invite-A', invite_token: 'token-A' })
-      .mockResolvedValueOnce({ expires_at: null, invite_id: 'invite-B', invite_token: 'token-B' });
-    vi.mocked(revokeInvite).mockResolvedValue({ ...inviteA, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
+  test('429 and 409 refresh state without presenting stale success', async () => {
+    vi.mocked(resendAdminInvite).mockRejectedValue(new AdminApiError(429));
+    vi.mocked(updateInviteRecipient).mockRejectedValue(new AdminApiError(409));
     await renderDashboard();
-    const createButton = screen.getByRole('button', { name: 'Create invite' });
-    await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Resend email' }));
+    await screen.findByText('Resend is still in cooldown. Current invite state was refreshed.');
+    expect(screen.queryByText(/resend requested/i)).toBeNull();
 
-    fireEvent.change(screen.getByLabelText(/Intended email/), { target: { value: 'a@example.test' } });
-    fireEvent.click(createButton);
-    await screen.findByRole('button', { name: 'Copy invite invite-A' });
-    fireEvent.change(screen.getByLabelText(/Intended email/), { target: { value: 'b@example.test' } });
-    fireEvent.click(createButton);
-    await screen.findByRole('button', { name: 'Copy invite invite-B' });
-
-    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-A')).not.toBeNull();
-    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-B')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Revoke invite for a@example.test' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Revoke invite?' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke invite' }));
-
-    await screen.findByText('Registration URL revoked');
-    expect(screen.queryByText('https://access.secret-studio.ru/invite#token=token-A')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Copy invite invite-A' })).toBeNull();
-    expect(screen.getByText('https://access.secret-studio.ru/invite#token=token-B')).not.toBeNull();
-    expect((screen.getByRole('button', { name: 'Copy invite invite-B' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Change recipient' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Change invite recipient' })).getByRole('button', { name: 'Clear recipient' }));
+    await screen.findByText('The invite is no longer mutable. Current invite state was refreshed.');
+    expect(screen.queryByText('Recipient cleared. The invite is now transferable for manual sharing.')).toBeNull();
   });
 });
 

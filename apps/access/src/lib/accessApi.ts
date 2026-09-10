@@ -4,11 +4,15 @@ import {
   accountProfileCreateV2AccountProfilesPost,
   accountProfilesV2AccountProfilesGet,
   accountProfileUpdateLabelV2AccountProfilesProfileIdPatch,
+  changeInviteEmailRouteV2AuthInvitesChangeEmailPost,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
+  inspectInviteRouteV2AuthInvitesInspectPost,
   loginRequestV2AuthLoginRequestPost,
   logoutV2AuthLogoutPost,
   redeemInviteRouteV2AuthInvitesRedeemPost,
+  resendInviteRouteV2AuthInvitesResendPost,
   type AccountMeResponse,
+  type InviteInspectResponse,
   type ProfileSummary
 } from '@wg-paid/api';
 
@@ -16,12 +20,20 @@ const csrfCookieName = 'wg_access_csrf';
 
 export class AccessApiError extends Error {
   status: number | undefined;
+  retryAfterSeconds: number | undefined;
 
-  constructor(status?: number) {
+  constructor(status?: number, retryAfterSeconds?: number) {
     super(status ? `Access API request failed with status ${status}` : 'Access API request failed');
     this.name = 'AccessApiError';
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+function accessApiError(response?: Response) {
+  const header = response?.headers.get('Retry-After');
+  const retryAfterSeconds = header && /^\d+$/.test(header) ? Number(header) : undefined;
+  return new AccessApiError(response?.status, retryAfterSeconds);
 }
 
 export function getCsrfHeaders(cookie = document.cookie): Record<string, string> | undefined {
@@ -67,6 +79,33 @@ export async function redeemInvite(inviteToken: string, email: string): Promise<
   return result.response?.status;
 }
 
+export async function inspectInvite(inviteToken: string): Promise<InviteInspectResponse> {
+  const result = await inspectInviteRouteV2AuthInvitesInspectPost({
+    ...requestOptions(),
+    body: { invite_token: inviteToken }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function resendInvite(inviteToken: string): Promise<void> {
+  const result = await resendInviteRouteV2AuthInvitesResendPost({
+    ...mutationOptions(),
+    body: { invite_token: inviteToken }
+  });
+  if (result.response?.status === 202) return;
+  throw accessApiError(result.response);
+}
+
+export async function changeInviteEmail(inviteToken: string, email: string): Promise<void> {
+  const result = await changeInviteEmailRouteV2AuthInvitesChangeEmailPost({
+    ...mutationOptions(),
+    body: { email, invite_token: inviteToken }
+  });
+  if (result.response?.status === 202) return;
+  throw accessApiError(result.response);
+}
+
 export async function consumeMagicLink(token: string): Promise<number | undefined> {
   const result = await consumeMagicLinkRouteV2AuthMagicLinkConsumePost({
     ...mutationOptions(),
@@ -80,7 +119,7 @@ export async function loadAccount(): Promise<AccountMeResponse> {
   if (result.data) {
     return result.data;
   }
-  throw new AccessApiError(result.response?.status);
+  throw accessApiError(result.response);
 }
 
 export async function loadProfiles(): Promise<Array<ProfileSummary>> {
@@ -88,7 +127,7 @@ export async function loadProfiles(): Promise<Array<ProfileSummary>> {
   if (result.data) {
     return result.data;
   }
-  throw new AccessApiError(result.response?.status);
+  throw accessApiError(result.response);
 }
 
 export async function updateDisplayName(displayName: string | null): Promise<AccountMeResponse> {
