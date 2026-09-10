@@ -95,6 +95,16 @@ test('login 202 transitions to a clear anti-enumerating mail-requested state', a
   expect(vi.mocked(requestLogin)).toHaveBeenCalledOnce();
 });
 
+test('login does not expose navigation to the bare invite route in either locale', async () => {
+  renderApp('/');
+
+  await screen.findByRole('heading', { name: 'Sign in' });
+  expect(screen.queryByRole('link', { name: 'Register with an invitation' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  expect(screen.queryByRole('link', { name: 'Зарегистрироваться по приглашению' })).toBeNull();
+  expect(screen.getByTestId('location').textContent).toBe('/');
+});
+
 test('invite without a fragment token is invalid and has no registration form', async () => {
   renderApp('/invite');
 
@@ -108,9 +118,18 @@ test('inspect active shows email entry and the fragment token stays memory-only'
   openInvite();
 
   await screen.findByRole('button', { name: 'Continue registration' });
+  expect(screen.getByText('Enter your email address to register.')).not.toBeNull();
   await waitFor(() => expect(window.location.hash).toBe(''));
   expect(inspectInvite).toHaveBeenCalledWith('invite-test-token');
   expect(document.body.textContent).not.toContain('invite-test-token');
+});
+
+test('active invite email entry uses concise Russian registration copy', async () => {
+  openInvite();
+
+  await screen.findByRole('button', { name: 'Continue registration' });
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  expect(screen.getByText('Введите адрес электронной почты для регистрации.')).not.toBeNull();
 });
 
 test('first redeem requires confirmation and change/cancel does not call the API', async () => {
@@ -271,12 +290,10 @@ test('authenticated root replace-navigates to account', async () => {
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/account'));
 });
 
-test('the explicit switch localizes login and invite routes and persists the choice', async () => {
+test('the explicit switch localizes login and persists the choice', async () => {
   renderApp('/');
   await screen.findByRole('heading', { name: 'Sign in' });
   fireEvent.click(screen.getByRole('button', { name: 'RU' }));
   expect(screen.getByRole('heading', { name: 'Войти' })).not.toBeNull();
-  fireEvent.click(screen.getByRole('link', { name: 'Зарегистрироваться по приглашению' }));
-  expect(await screen.findByRole('heading', { name: 'Регистрация' })).not.toBeNull();
   expect(window.localStorage.getItem('wg-paid-access-locale')).toBe('ru');
 });

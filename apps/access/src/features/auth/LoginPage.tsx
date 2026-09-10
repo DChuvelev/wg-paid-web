@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { loadAccount, requestLogin } from '../../lib/accessApi';
 import { useLocale } from '../../i18n/localeContext';
@@ -68,7 +68,6 @@ export function LoginPage() {
         </section>
       )}
       {messageKey ? <p className={styles.message} role="status">{t(messageKey)}</p> : null}
-      <Link className={styles.link} to="/invite">{t('registerWithInvitation')}</Link>
     </AppShell>
   );
 }
