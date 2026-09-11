@@ -30,10 +30,20 @@ vi.mock('@wg-paid/api', () => ({
   resendInviteRouteV2AuthInvitesResendPost: sdk.resendInvite
 }));
 
-import { AccessApiError, changeInviteEmail, createProfile, inspectInvite, resendInvite, updateDisplayName, updateProfileLabel } from './accessApi';
+import {
+  AccessApiError,
+  changeInviteEmail,
+  createProfile,
+  createProfileConfigDownload,
+  inspectInvite,
+  resendInvite,
+  updateDisplayName,
+  updateProfileLabel
+} from './accessApi';
 
 afterEach(() => {
   document.cookie = 'wg_access_csrf=; Max-Age=0; Path=/';
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -50,15 +60,98 @@ test('adds the CSRF header to a profile mutation when the cookie exists', async 
   }));
 });
 
+test('creates a temporary profile config download with same-origin credentials and CSRF', async () => {
+  document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
+
+  const downloadUrl = '/v2/account/profiles/profile-1/config-download/download-token';
+
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+    JSON.stringify({ download_url: downloadUrl }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    }
+  ));
+
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(createProfileConfigDownload('profile-1')).resolves.toBe(downloadUrl);
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/v2/account/profiles/profile-1/config-download',
+    {
+      credentials: 'same-origin',
+      headers: { 'x-csrf-token': 'csrf value' },
+      method: 'POST'
+    }
+  );
+});
+
+test('rejects a config download URL for a different profile', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+    JSON.stringify({
+      download_url: '/v2/account/profiles/profile-2/config-download/download-token'
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    }
+  ));
+
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(createProfileConfigDownload('profile-1'))
+    .rejects.toBeInstanceOf(AccessApiError);
+});
+
+test('preserves the HTTP status when config download creation fails', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(
+    '{"detail":"unauthorized"}',
+    {
+      headers: { 'Content-Type': 'application/json' },
+      status: 401
+    }
+  ));
+
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(createProfileConfigDownload('profile-1')).rejects.toEqual(
+    expect.objectContaining<Partial<AccessApiError>>({
+      status: 401
+    })
+  );
+});
+
 test('sends nullable account and profile metadata through their generated PATCH operations', async () => {
   document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
-  const account = { display_name: null, email: 'person@example.test', grants: [], user_id: 'user-1' };
-  const profile = {
-    access_grant_id: 'grant-1', created_at: '2026-01-01T00:00:00Z', id: 'profile-1', label: null,
-    protocol: 'wireguard', status: 'active', tunnel_ip: '10.0.0.2', updated_at: '2026-01-01T00:00:00Z'
+
+  const account = {
+    display_name: null,
+    email: 'person@example.test',
+    grants: [],
+    user_id: 'user-1'
   };
-  sdk.accountMeUpdate.mockResolvedValue({ data: account, response: new Response(null, { status: 200 }) });
-  sdk.profileUpdate.mockResolvedValue({ data: profile, response: new Response(null, { status: 200 }) });
+
+  const profile = {
+    access_grant_id: 'grant-1',
+    created_at: '2026-01-01T00:00:00Z',
+    id: 'profile-1',
+    label: null,
+    protocol: 'wireguard',
+    status: 'active',
+    tunnel_ip: '10.0.0.2',
+    updated_at: '2026-01-01T00:00:00Z'
+  };
+
+  sdk.accountMeUpdate.mockResolvedValue({
+    data: account,
+    response: new Response(null, { status: 200 })
+  });
+
+  sdk.profileUpdate.mockResolvedValue({
+    data: profile,
+    response: new Response(null, { status: 200 })
+  });
 
   await expect(updateDisplayName(null)).resolves.toEqual(account);
   await expect(updateProfileLabel('profile-1', null)).resolves.toEqual(profile);
@@ -67,6 +160,7 @@ test('sends nullable account and profile metadata through their generated PATCH 
     body: { display_name: null },
     headers: { 'x-csrf-token': 'csrf value' }
   }));
+
   expect(sdk.profileUpdate).toHaveBeenCalledWith(expect.objectContaining({
     body: { label: null },
     headers: { 'x-csrf-token': 'csrf value' },
@@ -76,35 +170,67 @@ test('sends nullable account and profile metadata through their generated PATCH 
 
 test('uses generated invite lifecycle operations with same-origin credentials and CSRF on mutations', async () => {
   document.cookie = 'wg_access_csrf=csrf-value; Path=/';
+
   const inspected = {
-    can_change_email: true, can_resend: false, email_bound: false,
-    magic_link_expires_at: null, magic_link_sent_at: null, pending_email_masked: 'p***@example.test',
-    resend_available_at: null, state: 'awaiting_confirmation'
+    can_change_email: true,
+    can_resend: false,
+    email_bound: false,
+    magic_link_expires_at: null,
+    magic_link_sent_at: null,
+    pending_email_masked: 'p***@example.test',
+    resend_available_at: null,
+    state: 'awaiting_confirmation'
   };
-  sdk.inspectInvite.mockResolvedValue({ data: inspected, response: new Response(null, { status: 200 }) });
-  sdk.resendInvite.mockResolvedValue({ response: new Response(null, { status: 202 }) });
-  sdk.changeInviteEmail.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+
+  sdk.inspectInvite.mockResolvedValue({
+    data: inspected,
+    response: new Response(null, { status: 200 })
+  });
+
+  sdk.resendInvite.mockResolvedValue({
+    response: new Response(null, { status: 202 })
+  });
+
+  sdk.changeInviteEmail.mockResolvedValue({
+    response: new Response(null, { status: 202 })
+  });
 
   await expect(inspectInvite('invite-token')).resolves.toEqual(inspected);
   await expect(resendInvite('invite-token')).resolves.toBeUndefined();
   await expect(changeInviteEmail('invite-token', 'person@example.test')).resolves.toBeUndefined();
 
-  expect(sdk.inspectInvite).toHaveBeenCalledWith({ body: { invite_token: 'invite-token' }, credentials: 'same-origin' });
+  expect(sdk.inspectInvite).toHaveBeenCalledWith({
+    body: { invite_token: 'invite-token' },
+    credentials: 'same-origin'
+  });
+
   expect(sdk.resendInvite).toHaveBeenCalledWith(expect.objectContaining({
-    body: { invite_token: 'invite-token' }, credentials: 'same-origin', headers: { 'x-csrf-token': 'csrf-value' }
+    body: { invite_token: 'invite-token' },
+    credentials: 'same-origin',
+    headers: { 'x-csrf-token': 'csrf-value' }
   }));
+
   expect(sdk.changeInviteEmail).toHaveBeenCalledWith(expect.objectContaining({
-    body: { email: 'person@example.test', invite_token: 'invite-token' }, headers: { 'x-csrf-token': 'csrf-value' }
+    body: {
+      email: 'person@example.test',
+      invite_token: 'invite-token'
+    },
+    headers: { 'x-csrf-token': 'csrf-value' }
   }));
 });
 
 test('preserves Retry-After from an invite resend cooldown response', async () => {
   sdk.resendInvite.mockResolvedValue({
-    response: new Response(null, { headers: { 'Retry-After': '37' }, status: 429 })
+    response: new Response(null, {
+      headers: { 'Retry-After': '37' },
+      status: 429
+    })
   });
 
-  await expect(resendInvite('invite-token')).rejects.toEqual(expect.objectContaining<Partial<AccessApiError>>({
-    retryAfterSeconds: 37,
-    status: 429
-  }));
+  await expect(resendInvite('invite-token')).rejects.toEqual(
+    expect.objectContaining<Partial<AccessApiError>>({
+      retryAfterSeconds: 37,
+      status: 429
+    })
+  );
 });

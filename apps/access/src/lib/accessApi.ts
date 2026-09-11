@@ -130,24 +130,34 @@ export async function loadProfiles(): Promise<Array<ProfileSummary>> {
   throw accessApiError(result.response);
 }
 
-export interface ProfileConfigDownload {
-  blob: Blob;
-  filename: string | null;
+interface ProfileConfigDownloadResponse {
+  download_url: string;
 }
 
-function configFilename(contentDisposition: string | null) {
-  const match = contentDisposition?.match(/(?:^|;)\s*filename\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
-  const filename = match?.[1] ?? match?.[2];
-  return filename && /^SecretStudio-\d{2,}\.conf$/.test(filename) ? filename : null;
-}
+export async function createProfileConfigDownload(profileId: string): Promise<string> {
+  const response = await fetch(
+    `/v2/account/profiles/${encodeURIComponent(profileId)}/config-download`,
+    {
+      ...mutationOptions(),
+      method: 'POST'
+    }
+  );
 
-export async function loadProfileConfig(profileId: string): Promise<ProfileConfigDownload> {
-  const response = await fetch(`/v2/account/profiles/${encodeURIComponent(profileId)}/config`, requestOptions());
   if (!response.ok) throw accessApiError(response);
-  return {
-    blob: await response.blob(),
-    filename: configFilename(response.headers.get('Content-Disposition'))
-  };
+
+  const payload = await response.json() as ProfileConfigDownloadResponse;
+
+  const expectedPrefix =
+    `/v2/account/profiles/${encodeURIComponent(profileId)}/config-download/`;
+
+  if (
+    typeof payload.download_url !== 'string'
+    || !payload.download_url.startsWith(expectedPrefix)
+  ) {
+    throw new AccessApiError();
+  }
+
+  return payload.download_url;
 }
 
 export async function updateDisplayName(displayName: string | null): Promise<AccountMeResponse> {

@@ -5,6 +5,7 @@ import type { AccountMeResponse, ProfileSummary } from '@wg-paid/api';
 import {
   AccessApiError,
   createProfile,
+  createProfileConfigDownload,
   loadAccount,
   loadProfiles,
   logout,
@@ -19,6 +20,7 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     ...actual,
     consumeMagicLink: vi.fn(),
     createProfile: vi.fn(),
+    createProfileConfigDownload: vi.fn(),
     loadAccount: vi.fn(),
     loadProfiles: vi.fn(),
     logout: vi.fn(),
@@ -67,12 +69,14 @@ beforeEach(() => {
   vi.mocked(loadAccount).mockResolvedValue(account);
   vi.mocked(loadProfiles).mockResolvedValue(profiles);
   vi.mocked(createProfile).mockResolvedValue();
+  vi.mocked(createProfileConfigDownload).mockResolvedValue('#config-download');
   vi.mocked(updateDisplayName).mockImplementation(async (displayName) => ({ ...account, display_name: displayName }));
   vi.mocked(updateProfileLabel).mockImplementation(async (profileId, label) => ({
     ...profiles.find((profile) => profile.id === profileId)!,
     label,
     updated_at: '2026-01-02T00:00:00Z'
   }));
+  window.history.replaceState(null, '', '/');
 });
 
 test('401 from account data replace-navigates to login', async () => {
@@ -101,75 +105,34 @@ test('renders quota, stable profile details, config/QR, and no user retirement a
   await waitFor(() => expect(vi.mocked(createProfile)).toHaveBeenCalledWith('grant-1'));
 });
 
-test('downloads config bytes with same-origin credentials and the response filename', async () => {
-  const configBytes = new Uint8Array([91, 73, 110, 116, 101, 114, 102, 97, 99, 101, 93]);
-  fetchMock.mockResolvedValueOnce(new Response(configBytes, {
-    headers: { 'Content-Disposition': 'attachment; filename="SecretStudio-01.conf"' },
-    status: 200
-  }));
-  let downloadedFilename: string | null = null;
-  const clickMock = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-    downloadedFilename = this.download;
-  });
+test('requests a temporary config download URL and navigates to it', async () => {
+  vi.mocked(createProfileConfigDownload).mockResolvedValue('#config-download');
   renderApp('/account');
 
   fireEvent.click(await screen.findByRole('button', { name: 'Download config' }));
 
-  expect((screen.getByRole('button', { name: 'Downloading…' }) as HTMLButtonElement).disabled).toBe(true);
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-    '/v2/account/profiles/active-1/config',
-    { credentials: 'same-origin' }
-  ));
-  await waitFor(() => expect(createObjectUrlMock).toHaveBeenCalledTimes(1));
-  const downloadedBytes = await new Promise<ArrayBuffer>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error);
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.readAsArrayBuffer(createObjectUrlMock.mock.calls[0]![0]);
-  });
-  expect(new Uint8Array(downloadedBytes)).toEqual(configBytes);
-  expect(downloadedFilename).toBe('SecretStudio-01.conf');
-  await waitFor(() => expect(revokeObjectUrlMock).toHaveBeenCalledWith('blob:profile-qr'));
-  clickMock.mockRestore();
+  await waitFor(() => expect(createProfileConfigDownload).toHaveBeenCalledWith('active-1'));
+  await waitFor(() => expect(window.location.hash).toBe('#config-download'));
 });
 
-test('uses the ordinal config filename when the response has no safe filename', async () => {
-  fetchMock.mockResolvedValueOnce(new Response('[Interface]', { status: 200 }));
-  let downloadedFilename: string | null = null;
-  const clickMock = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-    downloadedFilename = this.download;
-  });
-  renderApp('/account');
-
-  fireEvent.click(await screen.findByRole('button', { name: 'Download config' }));
-
-  await waitFor(() => expect(downloadedFilename).toBe('SecretStudio-01.conf'));
-  clickMock.mockRestore();
-});
-
-test('does not offer a non-200 response as a config download', async () => {
-  fetchMock.mockResolvedValueOnce(new Response('{"detail":"unavailable"}', {
-    headers: { 'Content-Type': 'application/json' },
-    status: 503
-  }));
+test('shows an error when the temporary config download cannot be created', async () => {
+  vi.mocked(createProfileConfigDownload).mockRejectedValue(new AccessApiError(503));
   renderApp('/account');
 
   fireEvent.click(await screen.findByRole('button', { name: 'Download config' }));
 
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to download the configuration.');
-  expect(createObjectUrlMock).not.toHaveBeenCalled();
   expect(screen.getByTestId('location').textContent).toBe('/account');
 });
 
 test('config download 401 follows the existing session-expired path', async () => {
-  fetchMock.mockResolvedValueOnce(new Response('{"detail":"unauthorized"}', { status: 401 }));
+  vi.mocked(createProfileConfigDownload).mockRejectedValue(new AccessApiError(401));
   const { queryClient } = renderApp('/account');
   const removeQueries = vi.spyOn(queryClient, 'removeQueries');
 
   fireEvent.click(await screen.findByRole('button', { name: 'Download config' }));
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
-  expect(createObjectUrlMock).not.toHaveBeenCalled();
   expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access', 'account'] });
   expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access', 'profiles'] });
 });

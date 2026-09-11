@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ProfileSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
-import { AccessApiError, loadProfileConfig, updateProfileLabel } from '../../lib/accessApi';
+import { AccessApiError, createProfileConfigDownload, updateProfileLabel } from '../../lib/accessApi';
 import { profilesKey } from './queryKeys';
 import styles from './Account.module.css';
 
@@ -104,22 +104,12 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
     setSelectedQr(null);
   }, []);
 
-  const downloadConfig = async (profileId: string, fallbackFilename: string) => {
+  const downloadConfig = async (profileId: string) => {
     setDownloadingProfileId(profileId);
     setDownloadErrorProfileId(null);
     try {
-      const { blob, filename } = await loadProfileConfig(profileId);
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      try {
-        anchor.href = objectUrl;
-        anchor.download = filename ?? fallbackFilename;
-        document.body.append(anchor);
-        anchor.click();
-      } finally {
-        anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 250);
-      }
+      const downloadUrl = await createProfileConfigDownload(profileId);
+      window.location.assign(downloadUrl);
     } catch (error) {
       if (error instanceof AccessApiError && error.status === 401) {
         onUnauthorized(error);
@@ -178,7 +168,6 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
       <ul className={styles.profiles}>
       {wireGuardProfiles.map((profile, index) => {
         const label = profile.label || t('defaultConnectionName', { number: index + 1 });
-        const fallbackConfigFilename = `SecretStudio-${String(index + 1).padStart(2, '0')}.conf`;
         const qrHref = `/v2/account/profiles/${encodeURIComponent(profile.id)}/qr.svg`;
 
         return (
@@ -197,7 +186,7 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
                     className={styles.linkButton}
                     disabled={downloadingProfileId !== null}
                     type="button"
-                    onClick={() => void downloadConfig(profile.id, fallbackConfigFilename)}
+                    onClick={() => void downloadConfig(profile.id)}
                   >
                     {downloadingProfileId === profile.id ? t('downloadingConfig') : t('downloadConfig')}
                   </button>
