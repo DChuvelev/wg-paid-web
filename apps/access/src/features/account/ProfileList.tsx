@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ProfileSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
-import { updateProfileLabel } from '../../lib/accessApi';
+import { AccessApiError, loadProfileConfig, updateProfileLabel } from '../../lib/accessApi';
 import { profilesKey } from './queryKeys';
 import styles from './Account.module.css';
 
@@ -92,6 +92,8 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
 
 export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
   const { t } = useLocale();
+  const [downloadingProfileId, setDownloadingProfileId] = useState<string | null>(null);
+  const [downloadErrorProfileId, setDownloadErrorProfileId] = useState<string | null>(null);
   const [selectedQr, setSelectedQr] = useState<{ href: string; label: string } | null>(null);
   const [qrLoadState, setQrLoadState] = useState<QrLoadState>({ status: 'loading' });
   const qrTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -101,6 +103,33 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
     qrTriggerRef.current?.focus();
     setSelectedQr(null);
   }, []);
+
+  const downloadConfig = async (profileId: string, fallbackFilename: string) => {
+    setDownloadingProfileId(profileId);
+    setDownloadErrorProfileId(null);
+    try {
+      const { blob, filename } = await loadProfileConfig(profileId);
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      try {
+        anchor.href = objectUrl;
+        anchor.download = filename ?? fallbackFilename;
+        document.body.append(anchor);
+        anchor.click();
+      } finally {
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+    } catch (error) {
+      if (error instanceof AccessApiError && error.status === 401) {
+        onUnauthorized(error);
+      } else {
+        setDownloadErrorProfileId(profileId);
+      }
+    } finally {
+      setDownloadingProfileId(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedQr) return;
@@ -149,7 +178,7 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
       <ul className={styles.profiles}>
       {wireGuardProfiles.map((profile, index) => {
         const label = profile.label || t('defaultConnectionName', { number: index + 1 });
-        const configHref = `/v2/account/profiles/${encodeURIComponent(profile.id)}/config`;
+        const fallbackConfigFilename = `SecretStudio-${String(index + 1).padStart(2, '0')}.conf`;
         const qrHref = `/v2/account/profiles/${encodeURIComponent(profile.id)}/qr.svg`;
 
         return (
@@ -162,20 +191,32 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
             </p>
             <ProfileNameEditor profile={profile} onUnauthorized={onUnauthorized} />
             {profile.status === 'active' ? (
-              <div className={styles.actions}>
-                <a className={styles.linkButton} href={configHref}>{t('downloadConfig')}</a>
-                <button
-                  className={styles.linkButton}
-                  type="button"
-                  onClick={(event) => {
-                    qrTriggerRef.current = event.currentTarget;
-                    setQrLoadState({ status: 'loading' });
-                    setSelectedQr({ href: qrHref, label });
-                  }}
-                >
-                  {t('showQr')}
-                </button>
-              </div>
+              <>
+                <div className={styles.actions}>
+                  <button
+                    className={styles.linkButton}
+                    disabled={downloadingProfileId !== null}
+                    type="button"
+                    onClick={() => void downloadConfig(profile.id, fallbackConfigFilename)}
+                  >
+                    {downloadingProfileId === profile.id ? t('downloadingConfig') : t('downloadConfig')}
+                  </button>
+                  <button
+                    className={styles.linkButton}
+                    type="button"
+                    onClick={(event) => {
+                      qrTriggerRef.current = event.currentTarget;
+                      setQrLoadState({ status: 'loading' });
+                      setSelectedQr({ href: qrHref, label });
+                    }}
+                  >
+                    {t('showQr')}
+                  </button>
+                </div>
+                {downloadErrorProfileId === profile.id ? (
+                  <p className={styles.error} role="alert">{t('configDownloadFailed')}</p>
+                ) : null}
+              </>
             ) : null}
           </li>
         );

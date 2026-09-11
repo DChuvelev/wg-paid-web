@@ -170,7 +170,8 @@
   background: #2857a4;
 }
 
-.button:disabled {
+.button:disabled,
+.linkButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
