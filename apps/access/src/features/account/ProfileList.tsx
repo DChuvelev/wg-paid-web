@@ -118,7 +118,7 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
         anchor.click();
       } finally {
         anchor.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 250);
       }
     } catch (error) {
       if (error instanceof AccessApiError && error.status === 401) {
