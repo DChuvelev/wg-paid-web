@@ -346,9 +346,18 @@ describe('admin area navigation', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(loadRuntimeConnections).toHaveBeenCalledTimes(2);
 
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(loadRuntimeConnections).toHaveBeenCalledTimes(3);
+
     fireEvent.click(screen.getByRole('button', { name: 'Users' }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(loadRuntimeConnections).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(loadRuntimeConnections).toHaveBeenCalledTimes(3);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    await waitFor(() => expect(loadRuntimeConnections).toHaveBeenCalledTimes(4));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(loadRuntimeConnections).toHaveBeenCalledTimes(5);
   });
 });
 
