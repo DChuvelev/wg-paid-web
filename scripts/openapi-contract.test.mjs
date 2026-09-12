@@ -44,10 +44,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
       .toThrow(/Pinned OpenAPI verification failed/);
   });
 
-  test('pins the accepted account/profile/admin metadata, invite lifecycle, and server-sort boundary', async () => {
+  test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 47, schemas: 49 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 52, schemas: 55 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
@@ -70,6 +70,36 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/auth/invites/change-email');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
+    expect(document.paths).toHaveProperty('/v2/admin/profiles/{profile_id}/config');
+    expect(document.paths['/v2/admin/profiles/{profile_id}/config'].get.operationId)
+      .toBe('admin_profile_config_download_v2_admin_profiles__profile_id__config_get');
+    expect(document.paths['/v2/admin/profiles/{profile_id}/config'].get.responses['200'].content)
+      .toHaveProperty('application/json');
+    expect(document.paths['/v2/admin/profiles/{profile_id}/config'].get.responses['200'].content['application/json'].schema)
+      .toEqual({});
+    expect(document.paths).toHaveProperty('/v2/admin/runtime/connections');
+    expect(document.paths['/v2/admin/runtime/connections'].get.operationId)
+      .toBe('admin_runtime_connections_v2_admin_runtime_connections_get');
+    expect(document.paths['/v2/admin/runtime/connections'].get.responses['200'].content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionsResponse' });
+
+    expect(Object.keys(schemas.AdminRuntimeConnectionsResponse.properties)).toEqual([
+      'generated_at', 'received_at', 'snapshot_age_seconds', 'stale', 'sample_interval_seconds',
+      'unmatched_runtime_rows_count', 'rows'
+    ]);
+    expect(schemas.AdminRuntimeConnectionsResponse.required).toEqual([
+      'generated_at', 'received_at', 'snapshot_age_seconds', 'stale', 'sample_interval_seconds',
+      'unmatched_runtime_rows_count', 'rows'
+    ]);
+    expect(schemas.AdminRuntimeConnectionsResponse.properties.rows.items)
+      .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionRow' });
+    expect(Object.keys(schemas.AdminRuntimeConnectionRow.properties)).toEqual([
+      'user_id', 'email', 'display_name', 'profile_id', 'profile_label', 'tunnel_ip', 'selector',
+      'active_now', 'active_state', 'last_active_at', 'last_reassign_at', 'last_handshake_at',
+      'rx_bytes', 'tx_bytes', 'rx_bytes_per_second', 'tx_bytes_per_second'
+    ]);
+    expect(schemas.AdminRuntimeConnectionRow.required)
+      .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties));
 
     const query = document.paths['/v2/admin/users'].get.parameters;
     expect(query.find((parameter) => parameter.name === 'limit').schema).toMatchObject({ default: 100, type: 'integer' });

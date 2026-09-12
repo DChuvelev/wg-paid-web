@@ -1,0 +1,44 @@
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; color: #617086; font-size: 0.82rem; }
+.viewToggle { display: flex; gap: 0.35rem; padding: 0.25rem; border-radius: 0.6rem; background: #edf2f8; }
+.viewToggle button { min-height: 2.35rem; padding: 0.45rem 0.8rem; border: 0; border-radius: 0.42rem; color: #40516c; background: transparent; font-weight: 750; }
+.viewToggle button[aria-pressed="true"] { color: #173e79; background: #fff; box-shadow: 0 0.12rem 0.35rem rgb(29 47 78 / 12%); }
+.staleWarning, .waitingState, .emptyState, .diagnostic, .counterNote { padding: 0.75rem 0.85rem; border-radius: 0.55rem; }
+.staleWarning { border-left: 4px solid #c87900; color: #694100; background: #fff7e5; font-weight: 650; }
+.waitingState { color: #40516c; background: #edf4ff; }
+.emptyState { color: #52627a; background: #f4f6f9; }
+.diagnostic { width: fit-content; border: 1px solid #d5dde8; color: #52627a; background: #f8fafc; font-size: 0.82rem; }
+.counterNote { margin: 0 0 0.75rem; color: #52627a; background: #f4f6f9; font-size: 0.82rem; }
+.snapshotMetadata { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; margin: 0 0 1rem; }
+.snapshotMetadata div { min-width: 0; padding: 0.6rem 0.7rem; border: 1px solid #e0e6ee; border-radius: 0.5rem; }
+.snapshotMetadata dt { color: #718096; font-size: 0.68rem; font-weight: 750; text-transform: uppercase; }
+.snapshotMetadata dd { overflow-wrap: anywhere; margin: 0.1rem 0 0; color: #34435a; font-size: 0.82rem; }
+.tableViewport, .selectorViewport { overflow-x: auto; border: 1px solid #d7dfeb; border-radius: 0.75rem; }
+.connectionsTable { width: 100%; min-width: 76rem; border-collapse: collapse; font-size: 0.8rem; }
+.connectionsTable th { position: sticky; top: 0; padding: 0.7rem; color: #52627a; background: #eef3f9; font-size: 0.68rem; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.connectionsTable td { padding: 0.7rem; border-top: 1px solid #e3e8ef; color: #34435a; vertical-align: top; white-space: nowrap; }
+.connectionsTable tbody tr:hover { background: #f8fafc; }
+.connectionsTable abbr { text-decoration: underline dotted; text-underline-offset: 0.15rem; }
+.stackedIdentity { display: grid; min-width: 9rem; white-space: normal; }
+.stackedIdentity span { color: #68778c; font-size: 0.75rem; overflow-wrap: anywhere; }
+.selectorGrid { display: grid; grid-template-columns: repeat(5, minmax(13rem, 1fr)); min-width: 70rem; }
+.selectorColumn { min-width: 0; padding: 0.75rem; border-right: 1px solid #d7dfeb; }
+.selectorColumn:last-child { border-right: 0; }
+.selectorColumn header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding-bottom: 0.65rem; border-bottom: 1px solid #e1e7f0; }
+.selectorColumn h3 { margin: 0; color: #173e79; font-size: 1rem; }
+.selectorColumn header strong { color: #52627a; font-size: 0.72rem; }
+.selectorColumn ul { display: grid; gap: 0.5rem; margin: 0.65rem 0 0; padding: 0; list-style: none; }
+.selectorColumn li { display: grid; min-width: 0; padding: 0.6rem; border: 1px solid #e0e6ee; border-radius: 0.5rem; background: #f8fafc; }
+.selectorColumn li span, .selectorColumn li small { overflow-wrap: anywhere; color: #68778c; font-size: 0.72rem; }
+.selectorColumn li span:nth-of-type(2) { margin-top: 0.3rem; color: #34435a; font-weight: 700; }
+.selectorEmpty { color: #718096; font-size: 0.8rem; }
+
+@media (max-width: 48rem) {
+  .toolbar { align-items: flex-start; flex-direction: column; }
+  .snapshotMetadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 32rem) {
+  .snapshotMetadata { grid-template-columns: 1fr; }
+  .viewToggle { width: 100%; }
+  .viewToggle button { flex: 1; }
+}

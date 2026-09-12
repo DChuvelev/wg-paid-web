@@ -4,6 +4,7 @@ import {
   adminListInvitesV2AdminInvitesGet,
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
+  adminRuntimeConnectionsV2AdminRuntimeConnectionsGet,
   adminResendInviteV2AdminInvitesInviteIdResendPost,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost,
   adminSessionLoginV2AdminSessionLoginPost,
@@ -18,6 +19,7 @@ import {
   type AdminInviteSummary,
   type AdminPlanSummary,
   type AdminProtocolLimitUpdateResponse,
+  type AdminRuntimeConnectionsResponse,
   type AdminListUsersV2AdminUsersGetData,
   type AdminUserDeleteResponse,
   type AdminUserMetadataUpdateResponse,
@@ -55,7 +57,10 @@ export function getAdminCsrfHeaders(cookie = document.cookie): Record<string, st
   }
 }
 
-const requestOptions = () => ({ credentials: 'same-origin' as const });
+const requestOptions = (signal?: AbortSignal) => ({
+  credentials: 'same-origin' as const,
+  ...(signal ? { signal } : {})
+});
 const mutationOptions = () => ({ ...requestOptions(), headers: getAdminCsrfHeaders() });
 
 interface ApiResult<T> {
@@ -104,6 +109,17 @@ export async function loadPlans(): Promise<Array<AdminPlanSummary>> {
 
 export async function loadInvites(): Promise<Array<AdminInviteSummary>> {
   return requireData(await adminListInvitesV2AdminInvitesGet(requestOptions()), 'Unable to load invites.');
+}
+
+export async function loadRuntimeConnections(signal?: AbortSignal): Promise<AdminRuntimeConnectionsResponse> {
+  return requireData(
+    await adminRuntimeConnectionsV2AdminRuntimeConnectionsGet(requestOptions(signal)),
+    'Unable to load runtime connections.'
+  );
+}
+
+export function adminProfileConfigUrl(profileId: string) {
+  return `/v2/admin/profiles/${encodeURIComponent(profileId)}/config`;
 }
 
 export async function createInvite(body: AdminInviteRequest): Promise<AdminInviteResponse> {

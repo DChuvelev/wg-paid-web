@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   createInvite: vi.fn(), deleteUser: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
-  updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn()
+  runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -12,6 +12,7 @@ vi.mock('@wg-paid/api', () => ({
   adminListInvitesV2AdminInvitesGet: sdk.listInvites,
   adminListPlansV2AdminPlansGet: sdk.listPlans,
   adminListUsersV2AdminUsersGet: sdk.listUsers,
+  adminRuntimeConnectionsV2AdminRuntimeConnectionsGet: sdk.runtimeConnections,
   adminResendInviteV2AdminInvitesInviteIdResendPost: sdk.resendInvite,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost: sdk.revokeInvite,
   adminSessionLoginV2AdminSessionLoginPost: sdk.login,
@@ -24,7 +25,10 @@ vi.mock('@wg-paid/api', () => ({
 }));
 
 import {
+  adminProfileConfigUrl,
+  AdminApiError,
   getAdminCsrfHeaders,
+  loadRuntimeConnections,
   loadUsers,
   resendAdminInvite,
   updateAdminNote,
@@ -86,5 +90,21 @@ describe('admin CSRF cookie handling', () => {
     expect(sdk.resendInvite).toHaveBeenCalledWith(shared);
     expect(sdk.updateInviteRecipient).toHaveBeenCalledWith({ ...shared, body: { email: null } });
     expect(sdk.updateInviteLimit).toHaveBeenCalledWith({ ...shared, body: { profile_limit: 0 } });
+  });
+
+  test('loads runtime connections through the generated same-origin GET and preserves AbortSignal', async () => {
+    const response = { generated_at: null, received_at: null, snapshot_age_seconds: null, stale: false, sample_interval_seconds: null, unmatched_runtime_rows_count: 0, rows: [] };
+    const controller = new AbortController();
+    sdk.runtimeConnections.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+    await expect(loadRuntimeConnections(controller.signal)).resolves.toEqual(response);
+    expect(sdk.runtimeConnections).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
+  });
+
+  test('converts runtime failures and builds encoded config navigation without fetching it', async () => {
+    sdk.runtimeConnections.mockResolvedValue({ error: { detail: 'Runtime unavailable.' }, response: new Response(null, { status: 503 }) });
+    await expect(loadRuntimeConnections()).rejects.toEqual(expect.objectContaining<Partial<AdminApiError>>({
+      message: 'Runtime unavailable.', status: 503
+    }));
+    expect(adminProfileConfigUrl('profile/with space')).toBe('/v2/admin/profiles/profile%2Fwith%20space/config');
   });
 });

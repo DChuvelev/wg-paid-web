@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminUserDeleteResponse, AdminUserSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminRuntimeConnectionsResponse, AdminUserDeleteResponse, AdminUserSummary, ProfileSummary } from '@wg-paid/api';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
-  AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadUsers,
+  AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
   loginAdmin, logoutAdmin, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
   updateInviteRecipient, updateInviteWireGuardLimit
 } from './lib/adminApi';
@@ -14,7 +14,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   return {
     ...actual,
     checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
-    loadPlans: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
+    loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
     resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
     updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn()
   };
@@ -31,6 +31,11 @@ const invite: AdminInviteSummary = {
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
   magic_link_expires_at: null, magic_link_sent_at: null, pending_email: null,
   resend_available_at: null, revoked_at: null, state: 'active', used_count: 0, wireguard_profile_limit: 2
+};
+const runtimeSnapshot: AdminRuntimeConnectionsResponse = {
+  generated_at: '2026-09-12T10:00:00Z', received_at: '2026-09-12T10:00:01Z',
+  rows: [], sample_interval_seconds: 5, snapshot_age_seconds: 1, stale: false,
+  unmatched_runtime_rows_count: 0
 };
 
 function makeInvite(inviteId: string, state: AdminInviteSummary['state'], intendedEmail: string): AdminInviteSummary {
@@ -102,6 +107,12 @@ async function renderDashboard(user: AdminUserSummary | null = makeUser()) {
   if (user) await screen.findByText(user.email);
 }
 
+async function renderInvitesDashboard() {
+  await renderDashboard();
+  fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+  await screen.findByRole('region', { name: 'Invites' });
+}
+
 function expandUser(email = 'operator-target@example.test') {
   fireEvent.click(screen.getByText(email));
 }
@@ -126,6 +137,7 @@ beforeEach(() => {
   vi.mocked(logoutAdmin).mockResolvedValue();
   vi.mocked(loadPlans).mockResolvedValue([plan]);
   vi.mocked(loadInvites).mockResolvedValue([invite]);
+  vi.mocked(loadRuntimeConnections).mockResolvedValue(runtimeSnapshot);
   vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
   vi.mocked(createInvite).mockResolvedValue({
     email_sent: false, expires_at: null, intended_email: null, invite_id: 'invite-new',
@@ -175,7 +187,7 @@ describe('admin session and invites', () => {
   });
 
   test('initializes the WireGuard snapshot from the selected plan and sends it explicitly', async () => {
-    await renderDashboard();
+    await renderInvitesDashboard();
     const createButton = screen.getByRole('button', { name: 'Create invite' });
     await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('2');
@@ -187,7 +199,7 @@ describe('admin session and invites', () => {
 
   test('resets the pending WireGuard snapshot to a newly selected plan default', async () => {
     vi.mocked(loadPlans).mockResolvedValue([plan, { ...plan, code: 'zero', default_wireguard_limit: 0, display_name: 'Zero', id: 'plan-2' }]);
-    await renderDashboard();
+    await renderInvitesDashboard();
     fireEvent.change(screen.getByLabelText('Number of WireGuard connections'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'plan-2' } });
     expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('0');
@@ -198,7 +210,7 @@ describe('admin session and invites', () => {
       email_sent: true, expires_at: null, intended_email: 'direct@example.test', invite_id: 'invite-direct',
       invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
     });
-    await renderDashboard();
+    await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'direct@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
 
@@ -213,7 +225,7 @@ describe('admin session and invites', () => {
       email_sent: false, expires_at: null, intended_email: 'retry@example.test', invite_id: 'invite-retry',
       invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
     });
-    await renderDashboard();
+    await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'retry@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
 
@@ -236,7 +248,7 @@ describe('admin session and invites', () => {
       makeInvite('invite-revoked', 'revoked', 'revoked@example.test'),
       makeInvite('invite-used', 'used', 'used@example.test')
     ]);
-    await renderDashboard();
+    await renderInvitesDashboard();
 
     const operational = screen.getByLabelText('Operational invites');
     expect(within(operational).getByText('pending@example.test')).not.toBeNull();
@@ -253,7 +265,7 @@ describe('admin session and invites', () => {
   });
 
   test('uses generated lifecycle actions and refreshes invites after each success', async () => {
-    await renderDashboard();
+    await renderInvitesDashboard();
     const initialLoads = vi.mocked(loadInvites).mock.calls.length;
 
     fireEvent.click(screen.getByRole('button', { name: 'Resend email' }));
@@ -285,7 +297,7 @@ describe('admin session and invites', () => {
 
   test('capability booleans control resend, recipient, and revoke actions', async () => {
     vi.mocked(loadInvites).mockResolvedValue([{ ...invite, can_change_email: false, can_resend: false, can_revoke: false }]);
-    await renderDashboard();
+    await renderInvitesDashboard();
     expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change recipient' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Revoke invite/ })).toBeNull();
@@ -295,7 +307,7 @@ describe('admin session and invites', () => {
   test('429 and 409 refresh state without presenting stale success', async () => {
     vi.mocked(resendAdminInvite).mockRejectedValue(new AdminApiError(429));
     vi.mocked(updateInviteRecipient).mockRejectedValue(new AdminApiError(409));
-    await renderDashboard();
+    await renderInvitesDashboard();
     fireEvent.click(screen.getByRole('button', { name: 'Resend email' }));
     await screen.findByText('Resend is still in cooldown. Current invite state was refreshed.');
     expect(screen.queryByText(/resend requested/i)).toBeNull();
@@ -304,6 +316,39 @@ describe('admin session and invites', () => {
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Change invite recipient' })).getByRole('button', { name: 'Clear recipient' }));
     await screen.findByText('The invite is no longer mutable. Current invite state was refreshed.');
     expect(screen.queryByText('Recipient cleared. The invite is now transferable for manual sharing.')).toBeNull();
+  });
+});
+
+describe('admin area navigation', () => {
+  test('switches areas while preserving Invite-local form state', async () => {
+    await renderDashboard();
+    expect(screen.getByRole('region', { name: 'Users' })).not.toBeNull();
+    expect(screen.queryByRole('region', { name: 'Invites' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    const email = within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/);
+    fireEvent.change(email, { target: { value: 'draft@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    expect(await screen.findByRole('region', { name: 'Connections' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Users' }));
+    expect(screen.getByRole('region', { name: 'Users' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    expect((email as HTMLInputElement).value).toBe('draft@example.test');
+  });
+
+  test('polls runtime data only while Connections is active', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await renderDashboard();
+    expect(loadRuntimeConnections).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    await waitFor(() => expect(loadRuntimeConnections).toHaveBeenCalledTimes(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(loadRuntimeConnections).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Users' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(loadRuntimeConnections).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -466,6 +511,22 @@ describe('users, limits, and retirement', () => {
     expandUser();
     expect(screen.getByText('Studio computer')).not.toBeNull();
     expect(screen.queryByLabelText(/Connection name/)).toBeNull();
+  });
+
+  test('offers plain config navigation only for active WireGuard profiles', async () => {
+    const active = profile('profile/active 1', 'active', '10.253.1.10');
+    const provisioning = profile('profile-provisioning', 'provisioning', '10.253.1.11');
+    const failed = profile('profile-failed', 'provisioning_failed', '10.253.1.14');
+    const disabling = profile('profile-disabling', 'disabling', '10.253.1.15');
+    const disabled = profile('profile-disabled', 'disabled', '10.253.1.12');
+    const retired = profile('profile-retired', 'retired', '10.253.1.16');
+    const nonWireGuard = { ...profile('profile-other', 'active', '10.253.1.13'), protocol: 'amneziawg' };
+    await renderDashboard(makeUser(3, 2, [active, provisioning, failed, disabling, disabled, retired, nonWireGuard]));
+    expandUser();
+    const links = screen.getAllByRole('link', { name: /Download config for profile/ });
+    expect(links).toHaveLength(1);
+    expect(links[0]!.getAttribute('href')).toBe('/v2/admin/profiles/profile%2Factive%201/config');
+    expect((links[0] as HTMLAnchorElement).onclick).toBeNull();
   });
 
   test('clears transient loading status after Search and List users complete', async () => {

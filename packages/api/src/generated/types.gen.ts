@@ -273,6 +273,110 @@ export type AdminProtocolLimitUpdateResponse = {
 };
 
 /**
+ * AdminRuntimeConnectionRow
+ */
+export type AdminRuntimeConnectionRow = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Display Name
+     */
+    display_name: string | null;
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Profile Label
+     */
+    profile_label: string | null;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string;
+    /**
+     * Selector
+     */
+    selector: string;
+    /**
+     * Active Now
+     */
+    active_now: boolean;
+    /**
+     * Active State
+     */
+    active_state: boolean;
+    /**
+     * Last Active At
+     */
+    last_active_at: string | null;
+    /**
+     * Last Reassign At
+     */
+    last_reassign_at: string | null;
+    /**
+     * Last Handshake At
+     */
+    last_handshake_at: string | null;
+    /**
+     * Rx Bytes
+     */
+    rx_bytes: number;
+    /**
+     * Tx Bytes
+     */
+    tx_bytes: number;
+    /**
+     * Rx Bytes Per Second
+     */
+    rx_bytes_per_second: number;
+    /**
+     * Tx Bytes Per Second
+     */
+    tx_bytes_per_second: number;
+};
+
+/**
+ * AdminRuntimeConnectionsResponse
+ */
+export type AdminRuntimeConnectionsResponse = {
+    /**
+     * Generated At
+     */
+    generated_at: string | null;
+    /**
+     * Received At
+     */
+    received_at: string | null;
+    /**
+     * Snapshot Age Seconds
+     */
+    snapshot_age_seconds: number | null;
+    /**
+     * Stale
+     */
+    stale: boolean;
+    /**
+     * Sample Interval Seconds
+     */
+    sample_interval_seconds: number | null;
+    /**
+     * Unmatched Runtime Rows Count
+     */
+    unmatched_runtime_rows_count: number;
+    /**
+     * Rows
+     */
+    rows: Array<AdminRuntimeConnectionRow>;
+};
+
+/**
  * AdminSessionLoginRequest
  */
 export type AdminSessionLoginRequest = {
@@ -1051,6 +1155,16 @@ export type PeerResponse = {
 };
 
 /**
+ * ProfileConfigDownloadResponse
+ */
+export type ProfileConfigDownloadResponse = {
+    /**
+     * Download Url
+     */
+    download_url: string;
+};
+
+/**
  * ProfileCreateRequest
  */
 export type ProfileCreateRequest = {
@@ -1129,6 +1243,96 @@ export type ProfileSummary = {
      * Updated At
      */
     updated_at: string;
+};
+
+/**
+ * RuntimeSnapshotAccepted
+ */
+export type RuntimeSnapshotAccepted = {
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Received At
+     */
+    received_at: string;
+    /**
+     * Rows
+     */
+    rows: number;
+};
+
+/**
+ * RuntimeSnapshotRequest
+ */
+export type RuntimeSnapshotRequest = {
+    /**
+     * Generated At
+     */
+    generated_at: string;
+    /**
+     * Sample Interval Seconds
+     */
+    sample_interval_seconds: number;
+    /**
+     * Rows
+     */
+    rows: Array<RuntimeSnapshotRowRequest>;
+};
+
+/**
+ * RuntimeSnapshotRowRequest
+ */
+export type RuntimeSnapshotRowRequest = {
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string;
+    /**
+     * Selector
+     */
+    selector: string;
+    /**
+     * Active Now
+     */
+    active_now: boolean;
+    /**
+     * Active State
+     */
+    active_state: boolean;
+    /**
+     * Last Active At
+     */
+    last_active_at?: string | null;
+    /**
+     * Last Reassign At
+     */
+    last_reassign_at?: string | null;
+    /**
+     * Last Handshake At
+     */
+    last_handshake_at?: string | null;
+    /**
+     * Rx Bytes
+     */
+    rx_bytes: number;
+    /**
+     * Tx Bytes
+     */
+    tx_bytes: number;
+    /**
+     * Rx Bytes Per Second
+     */
+    rx_bytes_per_second: number;
+    /**
+     * Tx Bytes Per Second
+     */
+    tx_bytes_per_second: number;
 };
 
 /**
@@ -1766,6 +1970,37 @@ export type FailJobAgentJobsJobIdFailPostResponses = {
 
 export type FailJobAgentJobsJobIdFailPostResponse = FailJobAgentJobsJobIdFailPostResponses[keyof FailJobAgentJobsJobIdFailPostResponses];
 
+export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostData = {
+    body: RuntimeSnapshotRequest;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/agent/runtime-snapshot';
+};
+
+export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostError = IngestRuntimeSnapshotAgentRuntimeSnapshotPostErrors[keyof IngestRuntimeSnapshotAgentRuntimeSnapshotPostErrors];
+
+export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: RuntimeSnapshotAccepted;
+};
+
+export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponse = IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses[keyof IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses];
+
 export type AdminSessionLoginV2AdminSessionLoginPostData = {
     body: AdminSessionLoginRequest;
     path?: never;
@@ -2210,6 +2445,68 @@ export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses = 
 
 export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponse = AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses[keyof AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses];
 
+export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostData = {
+    body?: never;
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/{profile_id}/config-download';
+};
+
+export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostError = AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostErrors[keyof AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostErrors];
+
+export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProfileConfigDownloadResponse;
+};
+
+export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostResponse = AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostResponses[keyof AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostResponses];
+
+export type AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetData = {
+    body?: never;
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+        /**
+         * Download Token
+         */
+        download_token: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/{profile_id}/config-download/{download_token}';
+};
+
+export type AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetError = AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetErrors[keyof AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetErrors];
+
+export type AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownloadDownloadTokenGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetData = {
     body?: never;
     path: {
@@ -2442,6 +2739,71 @@ export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses = {
 };
 
 export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponse = AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses[keyof AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses];
+
+export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/profiles/{profile_id}/config';
+};
+
+export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetError = AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetErrors[keyof AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetErrors];
+
+export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/runtime/connections';
+};
+
+export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetError = AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetErrors[keyof AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetErrors];
+
+export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminRuntimeConnectionsResponse;
+};
+
+export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponse = AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses[keyof AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses];
 
 export type AdminListUsersV2AdminUsersGetData = {
     body?: never;

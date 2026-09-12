@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { productName } from '@wg-paid/common';
 import { InvitesPanel } from '../features/invites/InvitesPanel';
+import { ConnectionsPanel } from '../features/connections/ConnectionsPanel';
 import { UsersPanel } from '../features/users/UsersPanel';
 import { isUnauthorized, logoutAdmin } from '../lib/adminApi';
 import styles from './Admin.module.css';
@@ -11,6 +12,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboardProps) {
+  const [activeArea, setActiveArea] = useState<'users' | 'invites' | 'connections'>('users');
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState('');
 
@@ -39,8 +41,16 @@ export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboard
         </div>
         <div className={styles.headerActions}>
           <nav aria-label="Admin areas">
-            <a href="#users">Users</a>
-            <a href="#invites">Invites</a>
+            {(['users', 'invites', 'connections'] as const).map((area) => (
+              <button
+                aria-current={activeArea === area ? 'page' : undefined}
+                key={area}
+                type="button"
+                onClick={() => setActiveArea(area)}
+              >
+                {area[0]!.toUpperCase() + area.slice(1)}
+              </button>
+            ))}
           </nav>
           <button className={styles.secondaryButton} disabled={logoutPending} type="button" onClick={signOut}>
             {logoutPending ? 'Signing out…' : 'Sign out'}
@@ -49,8 +59,11 @@ export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboard
       </header>
       {logoutError ? <p className={styles.alert} role="alert">{logoutError}</p> : null}
       <main className={styles.dashboard}>
-        <UsersPanel onSessionExpired={onSessionExpired} />
-        <InvitesPanel onSessionExpired={onSessionExpired} />
+        <div hidden={activeArea !== 'users'}><UsersPanel onSessionExpired={onSessionExpired} /></div>
+        <div hidden={activeArea !== 'invites'}><InvitesPanel onSessionExpired={onSessionExpired} /></div>
+        <div hidden={activeArea !== 'connections'}>
+          <ConnectionsPanel active={activeArea === 'connections'} onSessionExpired={onSessionExpired} />
+        </div>
       </main>
     </div>
   );

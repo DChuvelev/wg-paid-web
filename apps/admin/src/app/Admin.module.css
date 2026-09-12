@@ -6,8 +6,9 @@
 .sessionState span { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #1d8a4c; box-shadow: 0 0 0 0.2rem #dff4e7; }
 .headerActions { display: flex; align-items: center; gap: 1rem; }
 .headerActions nav { display: flex; gap: 0.3rem; }
-.headerActions nav a { padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: #40516c; font-weight: 650; text-decoration: none; }
-.headerActions nav a:hover { background: #e8eef8; }
+.headerActions nav button { min-height: 2.6rem; padding: 0.6rem 0.75rem; border: 0; border-radius: 0.5rem; color: #40516c; background: transparent; font-weight: 650; }
+.headerActions nav button:hover { background: #e8eef8; }
+.headerActions nav button[aria-current="page"] { color: #173e79; background: #dce8fa; }
 .dashboard { display: grid; gap: 1.25rem; }
 .sectionCard, .userCard, .grantCard, .loginCard { border: 1px solid #d7dfeb; background: #fff; box-shadow: 0 0.65rem 2rem rgb(29 47 78 / 7%); }
 .sectionCard { scroll-margin-top: 1rem; padding: clamp(1rem, 2.5vw, 1.75rem); border-radius: 1rem; }
@@ -26,6 +27,8 @@
 .primaryButton:hover:not(:disabled) { background: #1e477f; }
 .secondaryButton { border: 1px solid #b6c2d3; color: #263750; background: #fff; }
 .secondaryButton:hover:not(:disabled) { background: #f0f4f9; }
+.secondaryLink { display: inline-flex; align-items: center; justify-content: center; min-height: 2.35rem; padding: 0.42rem 0.7rem; border: 1px solid #b6c2d3; border-radius: 0.5rem; color: #263750; background: #fff; font-size: 0.78rem; font-weight: 750; text-decoration: none; }
+.secondaryLink:hover { background: #f0f4f9; }
 .dangerButton { border: 1px solid #b42318; color: #fff; background: #b42318; }
 .dangerButton:hover:not(:disabled) { background: #8f1c13; }
 .dangerTextButton { border: 1px solid #efc7c3; color: #9f2118; background: #fff8f7; }
@@ -60,6 +63,8 @@
 .userCreated { color: #68778c; font-size: 0.82rem; text-align: right; }
 .badge { display: inline-flex; align-items: center; width: fit-content; padding: 0.22rem 0.52rem; border: 1px solid #cad4e2; border-radius: 999px; color: #41516a; background: #f2f5f9; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.025em; line-height: 1.25; text-transform: capitalize; }
 .status_active, .status_verified { border-color: #a7d9b9; color: #166534; background: #eaf8ef; }
+.status_now { border-color: #68bd87; color: #0f5d32; background: #dff6e7; }
+.status_idle, .status_never_seen { border-color: #cfd6df; color: #59677a; background: #f2f4f7; }
 .status_requested, .status_provisioning, .status_awaiting_confirmation { border-color: #b9d1f7; color: #1e4d91; background: #edf4ff; }
 .status_provisioning_failed { border-color: #efc7c3; color: #9f2118; background: #fff4f2; }
 .status_disabling, .status_deleting, .status_deletion_requested, .status_retirement_in_progress { border-color: #efd29b; color: #7a4900; background: #fff8e7; }
@@ -78,7 +83,7 @@
 .limitControl input { width: 5.25rem; }
 .profileList { margin-top: 1rem; }
 .profileList h4 { margin: 0; color: #34435a; font-size: 0.88rem; }
-.profileRow { display: grid; grid-template-columns: minmax(8rem, 1fr) auto auto; align-items: center; gap: 0.7rem; min-width: 0; padding: 0.7rem 0.8rem; border: 1px solid #e0e6ee; border-radius: 0.55rem; }
+.profileRow { display: grid; grid-template-columns: minmax(8rem, 1fr) auto auto auto; align-items: center; gap: 0.7rem; min-width: 0; padding: 0.7rem 0.8rem; border: 1px solid #e0e6ee; border-radius: 0.55rem; }
 .profileIdentity { display: grid; min-width: 0; }
 .profileIdentity strong { overflow-wrap: anywhere; }
 .profileIdentity span { overflow-wrap: anywhere; color: #6a788b; font-size: 0.8rem; }
@@ -196,7 +201,7 @@
   .limitControl { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .limitControl input { width: 100%; }
   .profileRow { grid-template-columns: minmax(0, 1fr) auto; }
-  .profileRow .inlineDetails { grid-column: 1 / -1; }
+  .profileRow .secondaryLink, .profileRow .inlineDetails { grid-column: 1 / -1; }
   .technicalDetails { margin-inline: 1rem; }
   .dangerZone { align-items: stretch; flex-direction: column; padding: 1rem; }
   .adminNote { margin-inline: 1rem; }

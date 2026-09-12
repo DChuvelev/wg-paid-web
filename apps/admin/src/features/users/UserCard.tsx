@@ -4,7 +4,7 @@ import type { AdminUserMetadataUpdateResponse, AdminUserSummary, GrantProtocolLi
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
 import { consumesQuota, formatDate, wireGuardLimit, wireGuardProfiles } from './userDomain';
-import { AdminApiError, updateAdminNote } from '../../lib/adminApi';
+import { adminProfileConfigUrl, AdminApiError, updateAdminNote } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
 interface GrantCardProps {
@@ -24,6 +24,13 @@ function ProfileRow({ profile }: { profile: ProfileSummary }) {
         {profile.label && profile.label !== profile.tunnel_ip ? <span>{profile.label}</span> : null}
       </div>
       <StatusBadge status={profile.status} />
+      {profile.protocol === 'wireguard' && profile.status === 'active' ? (
+        <a
+          aria-label={`Download config for profile ${profile.id}`}
+          className={styles.secondaryLink}
+          href={adminProfileConfigUrl(profile.id)}
+        >Download config</a>
+      ) : null}
       <details className={styles.inlineDetails}>
         <summary>Details</summary>
         <CopyableId label="Profile ID" value={profile.id} />

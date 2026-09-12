@@ -739,6 +739,65 @@
         }
       }
     },
+    "/agent/runtime-snapshot": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Ingest Runtime Snapshot",
+        "operationId": "ingest_runtime_snapshot_agent_runtime_snapshot_post",
+        "parameters": [
+          {
+            "name": "x-agent-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Agent-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeSnapshotRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSnapshotAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/session/login": {
       "post": {
         "tags": [
@@ -1732,6 +1791,131 @@
         }
       }
     },
+    "/v2/account/profiles/{profile_id}/config-download": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Profile Config Download Create",
+        "operationId": "account_profile_config_download_create_v2_account_profiles__profile_id__config_download_post",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileConfigDownloadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/profiles/{profile_id}/config-download/{download_token}": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Profile Config Download",
+        "operationId": "account_profile_config_download_v2_account_profiles__profile_id__config_download__download_token__get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          },
+          {
+            "name": "download_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Download Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/account/profiles/{profile_id}/config": {
       "get": {
         "tags": [
@@ -2298,6 +2482,176 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminInviteSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/admin/profiles/{profile_id}/config": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Profile Config Download",
+        "operationId": "admin_profile_config_download_v2_admin_profiles__profile_id__config_get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/admin/runtime/connections": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Runtime Connections",
+        "operationId": "admin_runtime_connections_v2_admin_runtime_connections_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeConnectionsResponse"
                 }
               }
             }
@@ -3287,6 +3641,210 @@
           "retirement_in_progress"
         ],
         "title": "AdminProtocolLimitUpdateResponse"
+      },
+      "AdminRuntimeConnectionRow": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "profile_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Label"
+          },
+          "tunnel_ip": {
+            "type": "string",
+            "title": "Tunnel Ip"
+          },
+          "selector": {
+            "type": "string",
+            "title": "Selector"
+          },
+          "active_now": {
+            "type": "boolean",
+            "title": "Active Now"
+          },
+          "active_state": {
+            "type": "boolean",
+            "title": "Active State"
+          },
+          "last_active_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Active At"
+          },
+          "last_reassign_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reassign At"
+          },
+          "last_handshake_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Handshake At"
+          },
+          "rx_bytes": {
+            "type": "integer",
+            "title": "Rx Bytes"
+          },
+          "tx_bytes": {
+            "type": "integer",
+            "title": "Tx Bytes"
+          },
+          "rx_bytes_per_second": {
+            "type": "number",
+            "title": "Rx Bytes Per Second"
+          },
+          "tx_bytes_per_second": {
+            "type": "number",
+            "title": "Tx Bytes Per Second"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "display_name",
+          "profile_id",
+          "profile_label",
+          "tunnel_ip",
+          "selector",
+          "active_now",
+          "active_state",
+          "last_active_at",
+          "last_reassign_at",
+          "last_handshake_at",
+          "rx_bytes",
+          "tx_bytes",
+          "rx_bytes_per_second",
+          "tx_bytes_per_second"
+        ],
+        "title": "AdminRuntimeConnectionRow"
+      },
+      "AdminRuntimeConnectionsResponse": {
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "snapshot_age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Age Seconds"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "sample_interval_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Interval Seconds"
+          },
+          "unmatched_runtime_rows_count": {
+            "type": "integer",
+            "title": "Unmatched Runtime Rows Count"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRuntimeConnectionRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "received_at",
+          "snapshot_age_seconds",
+          "stale",
+          "sample_interval_seconds",
+          "unmatched_runtime_rows_count",
+          "rows"
+        ],
+        "title": "AdminRuntimeConnectionsResponse"
       },
       "AdminSessionLoginRequest": {
         "properties": {
@@ -4609,6 +5167,19 @@
         ],
         "title": "PeerResponse"
       },
+      "ProfileConfigDownloadResponse": {
+        "properties": {
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "download_url"
+        ],
+        "title": "ProfileConfigDownloadResponse"
+      },
       "ProfileCreateRequest": {
         "properties": {
           "grant_id": {
@@ -4750,6 +5321,155 @@
           "updated_at"
         ],
         "title": "ProfileSummary"
+      },
+      "RuntimeSnapshotAccepted": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "received_at",
+          "rows"
+        ],
+        "title": "RuntimeSnapshotAccepted"
+      },
+      "RuntimeSnapshotRequest": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "sample_interval_seconds": {
+            "type": "number",
+            "maximum": 60.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Sample Interval Seconds"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RuntimeSnapshotRowRequest"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "sample_interval_seconds",
+          "rows"
+        ],
+        "title": "RuntimeSnapshotRequest"
+      },
+      "RuntimeSnapshotRowRequest": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "tunnel_ip": {
+            "type": "string",
+            "title": "Tunnel Ip"
+          },
+          "selector": {
+            "type": "string",
+            "pattern": "^cs[1-5]$",
+            "title": "Selector"
+          },
+          "active_now": {
+            "type": "boolean",
+            "title": "Active Now"
+          },
+          "active_state": {
+            "type": "boolean",
+            "title": "Active State"
+          },
+          "last_active_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Active At"
+          },
+          "last_reassign_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reassign At"
+          },
+          "last_handshake_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Handshake At"
+          },
+          "rx_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Rx Bytes"
+          },
+          "tx_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tx Bytes"
+          },
+          "rx_bytes_per_second": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Rx Bytes Per Second"
+          },
+          "tx_bytes_per_second": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Tx Bytes Per Second"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "tunnel_ip",
+          "selector",
+          "active_now",
+          "active_state",
+          "rx_bytes",
+          "tx_bytes",
+          "rx_bytes_per_second",
+          "tx_bytes_per_second"
+        ],
+        "title": "RuntimeSnapshotRowRequest"
       },
       "SubscriptionCreateRequest": {
         "properties": {
