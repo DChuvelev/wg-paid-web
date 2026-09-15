@@ -1,9 +1,9 @@
 import {
   accountMeUpdateV2AccountMePatch,
   accountMeV2AccountMeGet,
-  accountProfileCreateV2AccountProfilesPost,
-  accountProfilesV2AccountProfilesGet,
-  accountProfileUpdateLabelV2AccountProfilesProfileIdPatch,
+  accountConfigurationCreateV2AccountProfilesConfigurationsPost,
+  accountConfigurationsV2AccountProfilesConfigurationsGet,
+  accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch,
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   inspectInviteRouteV2AuthInvitesInspectPost,
@@ -12,8 +12,9 @@ import {
   redeemInviteRouteV2AuthInvitesRedeemPost,
   resendInviteRouteV2AuthInvitesResendPost,
   type AccountMeResponse,
+  type ConfigurationSummary,
   type InviteInspectResponse,
-  type ProfileSummary
+  type ProfileConfigDownloadResponse
 } from '@wg-paid/api';
 
 const csrfCookieName = 'wg_access_csrf';
@@ -122,16 +123,12 @@ export async function loadAccount(): Promise<AccountMeResponse> {
   throw accessApiError(result.response);
 }
 
-export async function loadProfiles(): Promise<Array<ProfileSummary>> {
-  const result = await accountProfilesV2AccountProfilesGet(requestOptions());
+export async function loadConfigurations(): Promise<Array<ConfigurationSummary>> {
+  const result = await accountConfigurationsV2AccountProfilesConfigurationsGet(requestOptions());
   if (result.data) {
     return result.data;
   }
   throw accessApiError(result.response);
-}
-
-interface ProfileConfigDownloadResponse {
-  download_url: string;
 }
 
 export async function createProfileConfigDownload(profileId: string): Promise<string> {
@@ -169,11 +166,11 @@ export async function updateDisplayName(displayName: string | null): Promise<Acc
   throw new AccessApiError(result.response?.status);
 }
 
-export async function updateProfileLabel(profileId: string, label: string | null): Promise<ProfileSummary> {
-  const result = await accountProfileUpdateLabelV2AccountProfilesProfileIdPatch({
+export async function updateConfigurationLabel(configurationId: string, label: string | null): Promise<ConfigurationSummary> {
+  const result = await accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch({
     ...mutationOptions(),
     body: { label },
-    path: { profile_id: profileId }
+    path: { configuration_id: configurationId }
   });
   if (result.data) return result.data;
   throw new AccessApiError(result.response?.status);
@@ -185,10 +182,10 @@ async function requireSuccessfulMutation(result: { response?: Response }) {
   }
 }
 
-export async function createProfile(grantId: string) {
-  await requireSuccessfulMutation(await accountProfileCreateV2AccountProfilesPost({
+export async function createConfiguration(grantId: string) {
+  await requireSuccessfulMutation(await accountConfigurationCreateV2AccountProfilesConfigurationsPost({
     ...mutationOptions(),
-    body: { grant_id: grantId, protocol: 'wireguard' }
+    body: { grant_id: grantId }
   }));
 }
 

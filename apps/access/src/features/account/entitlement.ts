@@ -1,16 +1,16 @@
 import type { GrantSummary } from '@wg-paid/api';
 
-export interface WireGuardEntitlement {
+export interface ConfigurationEntitlement {
   canCreate: boolean;
   grantId: string;
-  profileCount: number;
-  profileLimit: number;
+  configurationCount: number;
+  configurationLimit: number;
 }
 
-export function selectWireGuardEntitlement(
+export function selectConfigurationEntitlement(
   grants: Array<GrantSummary>,
   now = new Date()
-): WireGuardEntitlement | null {
+): ConfigurationEntitlement | null {
   for (const grant of [...grants].reverse()) {
     if (grant.status !== 'active') continue;
     if (grant.valid_until) {
@@ -18,15 +18,12 @@ export function selectWireGuardEntitlement(
       if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) continue;
     }
 
-    const limit = grant.protocol_limits.find(({ protocol }) => protocol === 'wireguard');
-    if (limit) {
-      return {
-        canCreate: limit.can_create,
-        grantId: grant.id,
-        profileCount: limit.profile_count,
-        profileLimit: limit.profile_limit
-      };
-    }
+    return {
+      canCreate: grant.can_create_configuration,
+      grantId: grant.id,
+      configurationCount: grant.configuration_count,
+      configurationLimit: grant.configuration_limit
+    };
   }
 
   return null;

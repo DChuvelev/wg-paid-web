@@ -1,4 +1,4 @@
-import type { AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminUserSummary, ConfigurationSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
 
 export const quotaProfileStatuses = new Set([
   'requested',
@@ -16,8 +16,14 @@ export function wireGuardLimit(grant: GrantSummary): GrantProtocolLimitSummary |
   return grant.protocol_limits.find((limit) => limit.protocol === 'wireguard');
 }
 
-export function wireGuardProfiles(user: AdminUserSummary, grantId: string) {
-  return user.profiles.filter((profile) => profile.protocol === 'wireguard' && profile.access_grant_id === grantId);
+export function configurationsForGrant(user: AdminUserSummary, grantId: string) {
+  return user.configurations.filter((configuration) => configuration.access_grant_id === grantId);
+}
+
+export function representativeProfileId(configuration: ConfigurationSummary): string | null {
+  return configuration.variants.find((variant) => variant.protocol === 'wireguard')?.profile_id
+    ?? configuration.variants.find((variant) => variant.protocol === 'amneziawg')?.profile_id
+    ?? null;
 }
 
 export function formatDate(value: string | null | undefined) {

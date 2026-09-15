@@ -5,12 +5,12 @@ const sdk = vi.hoisted(() => ({
   accountMeUpdate: vi.fn(),
   changeInviteEmail: vi.fn(),
   consumeMagic: vi.fn(),
-  createProfile: vi.fn(),
+  createConfiguration: vi.fn(),
   inspectInvite: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
-  profiles: vi.fn(),
-  profileUpdate: vi.fn(),
+  configurations: vi.fn(),
+  configurationUpdate: vi.fn(),
   redeemInvite: vi.fn(),
   resendInvite: vi.fn()
 }));
@@ -18,9 +18,9 @@ const sdk = vi.hoisted(() => ({
 vi.mock('@wg-paid/api', () => ({
   accountMeV2AccountMeGet: sdk.accountMe,
   accountMeUpdateV2AccountMePatch: sdk.accountMeUpdate,
-  accountProfileCreateV2AccountProfilesPost: sdk.createProfile,
-  accountProfilesV2AccountProfilesGet: sdk.profiles,
-  accountProfileUpdateLabelV2AccountProfilesProfileIdPatch: sdk.profileUpdate,
+  accountConfigurationCreateV2AccountProfilesConfigurationsPost: sdk.createConfiguration,
+  accountConfigurationsV2AccountProfilesConfigurationsGet: sdk.configurations,
+  accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch: sdk.configurationUpdate,
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost: sdk.changeInviteEmail,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
   inspectInviteRouteV2AuthInvitesInspectPost: sdk.inspectInvite,
@@ -33,12 +33,13 @@ vi.mock('@wg-paid/api', () => ({
 import {
   AccessApiError,
   changeInviteEmail,
-  createProfile,
+  createConfiguration,
   createProfileConfigDownload,
   inspectInvite,
+  loadConfigurations,
   resendInvite,
   updateDisplayName,
-  updateProfileLabel
+  updateConfigurationLabel
 } from './accessApi';
 
 afterEach(() => {
@@ -47,14 +48,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-test('adds the CSRF header to a profile mutation when the cookie exists', async () => {
+test('creates a logical configuration without protocol selection and with CSRF', async () => {
   document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
-  sdk.createProfile.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+  sdk.createConfiguration.mockResolvedValue({ response: new Response(null, { status: 202 }) });
 
-  await createProfile('grant-1');
+  await createConfiguration('grant-1');
 
-  expect(sdk.createProfile).toHaveBeenCalledWith(expect.objectContaining({
-    body: { grant_id: 'grant-1', protocol: 'wireguard' },
+  expect(sdk.createConfiguration).toHaveBeenCalledWith(expect.objectContaining({
+    body: { grant_id: 'grant-1' },
     credentials: 'same-origin',
     headers: { 'x-csrf-token': 'csrf value' }
   }));
@@ -122,7 +123,7 @@ test('preserves the HTTP status when config download creation fails', async () =
   );
 });
 
-test('sends nullable account and profile metadata through their generated PATCH operations', async () => {
+test('sends nullable account and configuration metadata through generated PATCH operations', async () => {
   document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
 
   const account = {
@@ -132,15 +133,14 @@ test('sends nullable account and profile metadata through their generated PATCH 
     user_id: 'user-1'
   };
 
-  const profile = {
+  const configuration = {
     access_grant_id: 'grant-1',
+    configuration_id: 'configuration-1',
     created_at: '2026-01-01T00:00:00Z',
-    id: 'profile-1',
     label: null,
-    protocol: 'wireguard',
-    status: 'active',
-    tunnel_ip: '10.0.0.2',
-    updated_at: '2026-01-01T00:00:00Z'
+    ordinal: 1,
+    updated_at: '2026-01-01T00:00:00Z',
+    variants: []
   };
 
   sdk.accountMeUpdate.mockResolvedValue({
@@ -148,23 +148,23 @@ test('sends nullable account and profile metadata through their generated PATCH 
     response: new Response(null, { status: 200 })
   });
 
-  sdk.profileUpdate.mockResolvedValue({
-    data: profile,
+  sdk.configurationUpdate.mockResolvedValue({
+    data: configuration,
     response: new Response(null, { status: 200 })
   });
 
   await expect(updateDisplayName(null)).resolves.toEqual(account);
-  await expect(updateProfileLabel('profile-1', null)).resolves.toEqual(profile);
+  await expect(updateConfigurationLabel('configuration-1', null)).resolves.toEqual(configuration);
 
   expect(sdk.accountMeUpdate).toHaveBeenCalledWith(expect.objectContaining({
     body: { display_name: null },
     headers: { 'x-csrf-token': 'csrf value' }
   }));
 
-  expect(sdk.profileUpdate).toHaveBeenCalledWith(expect.objectContaining({
+  expect(sdk.configurationUpdate).toHaveBeenCalledWith(expect.objectContaining({
     body: { label: null },
     headers: { 'x-csrf-token': 'csrf value' },
-    path: { profile_id: 'profile-1' }
+    path: { configuration_id: 'configuration-1' }
   }));
 });
 
@@ -233,4 +233,10 @@ test('preserves Retry-After from an invite resend cooldown response', async () =
       status: 429
     })
   );
+});
+
+test('loads typed logical configurations through the generated GET operation', async () => {
+  sdk.configurations.mockResolvedValue({ data: [], response: new Response('[]', { status: 200 }) });
+  await expect(loadConfigurations()).resolves.toEqual([]);
+  expect(sdk.configurations).toHaveBeenCalledWith({ credentials: 'same-origin' });
 });

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ProfileSummary } from '@wg-paid/api';
+import type { ConfigurationSummary, ConfigurationVariantSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
-import { AccessApiError, createProfileConfigDownload, updateProfileLabel } from '../../lib/accessApi';
-import { profilesKey } from './queryKeys';
+import { AccessApiError, createProfileConfigDownload, updateConfigurationLabel } from '../../lib/accessApi';
+import { configurationsKey } from './queryKeys';
 import styles from './Account.module.css';
 
-interface ProfileListProps {
-  profiles: Array<ProfileSummary>;
+interface ConfigurationListProps {
+  configurations: Array<ConfigurationSummary>;
   onUnauthorized: (error: unknown) => void;
 }
 
@@ -27,21 +27,21 @@ function localizedStatus(status: string, t: ReturnType<typeof useLocale>['t']) {
   return status;
 }
 
-function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummary; onUnauthorized: (error: unknown) => void }) {
+function ConfigurationNameEditor({ configuration, onUnauthorized }: { configuration: ConfigurationSummary; onUnauthorized: (error: unknown) => void }) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(profile.label ?? '');
+  const [draft, setDraft] = useState(configuration.label ?? '');
   const [feedbackKey, setFeedbackKey] = useState<TranslationKey | null>(null);
   const mutation = useMutation({
-    mutationFn: (label: string | null) => updateProfileLabel(profile.id, label),
+    mutationFn: (label: string | null) => updateConfigurationLabel(configuration.configuration_id, label),
     onError: (error) => {
       onUnauthorized(error);
-      setFeedbackKey('profileNameSaveFailed');
+      setFeedbackKey('configurationNameSaveFailed');
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData<Array<ProfileSummary>>(profilesKey, (current) => (
-        current?.map((item) => item.id === updated.id ? updated : item)
+      queryClient.setQueryData<Array<ConfigurationSummary>>(configurationsKey, (current) => (
+        current?.map((item) => item.configuration_id === updated.configuration_id ? updated : item)
       ));
       setDraft(updated.label ?? '');
       setEditing(false);
@@ -49,7 +49,7 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
     }
   });
 
-  useEffect(() => setDraft(profile.label ?? ''), [profile.label]);
+  useEffect(() => setDraft(configuration.label ?? ''), [configuration.label]);
 
   const save = () => mutation.mutate(draft.trim() || null);
   const clear = () => mutation.mutate(null);
@@ -58,7 +58,7 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
     return (
       <div className={styles.profileNameAction}>
         <button className={styles.textButton} type="button" onClick={() => { setFeedbackKey(null); setEditing(true); }}>
-          {profile.label ? t('editName') : t('addName')}
+          {configuration.label ? t('editName') : t('addName')}
         </button>
         {feedbackKey ? <span className={styles.success} role="status">{t(feedbackKey)}</span> : null}
       </div>
@@ -68,12 +68,12 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
   return (
     <div className={styles.profileNameEditor}>
       <label>
-        <span>{t('connectionName')}</span>
+          <span>{t('configurationName')}</span>
         <input
-          aria-label={`${t('connectionName')}: ${profile.id}`}
+          aria-label={`${t('configurationName')}: ${configuration.configuration_id}`}
           autoFocus
           maxLength={160}
-          placeholder={t('connectionNameExample')}
+          placeholder={t('configurationNameExample')}
           value={draft}
           onChange={(event) => { setDraft(event.target.value); setFeedbackKey(null); }}
         />
@@ -82,22 +82,21 @@ function ProfileNameEditor({ profile, onUnauthorized }: { profile: ProfileSummar
         <button className={`${styles.button} ${styles.primary}`} type="button" disabled={mutation.isPending} onClick={save}>
           {mutation.isPending ? t('saving') : t('save')}
         </button>
-        {profile.label ? <button className={styles.button} type="button" disabled={mutation.isPending} onClick={clear}>{t('clear')}</button> : null}
-        <button className={styles.button} type="button" disabled={mutation.isPending} onClick={() => { setDraft(profile.label ?? ''); setEditing(false); }}>{t('cancel')}</button>
+        {configuration.label ? <button className={styles.button} type="button" disabled={mutation.isPending} onClick={clear}>{t('clear')}</button> : null}
+        <button className={styles.button} type="button" disabled={mutation.isPending} onClick={() => { setDraft(configuration.label ?? ''); setEditing(false); }}>{t('cancel')}</button>
       </div>
       {feedbackKey ? <p className={styles.error} role="alert">{t(feedbackKey)}</p> : null}
     </div>
   );
 }
 
-export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
+export function ConfigurationList({ configurations, onUnauthorized }: ConfigurationListProps) {
   const { t } = useLocale();
   const [downloadingProfileId, setDownloadingProfileId] = useState<string | null>(null);
   const [downloadErrorProfileId, setDownloadErrorProfileId] = useState<string | null>(null);
   const [selectedQr, setSelectedQr] = useState<{ href: string; label: string } | null>(null);
   const [qrLoadState, setQrLoadState] = useState<QrLoadState>({ status: 'loading' });
   const qrTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const wireGuardProfiles = profiles.filter(({ protocol }) => protocol === 'wireguard');
 
   const closeQr = useCallback(() => {
     qrTriggerRef.current?.focus();
@@ -159,54 +158,69 @@ export function ProfileList({ profiles, onUnauthorized }: ProfileListProps) {
     };
   }, [selectedQr]);
 
-  if (wireGuardProfiles.length === 0) {
-    return <p>{t('noConnections')}</p>;
+  if (configurations.length === 0) {
+    return <p>{t('noConfigurations')}</p>;
   }
 
   return (
     <>
       <ul className={styles.profiles}>
-      {wireGuardProfiles.map((profile, index) => {
-        const label = profile.label || t('defaultConnectionName', { number: index + 1 });
-        const qrHref = `/v2/account/profiles/${encodeURIComponent(profile.id)}/qr.svg`;
-
+      {configurations.map((configuration) => {
+        const configurationName = t('configurationNumber', { number: configuration.ordinal });
         return (
-          <li className={styles.profile} key={profile.id}>
-            <h3 className={styles.profileTitle}>{label}</h3>
-            <p className={styles.details}>
-              <span>{t('status', { status: localizedStatus(profile.status, t) })}</span>
-              {profile.tunnel_ip ? <span>{t('tunnelIp', { ip: profile.tunnel_ip })}</span> : null}
-              <span className={styles.profileId}>{t('profileId', { id: profile.id })}</span>
-            </p>
-            <ProfileNameEditor profile={profile} onUnauthorized={onUnauthorized} />
-            {profile.status === 'active' ? (
-              <>
-                <div className={styles.actions}>
-                  <button
-                    className={styles.linkButton}
-                    disabled={downloadingProfileId !== null}
-                    type="button"
-                    onClick={() => void downloadConfig(profile.id)}
-                  >
-                    {downloadingProfileId === profile.id ? t('downloadingConfig') : t('downloadConfig')}
-                  </button>
-                  <button
-                    className={styles.linkButton}
-                    type="button"
-                    onClick={(event) => {
-                      qrTriggerRef.current = event.currentTarget;
-                      setQrLoadState({ status: 'loading' });
-                      setSelectedQr({ href: qrHref, label });
-                    }}
-                  >
-                    {t('showQr')}
-                  </button>
-                </div>
-                {downloadErrorProfileId === profile.id ? (
-                  <p className={styles.error} role="alert">{t('configDownloadFailed')}</p>
-                ) : null}
-              </>
-            ) : null}
+          <li className={styles.profile} key={configuration.configuration_id}>
+            <h3 className={styles.profileTitle}>
+              {configurationName}{configuration.label ? ` · ${configuration.label}` : null}
+            </h3>
+            <ConfigurationNameEditor configuration={configuration} onUnauthorized={onUnauthorized} />
+            <div className={styles.variantList}>
+              {configuration.variants.map((variant: ConfigurationVariantSummary) => {
+                const protocolName = variant.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG';
+                const qrHref = `/v2/account/profiles/${encodeURIComponent(variant.profile_id)}/qr.svg`;
+                const qrLabel = `${protocolName} · ${configurationName}`;
+                const canDeliver = variant.status === 'active' && variant.ready;
+                return (
+                  <section className={styles.variant} key={variant.profile_id} aria-label={`${protocolName} · ${configurationName}`}>
+                    <h4>{protocolName}</h4>
+                    <p className={styles.details}>
+                      <span>{t('status', { status: localizedStatus(variant.status, t) })}</span>
+                      {variant.tunnel_ip ? <span>{t('tunnelIp', { ip: variant.tunnel_ip })}</span> : null}
+                      <span className={styles.profileId}>{t('profileId', { id: variant.profile_id })}</span>
+                    </p>
+                    {canDeliver ? (
+                      <>
+                        <div className={styles.actions}>
+                          <button
+                            aria-label={t('downloadProtocolConfig', { protocol: protocolName })}
+                            className={styles.linkButton}
+                            disabled={downloadingProfileId !== null}
+                            type="button"
+                            onClick={() => void downloadConfig(variant.profile_id)}
+                          >
+                            {downloadingProfileId === variant.profile_id ? t('downloadingConfig') : t('downloadConfig')}
+                          </button>
+                          <button
+                            aria-label={t('showProtocolQr', { protocol: protocolName })}
+                            className={styles.linkButton}
+                            type="button"
+                            onClick={(event) => {
+                              qrTriggerRef.current = event.currentTarget;
+                              setQrLoadState({ status: 'loading' });
+                              setSelectedQr({ href: qrHref, label: qrLabel });
+                            }}
+                          >
+                            {t('showQr')}
+                          </button>
+                        </div>
+                        {downloadErrorProfileId === variant.profile_id ? (
+                          <p className={styles.error} role="alert">{t('configDownloadFailed')}</p>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
           </li>
         );
       })}

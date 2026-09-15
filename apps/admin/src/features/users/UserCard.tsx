@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import type { AdminUserMetadataUpdateResponse, AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminUserMetadataUpdateResponse, AdminUserSummary, ConfigurationSummary, ConfigurationVariantSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
-import { consumesQuota, formatDate, wireGuardLimit, wireGuardProfiles } from './userDomain';
+import { configurationsForGrant, consumesQuota, formatDate, wireGuardLimit } from './userDomain';
 import { adminProfileConfigUrl, AdminApiError, updateAdminNote } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
@@ -11,47 +11,50 @@ interface GrantCardProps {
   deleting: boolean;
   grant: GrantSummary;
   limitPending: boolean;
-  profiles: Array<ProfileSummary>;
+  configurations: Array<ConfigurationSummary>;
+  historicalProfiles: Array<ProfileSummary>;
   retirementActive: boolean;
   onLimitRequest: (limit: GrantProtocolLimitSummary, nextLimit: number) => void;
 }
 
-function ProfileRow({ profile }: { profile: ProfileSummary }) {
+function ProfileRow({ profile }: { profile: ProfileSummary | ConfigurationVariantSummary }) {
+  const profileId = 'profile_id' in profile ? profile.profile_id : profile.id;
+  const profileLabel = 'label' in profile ? profile.label : null;
+  const protocolName = profile.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG';
+  const ready = 'ready' in profile ? profile.ready : profile.status === 'active' && Boolean(profile.tunnel_ip);
   return (
     <article className={styles.profileRow}>
       <div className={styles.profileIdentity}>
-        <strong>{profile.tunnel_ip || profile.label || 'No tunnel IP'}</strong>
-        {profile.label && profile.label !== profile.tunnel_ip ? <span>{profile.label}</span> : null}
+        <strong>{protocolName}</strong>
+        <span>{profile.tunnel_ip || profileLabel || 'No tunnel IP'}</span>
       </div>
       <StatusBadge status={profile.status} />
-      {profile.protocol === 'wireguard' && profile.status === 'active' ? (
+      {ready && profile.status === 'active' ? (
         <a
-          aria-label={`Download config for profile ${profile.id}`}
+          aria-label={`Download ${protocolName} config for profile ${profileId}`}
           className={styles.secondaryLink}
-          href={adminProfileConfigUrl(profile.id)}
+          href={adminProfileConfigUrl(profileId)}
         >Download config</a>
       ) : null}
       <details className={styles.inlineDetails}>
         <summary>Details</summary>
-        <CopyableId label="Profile ID" value={profile.id} />
+        <CopyableId label="Profile ID" value={profileId} />
       </details>
     </article>
   );
 }
 
-function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, onLimitRequest }: GrantCardProps) {
+function GrantCard({ configurations, deleting, grant, historicalProfiles, limitPending, retirementActive, onLimitRequest }: GrantCardProps) {
   const limit = wireGuardLimit(grant);
-  const currentProfiles = profiles.filter(consumesQuota);
-  const historicalProfiles = profiles.filter((profile) => !consumesQuota(profile));
-  const [nextLimit, setNextLimit] = useState(limit?.profile_limit.toString() ?? '');
+  const [nextLimit, setNextLimit] = useState(grant.configuration_limit.toString());
   const [validation, setValidation] = useState('');
 
-  useEffect(() => setNextLimit(limit?.profile_limit.toString() ?? ''), [limit?.profile_limit]);
+  useEffect(() => setNextLimit(grant.configuration_limit.toString()), [grant.configuration_limit]);
 
   const submit = () => {
     const number = Number(nextLimit);
     if (!Number.isInteger(number) || number < 0) {
-      setValidation('Profile limit must be a non-negative integer.');
+      setValidation('Configuration limit must be a non-negative integer.');
       return;
     }
     if (!limit) return;
@@ -69,15 +72,15 @@ function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, 
       {limit ? (
         <div className={styles.limitPanel}>
           <div className={styles.limitSummary}>
-            <span>WireGuard profiles</span>
-            <strong>{limit.profile_count} / {limit.profile_limit}</strong>
-            <small>{limit.can_create ? 'Creation available' : 'At current limit'}</small>
+            <span>Configurations</span>
+            <strong>{grant.configuration_count} / {grant.configuration_limit}</strong>
+            <small>{grant.can_create_configuration ? 'Creation available' : 'At current limit'}</small>
           </div>
           <div className={styles.limitControl}>
             <label>
               <span>New limit</span>
               <input
-                aria-label={`New WireGuard limit for grant ${grant.id}`}
+                aria-label={`New configuration limit for grant ${grant.id}`}
                 disabled={deleting || retirementActive || limitPending}
                 inputMode="numeric"
                 min="0"
@@ -96,15 +99,20 @@ function GrantCard({ deleting, grant, limitPending, profiles, retirementActive, 
       ) : null}
 
       <div className={styles.profileList}>
-        <h4>Current connections ({currentProfiles.length})</h4>
-        {currentProfiles.length ? currentProfiles.map((profile) => (
-          <ProfileRow key={profile.id} profile={profile} />
-        )) : <p className={styles.emptyState}>No quota-consuming WireGuard profiles.</p>}
+        <h4>Current configurations ({grant.configuration_count})</h4>
+        {configurations.length ? configurations.map((configuration) => (
+          <section className={styles.configurationGroup} key={configuration.configuration_id} aria-label={`Configuration #${configuration.ordinal}`}>
+            <h5>Configuration #{configuration.ordinal}{configuration.label ? ` · ${configuration.label}` : null}</h5>
+            {configuration.variants.map((variant) => (
+              <ProfileRow key={variant.profile_id} profile={variant} />
+            ))}
+          </section>
+        )) : <p className={styles.emptyState}>No current configurations.</p>}
       </div>
 
       {historicalProfiles.length ? (
         <details className={styles.profileHistory}>
-          <summary>Disabled / retired ({historicalProfiles.length})</summary>
+          <summary>Disabled / retired protocol variants ({historicalProfiles.length})</summary>
           <div className={styles.profileList}>
             {historicalProfiles.map((profile) => (
               <ProfileRow key={profile.id} profile={profile} />
@@ -184,7 +192,7 @@ interface UserCardProps {
   onLimitRequest: (
     grant: GrantSummary,
     limit: GrantProtocolLimitSummary,
-    profiles: Array<ProfileSummary>,
+    configurations: Array<ConfigurationSummary>,
     nextLimit: number
   ) => void;
   onMetadataUpdated: (updated: AdminUserMetadataUpdateResponse) => void;
@@ -194,9 +202,8 @@ interface UserCardProps {
 
 export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onMetadataUpdated, onRequestError, onRefreshDeleting }: UserCardProps) {
   const deleting = Boolean(user.deletion_requested_at) || deletingActive;
-  const wireGuardLimits = user.grants.map(wireGuardLimit).filter((limit) => limit !== undefined);
-  const profileCount = wireGuardLimits.reduce((total, limit) => total + limit.profile_count, 0);
-  const profileLimit = wireGuardLimits.reduce((total, limit) => total + limit.profile_limit, 0);
+  const configurationCount = user.grants.reduce((total, grant) => total + grant.configuration_count, 0);
+  const configurationLimit = user.grants.reduce((total, grant) => total + grant.configuration_limit, 0);
   return (
     <article className={styles.userCard} aria-label={user.email}>
       <details className={styles.userDisclosure}>
@@ -205,7 +212,7 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
             <strong className={styles.userEmail}>{user.email}</strong>
             <span className={styles.userName}>{user.display_name || '—'}</span>
           </span>
-          <span className={styles.userQuota}>{deleting ? 'Deleting · ' : ''}In use {profileCount} / {profileLimit}</span>
+          <span className={styles.userQuota}>{deleting ? 'Deleting · ' : ''}Configurations {configurationCount} / {configurationLimit}</span>
           <span className={styles.userListCell}>{formatDate(user.created_at)}</span>
           <span className={styles.userListCell}>{formatDate(user.invite_issued_at)}</span>
           <span className={styles.userListCell}>{formatDate(user.invite_redeemed_at)}</span>
@@ -225,7 +232,7 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
           {deleting ? (
             <div className={styles.progressBox} role="status">
               <strong>Deletion in progress</strong>
-              <span>Sessions and grants are revoked; remaining profiles are being disabled.</span>
+              <span>Sessions and grants are revoked; remaining configuration variants are being disabled.</span>
             </div>
           ) : null}
 
@@ -233,16 +240,23 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
 
           <div className={styles.grantList}>
             {user.grants.length ? user.grants.map((grant) => {
-              const profiles = wireGuardProfiles(user, grant.id);
+              const configurations = configurationsForGrant(user, grant.id);
+              const currentVariantIds = new Set(configurations.flatMap((configuration) => (
+                configuration.variants.map((variant) => variant.profile_id)
+              )));
+              const historicalProfiles = user.profiles.filter((profile) => (
+                profile.access_grant_id === grant.id && !consumesQuota(profile) && !currentVariantIds.has(profile.id)
+              ));
               return (
                 <GrantCard
+                  configurations={configurations}
                   deleting={deleting}
                   grant={grant}
+                  historicalProfiles={historicalProfiles}
                   key={grant.id}
                   limitPending={limitPending.has(grant.id)}
-                  profiles={profiles}
                   retirementActive={retirementGrants.has(grant.id)}
-                  onLimitRequest={(limit, nextLimit) => onLimitRequest(grant, limit, profiles, nextLimit)}
+                  onLimitRequest={(limit, nextLimit) => onLimitRequest(grant, limit, configurations, nextLimit)}
                 />
               );
             }) : <p className={styles.emptyState}>No grants.</p>}

@@ -1,6 +1,6 @@
 import { type FormEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminUserMetadataUpdateResponse, AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminUserMetadataUpdateResponse, AdminUserSummary, ConfigurationSummary, GrantProtocolLimitSummary, GrantSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
 import {
   AdminApiError,
@@ -13,7 +13,7 @@ import {
 } from '../../lib/adminApi';
 import { RetirementDialog, type RetirementSelection } from './RetirementDialog';
 import { UserCard } from './UserCard';
-import { consumesQuota, wireGuardLimit } from './userDomain';
+import { representativeProfileId, wireGuardLimit } from './userDomain';
 import styles from '../../app/Admin.module.css';
 
 const operationPollIntervalMs = 2500;
@@ -38,7 +38,8 @@ interface RetirementOperation {
   email: string;
   grantId: string;
   newLimit: number;
-  selectedIds: Set<string>;
+  selectedConfigurationIds: Set<string>;
+  selectedProfileIds: Set<string>;
   userId: string;
 }
 
@@ -124,15 +125,18 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
       const limit = grant ? wireGuardLimit(grant) : undefined;
       if (!user || !grant || !limit) {
         nextRetirements.delete(grantId);
-        terminalMessage = 'Automatic retirement refresh stopped because the affected user, grant, or WireGuard limit is unavailable.';
+        terminalMessage = 'Automatic retirement refresh stopped because the affected user, grant, or configuration limit is unavailable.';
         continue;
       }
-      const selectedProfiles = user.profiles.filter((profile) => operation.selectedIds.has(profile.id));
-      const allRetired = selectedProfiles.length === operation.selectedIds.size
-        && selectedProfiles.every((profile) => !consumesQuota(profile));
-      if (limit.profile_count <= operation.newLimit && allRetired) {
+      const selectedProfiles = user.profiles.filter((profile) => operation.selectedProfileIds.has(profile.id));
+      const selectedConfigurationsGone = [...operation.selectedConfigurationIds].every((configurationId) => (
+        !user.configurations.some((configuration) => configuration.configuration_id === configurationId)
+      ));
+      const representativesRetired = selectedProfiles.length === operation.selectedProfileIds.size
+        && selectedProfiles.every((profile) => profile.status === 'disabled');
+      if (grant.configuration_count <= operation.newLimit && selectedConfigurationsGone && representativesRetired) {
         nextRetirements.delete(grantId);
-        terminalMessage = `Profile retirement completed for ${operation.email}. WireGuard limit is ${limit.profile_limit}.`;
+        terminalMessage = `Configuration retirement completed for ${operation.email}. Configuration limit is ${grant.configuration_limit}.`;
       }
     }
 
@@ -206,13 +210,22 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     else setStatus(error instanceof AdminApiError ? error.message : fallback);
   };
 
-  const submitLimit = async (user: AdminUserSummary, grantId: string, newLimit: number, selectedIds: Array<string>) => {
+  const submitLimit = async (user: AdminUserSummary, grantId: string, newLimit: number, selectedConfigurationIds: Array<string>) => {
     if (pendingLimitIds.current.has(grantId) || retirements.has(grantId)) return;
+    const selectedProfileIds = selectedConfigurationIds.map((configurationId) => {
+      const configuration = user.configurations.find((item) => item.configuration_id === configurationId
+        && item.access_grant_id === grantId);
+      return configuration ? representativeProfileId(configuration) : null;
+    });
+    if (selectedProfileIds.some((id) => id === null)) {
+      setStatus('A selected configuration is unavailable. Refresh user data before retrying.');
+      return;
+    }
     pendingLimitIds.current.add(grantId);
     setPendingLimits((current) => new Set(current).add(grantId));
-    setStatus(selectedIds.length ? 'Submitting profile retirement…' : 'Updating limit…');
+    setStatus(selectedConfigurationIds.length ? 'Submitting configuration retirement…' : 'Updating limit…');
     try {
-      const result = await setWireGuardLimit(grantId, newLimit, selectedIds);
+      const result = await setWireGuardLimit(grantId, newLimit, selectedProfileIds as Array<string>);
       setRetirementSelection(null);
       if (result.retirement_in_progress) {
         setRetirements((current) => new Map(current).set(grantId, {
@@ -220,16 +233,17 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
           email: user.email,
           grantId,
           newLimit,
-          selectedIds: new Set(selectedIds),
+          selectedConfigurationIds: new Set(selectedConfigurationIds),
+          selectedProfileIds: new Set(selectedProfileIds as Array<string>),
           userId: user.user_id
         }));
-        setStatus(`Profile retirement in progress for ${user.email}. Refreshing automatically…`);
+        setStatus(`Configuration retirement in progress for ${user.email}. Refreshing automatically…`);
       } else {
-        setStatus('WireGuard profile limit updated.');
+        setStatus('Configuration limit updated.');
       }
       await usersQuery.refetch();
     } catch (error) {
-      handleError(error, 'Unable to update profile limit.');
+      handleError(error, 'Unable to update configuration limit.');
     } finally {
       pendingLimitIds.current.delete(grantId);
       setPendingLimits((current) => {
@@ -244,11 +258,11 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     user: AdminUserSummary,
     grant: GrantSummary,
     limit: GrantProtocolLimitSummary,
-    profiles: Array<ProfileSummary>,
+    configurations: Array<ConfigurationSummary>,
     nextLimit: number
   ) => {
-    if (limit.profile_count > nextLimit) {
-      setRetirementSelection({ grant, limit, newLimit: nextLimit, profiles, user });
+    if (grant.configuration_count > nextLimit) {
+      setRetirementSelection({ configurations, grant, limit, newLimit: nextLimit, user });
       setStatus(`Retirement selection required for ${user.email}. No limit change has been submitted.`);
       return;
     }
@@ -387,7 +401,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
             onMetadataUpdated={updateCachedMetadata}
             onRequestError={(error) => handleError(error, 'Unable to update the admin note.')}
             onDelete={() => setDeleteTarget(user)}
-            onLimitRequest={(grant, limit, profiles, nextLimit) => requestLimit(user, grant, limit, profiles, nextLimit)}
+            onLimitRequest={(grant, limit, configurations, nextLimit) => requestLimit(user, grant, limit, configurations, nextLimit)}
             onRefreshDeleting={() => void refreshDeleting(user)}
           />
         ))}
@@ -410,7 +424,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
       {deleteTarget ? (
         <ModalDialog title={`Delete ${deleteTarget.email}?`} onClose={() => setDeleteTarget(null)}>
           <div className={styles.warningBox}>
-            This immediately revokes sessions and access. Active WireGuard profiles will be disabled and removed before the account is finally deleted.
+            This immediately revokes sessions and access. Active configuration variants will be disabled and removed before the account is finally deleted.
           </div>
           <p>This action cannot be undone.</p>
           <div className={styles.dialogActions}>

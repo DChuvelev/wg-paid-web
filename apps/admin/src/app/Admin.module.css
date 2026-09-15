@@ -6,9 +6,9 @@
 .sessionState span { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #1d8a4c; box-shadow: 0 0 0 0.2rem #dff4e7; }
 .headerActions { display: flex; align-items: center; gap: 1rem; }
 .headerActions nav { display: flex; gap: 0.3rem; }
-.headerActions nav button { min-height: 2.6rem; padding: 0.6rem 0.75rem; border: 0; border-radius: 0.5rem; color: #40516c; background: transparent; font-weight: 650; }
-.headerActions nav button:hover { background: #e8eef8; }
-.headerActions nav button[aria-current="page"] { color: #173e79; background: #dce8fa; }
+.headerActions nav a { display: inline-flex; align-items: center; min-height: 2.6rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: #40516c; background: transparent; font-weight: 650; text-decoration: none; }
+.headerActions nav a:hover { background: #e8eef8; }
+.headerActions nav a[aria-current="page"] { color: #173e79; background: #dce8fa; }
 .dashboard { display: grid; gap: 1.25rem; }
 .sectionCard, .userCard, .grantCard, .loginCard { border: 1px solid #d7dfeb; background: #fff; box-shadow: 0 0.65rem 2rem rgb(29 47 78 / 7%); }
 .sectionCard { scroll-margin-top: 1rem; padding: clamp(1rem, 2.5vw, 1.75rem); border-radius: 1rem; }
@@ -82,6 +82,8 @@
 .limitControl { display: flex; align-items: end; gap: 0.5rem; }
 .limitControl input { width: 5.25rem; }
 .profileList { margin-top: 1rem; }
+.configurationGroup { display: grid; gap: 0.45rem; padding: 0.75rem; border: 1px solid #dce4ee; border-radius: 0.6rem; }
+.configurationGroup h5 { margin: 0; font-size: 0.9rem; }
 .profileList h4 { margin: 0; color: #34435a; font-size: 0.88rem; }
 .profileRow { display: grid; grid-template-columns: minmax(8rem, 1fr) auto auto auto; align-items: center; gap: 0.7rem; min-width: 0; padding: 0.7rem 0.8rem; border: 1px solid #e0e6ee; border-radius: 0.55rem; }
 .profileIdentity { display: grid; min-width: 0; }

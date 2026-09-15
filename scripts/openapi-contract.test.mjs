@@ -47,7 +47,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 52, schemas: 55 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 56, schemas: 62 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
@@ -55,6 +55,17 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[0]).toMatchObject({ type: 'string', maxLength: 160 });
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[1]).toEqual({ type: 'null' });
     expect(schemas.ProfileLabelUpdateRequest.properties.label.anyOf[0].maxLength).toBe(160);
+    expect(schemas.GrantSummary.required).toEqual([
+      'id', 'status', 'plan_id', 'valid_until', 'configuration_limit',
+      'configuration_count', 'can_create_configuration', 'protocol_limits'
+    ]);
+    expect(schemas.ConfigurationSummary.required).toEqual([
+      'configuration_id', 'ordinal', 'access_grant_id', 'label',
+      'created_at', 'updated_at', 'variants'
+    ]);
+    expect(schemas.ConfigurationVariantSummary.properties.protocol.enum).toEqual(['wireguard', 'amneziawg']);
+    expect(schemas.ConfigurationVariantSummary.required).toContain('ready');
+    expect(schemas.AdminUserSummary.required).toContain('configurations');
     expect(schemas.AdminUserMetadataUpdateRequest.properties.admin_note.anyOf[0].maxLength).toBe(4000);
     expect(schemas.InviteInspectResponse.properties.state.enum).toEqual([
       'active', 'awaiting_confirmation', 'used', 'revoked', 'expired'
@@ -71,6 +82,12 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
     expect(document.paths).toHaveProperty('/v2/admin/profiles/{profile_id}/config');
+    expect(document.paths).toHaveProperty('/v2/account/profiles/configurations');
+    expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}');
+    expect(document.paths['/v2/account/profiles/configurations'].post.requestBody.content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/ConfigurationCreateRequest' });
+    expect(document.paths['/v2/account/profiles/configurations/{configuration_id}'].patch.requestBody.content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/ProfileLabelUpdateRequest' });
     expect(document.paths['/v2/admin/profiles/{profile_id}/config'].get.operationId)
       .toBe('admin_profile_config_download_v2_admin_profiles__profile_id__config_get');
     expect(document.paths['/v2/admin/profiles/{profile_id}/config'].get.responses['200'].content)

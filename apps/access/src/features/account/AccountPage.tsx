@@ -1,20 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { useLocale } from '../../i18n/localeContext';
 import {
   AccessApiError,
-  createProfile,
+  createConfiguration,
   loadAccount,
-  loadProfiles,
+  loadConfigurations,
   logout
 } from '../../lib/accessApi';
-import { selectWireGuardEntitlement } from './entitlement';
-import { hasTransitionalProfile, profilePollingInterval } from './profileState';
-import { ProfileList } from './ProfileList';
+import { selectConfigurationEntitlement } from './entitlement';
+import { configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
+import { ConfigurationList } from './ConfigurationList';
 import { DisplayNameForm } from './DisplayNameForm';
-import { accountKey, profilesKey } from './queryKeys';
+import { accountKey, configurationsKey } from './queryKeys';
 import styles from './Account.module.css';
 
 function isUnauthorized(error: unknown) {
@@ -26,38 +26,46 @@ export function AccountPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const profilesQuery = useQuery({
-    queryKey: profilesKey,
-    queryFn: loadProfiles,
-    refetchInterval: ({ state }) => profilePollingInterval(state.data),
+  const pollStartedAt = useRef<number | null>(null);
+  const pollInterval = (data: Parameters<typeof configurationPollingInterval>[0]) => {
+    if (!hasTransitionalConfiguration(data)) {
+      pollStartedAt.current = null;
+      return false;
+    }
+    pollStartedAt.current ??= Date.now();
+    return configurationPollingInterval(data, pollStartedAt.current);
+  };
+  const configurationsQuery = useQuery({
+    queryKey: configurationsKey,
+    queryFn: loadConfigurations,
+    refetchInterval: ({ state }) => pollInterval(state.data),
     refetchOnWindowFocus: true,
     retry: false
   });
-  const transitional = hasTransitionalProfile(profilesQuery.data);
   const accountQuery = useQuery({
     queryKey: accountKey,
     queryFn: loadAccount,
-    refetchInterval: transitional ? 3000 : false,
+    refetchInterval: () => pollInterval(configurationsQuery.data),
     refetchOnWindowFocus: true,
     retry: false
   });
 
   useEffect(() => {
-    if (isUnauthorized(accountQuery.error) || isUnauthorized(profilesQuery.error)) {
+    if (isUnauthorized(accountQuery.error) || isUnauthorized(configurationsQuery.error)) {
       navigate('/', { replace: true });
     }
-  }, [accountQuery.error, navigate, profilesQuery.error]);
+  }, [accountQuery.error, configurationsQuery.error, navigate]);
 
   const invalidateAccount = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: accountKey }),
-      queryClient.invalidateQueries({ queryKey: profilesKey })
+      queryClient.invalidateQueries({ queryKey: configurationsKey })
     ]);
   };
 
   const clearAccountState = () => {
     queryClient.removeQueries({ queryKey: accountKey });
-    queryClient.removeQueries({ queryKey: profilesKey });
+    queryClient.removeQueries({ queryKey: configurationsKey });
   };
 
   const handleMutationError = (error: unknown) => {
@@ -68,9 +76,12 @@ export function AccountPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: createProfile,
+    mutationFn: createConfiguration,
     onError: handleMutationError,
-    onSuccess: invalidateAccount
+    onSuccess: () => {
+      pollStartedAt.current = null;
+      return invalidateAccount();
+    }
   });
   const logoutMutation = useMutation({
     mutationFn: logout,
@@ -86,22 +97,22 @@ export function AccountPage() {
     }
   });
 
-  if (accountQuery.isPending || profilesQuery.isPending) {
+  if (accountQuery.isPending || configurationsQuery.isPending) {
     return <AppShell title={t('account')}><p>{t('loadingAccount')}</p></AppShell>;
   }
 
-  if (!accountQuery.data || !profilesQuery.data) {
+  if (!accountQuery.data || !configurationsQuery.data) {
     return <AppShell title={t('account')}><p className={styles.error}>{t('accountLoadFailed')}</p></AppShell>;
   }
 
-  const entitlement = selectWireGuardEntitlement(accountQuery.data.grants);
+  const entitlement = selectConfigurationEntitlement(accountQuery.data.grants);
   const noticeKey = (location.state as { noticeKey?: 'signedIn' } | null)?.noticeKey;
   const hasSessionValidationFailure = createMutation.error instanceof AccessApiError
     && createMutation.error.status === 403;
   const mutationErrorMessage = hasSessionValidationFailure
     ? t('sessionValidationFailed')
     : createMutation.isError
-      ? t('createConnectionFailed')
+      ? t('createConfigurationFailed')
       : null;
 
   return (
@@ -127,12 +138,12 @@ export function AccountPage() {
 
       <p className={styles.summary}>
         {entitlement
-          ? t('wireGuardConnections', { count: entitlement.profileCount, limit: entitlement.profileLimit })
-          : t('wireGuardUnavailable')}
+          ? t('configurationCount', { count: entitlement.configurationCount, limit: entitlement.configurationLimit })
+          : t('configurationsUnavailable')}
       </p>
 
       <div className={styles.sectionHeader}>
-        <h2>{t('connections')}</h2>
+        <h2>{t('configurations')}</h2>
         {entitlement?.canCreate ? (
           <button
             className={`${styles.button} ${styles.primary}`}
@@ -140,13 +151,13 @@ export function AccountPage() {
             disabled={createMutation.isPending}
             onClick={() => createMutation.mutate(entitlement.grantId)}
           >
-            {t('addConnection')}
+            {t('addConfiguration')}
           </button>
         ) : null}
       </div>
 
       {mutationErrorMessage ? <p className={styles.error} role="alert">{mutationErrorMessage}</p> : null}
-      <ProfileList profiles={profilesQuery.data} onUnauthorized={handleMutationError} />
+      <ConfigurationList configurations={configurationsQuery.data} onUnauthorized={handleMutationError} />
     </AppShell>
   );
 }

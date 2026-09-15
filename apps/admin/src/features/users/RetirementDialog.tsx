@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import type { AdminUserSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminUserSummary, ConfigurationSummary, GrantProtocolLimitSummary, GrantSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
 import { StatusBadge } from '../../components/StatusBadge';
-import { consumesQuota } from './userDomain';
+import { representativeProfileId } from './userDomain';
 import styles from '../../app/Admin.module.css';
 
 export interface RetirementSelection {
   grant: GrantSummary;
   limit: GrantProtocolLimitSummary;
   newLimit: number;
-  profiles: Array<ProfileSummary>;
+  configurations: Array<ConfigurationSummary>;
   user: AdminUserSummary;
 }
 
@@ -17,14 +17,14 @@ interface RetirementDialogProps {
   pending: boolean;
   selection: RetirementSelection;
   onCancel: () => void;
-  onConfirm: (profileIds: Array<string>) => void;
+  onConfirm: (configurationIds: Array<string>) => void;
 }
 
 export function RetirementDialog({ pending, selection, onCancel, onConfirm }: RetirementDialogProps) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const required = selection.limit.profile_count - selection.newLimit;
-  const eligibleProfiles = selection.profiles.filter(consumesQuota);
-  const eligibleCount = eligibleProfiles.length;
+  const required = selection.grant.configuration_count - selection.newLimit;
+  const eligibleConfigurations = selection.configurations.filter((configuration) => representativeProfileId(configuration) !== null);
+  const eligibleCount = eligibleConfigurations.length;
   const toggle = (id: string, checked: boolean) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -37,27 +37,31 @@ export function RetirementDialog({ pending, selection, onCancel, onConfirm }: Re
   return (
     <ModalDialog title="Select connections to retire" onClose={() => !pending && onCancel()}>
       <p>
-        Current quota-consuming usage is <strong>{selection.limit.profile_count}</strong>. To set the limit to{' '}
-        <strong>{selection.newLimit}</strong>, select exactly <strong>{required}</strong> connection(s).
+        Current configuration usage is <strong>{selection.grant.configuration_count}</strong>. To set the limit to{' '}
+        <strong>{selection.newLimit}</strong>, select exactly <strong>{required}</strong> configuration(s).
       </p>
       <div className={styles.warningBox}>
-        Selected connections will be disabled through the backend retirement lifecycle. This is a destructive administrative action.
+        Both protocol variants of each selected configuration will be disabled through the backend retirement lifecycle. This is a destructive administrative action.
       </div>
       <fieldset className={styles.profileChoices} disabled={pending}>
-        <legend className={styles.visuallyHidden}>WireGuard connections eligible for retirement</legend>
-        {eligibleProfiles.map((profile) => {
-          const identity = profile.label || profile.tunnel_ip || profile.id;
+        <legend className={styles.visuallyHidden}>Configurations eligible for retirement</legend>
+        {eligibleConfigurations.map((configuration) => {
+          const identity = `Configuration #${configuration.ordinal}${configuration.label ? ` · ${configuration.label}` : ''}`;
           return (
-            <label className={styles.profileChoice} key={profile.id}>
+            <label className={styles.profileChoice} key={configuration.configuration_id}>
               <input
-                checked={selected.has(profile.id)}
+                checked={selected.has(configuration.configuration_id)}
                 disabled={pending}
                 type="checkbox"
-                onChange={(event) => toggle(profile.id, event.target.checked)}
+                onChange={(event) => toggle(configuration.configuration_id, event.target.checked)}
               />
               <span className={styles.profileChoiceBody}>
-                <span><strong>{identity}</strong><StatusBadge status={profile.status} /></span>
-                <span>{profile.tunnel_ip || 'No tunnel IP'} · <code>{profile.id}</code></span>
+                <span><strong>{identity}</strong></span>
+                {configuration.variants.map((variant) => (
+                  <span key={variant.profile_id}>
+                    {variant.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG'} · {variant.tunnel_ip || 'No tunnel IP'} · <StatusBadge status={variant.status} />
+                  </span>
+                ))}
               </span>
             </label>
           );
@@ -65,7 +69,7 @@ export function RetirementDialog({ pending, selection, onCancel, onConfirm }: Re
       </fieldset>
       <p className={styles.selectionCount} role="status">Selected {selected.size} of {required}.</p>
       {eligibleCount < required ? (
-        <p className={styles.alert} role="alert">Only {eligibleCount} quota-consuming profile(s) are available. Refresh user data before trying again.</p>
+        <p className={styles.alert} role="alert">Only {eligibleCount} selectable configuration(s) are available. Refresh user data before trying again.</p>
       ) : null}
       <div className={styles.dialogActions}>
         <button className={styles.secondaryButton} disabled={pending} type="button" onClick={onCancel}>Cancel</button>

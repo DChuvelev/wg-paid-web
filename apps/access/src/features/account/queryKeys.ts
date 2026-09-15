@@ -1,2 +1,2 @@
 export const accountKey = ['access', 'account'] as const;
-export const profilesKey = ['access', 'profiles'] as const;
+export const configurationsKey = ['access', 'configurations'] as const;

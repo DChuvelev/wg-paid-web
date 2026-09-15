@@ -4,14 +4,16 @@ The canonical `openapi.json` is committed from the deliberately imported and ind
 
 The deliberate import must verify all of the following before generation:
 
-- Backend source commit: `ba56d3108eecef3f49303b7572ab48732a360b32`
-- Backend source tree: `ba11512aedf47443a4c1063a512d2ae323bcac45`
-- Reproduction runtime: Python `3.12.14`, FastAPI `0.141.1`, Pydantic `2.13.5`
+- Backend source commit: `6aeedfa2406228242f7cdeee494397bf9953f7f0`
+- Backend source tree: `0c86d18cdf0ed9a486e31e8be5c297db8a8a149f`
+- Reproduction runtime: Python `3.12.3` on Windows, FastAPI `0.141.1`, Pydantic `2.13.5` (the accepted backend runtime uses Python `3.12.14`)
 - OpenAPI version: `3.1.0`
-- operations: `52`
-- schemas: `55`
-- observed raw SHA-256: `4e3512bcaf4634330db125f7c1fddd199c24abe3d7b66c4f1fd502b47d668090`
-- canonical SHA-256: `b082ce505acc643b6a626a76182dddb61c116539fa7da54324a7fde10e1ba216`
+- operations: `56`
+- schemas: `62`
+- observed raw SHA-256: `26619f8d1241ed328feda48498c4e6717af014d5b34d86c26f66d1698be3f2c3`
+- canonical SHA-256: `806853bc9b724ff0ef55f46a10f63205beeb8b71750b2af6f99b49ecd7053c8c`
+
+For a reproduction check, the same local Python/FastAPI/Pydantic environment applied to the prior pinned backend commit `ba56d3108eecef3f49303b7572ab48732a360b32` produced 52 operations, 55 schemas, and its previously committed canonical SHA-256 `b082ce505acc643b6a626a76182dddb61c116539fa7da54324a7fde10e1ba216`.
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 

@@ -7,12 +7,12 @@ import {
   consumeMagicLink,
   inspectInvite,
   loadAccount,
-  loadProfiles,
+  loadConfigurations,
   redeemInvite,
   requestLogin,
   resendInvite,
   updateDisplayName,
-  updateProfileLabel
+  updateConfigurationLabel
 } from '../../lib/accessApi';
 import { renderApp } from '../../test/renderApp';
 
@@ -22,16 +22,16 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     ...actual,
     changeInviteEmail: vi.fn(),
     consumeMagicLink: vi.fn(),
-    createProfile: vi.fn(),
+    createConfiguration: vi.fn(),
     inspectInvite: vi.fn(),
     loadAccount: vi.fn(),
-    loadProfiles: vi.fn(),
+    loadConfigurations: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
     requestLogin: vi.fn(),
     resendInvite: vi.fn(),
     updateDisplayName: vi.fn(),
-    updateProfileLabel: vi.fn()
+    updateConfigurationLabel: vi.fn()
   };
 });
 
@@ -65,7 +65,7 @@ function openInvite() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(loadAccount).mockRejectedValue(new AccessApiError(401));
-  vi.mocked(loadProfiles).mockResolvedValue([]);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
   vi.mocked(requestLogin).mockResolvedValue(202);
   vi.mocked(inspectInvite).mockResolvedValue(activeInvite);
   vi.mocked(redeemInvite).mockResolvedValue(202);
@@ -73,7 +73,7 @@ beforeEach(() => {
   vi.mocked(changeInviteEmail).mockResolvedValue();
   vi.mocked(consumeMagicLink).mockResolvedValue(200);
   vi.mocked(updateDisplayName).mockResolvedValue(account);
-  vi.mocked(updateProfileLabel).mockRejectedValue(new Error('not used'));
+  vi.mocked(updateConfigurationLabel).mockRejectedValue(new Error('not used'));
   window.history.replaceState({}, '', '/');
 });
 

@@ -175,6 +175,9 @@
   cursor: not-allowed;
   opacity: 0.55;
 }
+.variantList { display: grid; gap: 0.75rem; margin-top: 0.85rem; }
+.variant { padding: 0.75rem; border: 1px solid #dce4ee; border-radius: 0.6rem; }
+.variant h4 { margin: 0 0 0.35rem; }
 
 .sectionHeader {
   display: flex;

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HashRouter } from 'react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminRuntimeConnectionsResponse, AdminUserDeleteResponse, AdminUserSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminRuntimeConnectionsResponse, AdminUserDeleteResponse, AdminUserSummary, ConfigurationSummary, ProfileSummary } from '@wg-paid/api';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
@@ -60,6 +61,25 @@ function profile(id: string, status: string, tunnelIp: string): ProfileSummary {
   };
 }
 
+function configuration(profileRow: ProfileSummary, ordinal: number): ConfigurationSummary {
+  return {
+    access_grant_id: profileRow.access_grant_id,
+    configuration_id: `configuration-${profileRow.id}`,
+    ordinal,
+    label: profileRow.label,
+    created_at: profileRow.created_at,
+    updated_at: profileRow.updated_at,
+    variants: [
+      { protocol: 'wireguard', profile_id: profileRow.id, status: profileRow.status,
+        tunnel_ip: profileRow.tunnel_ip, ready: profileRow.status === 'active' && Boolean(profileRow.tunnel_ip),
+        created_at: profileRow.created_at, updated_at: profileRow.updated_at },
+      { protocol: 'amneziawg', profile_id: `${profileRow.id}-awg`, status: profileRow.status,
+        tunnel_ip: profileRow.tunnel_ip, ready: profileRow.status === 'active' && Boolean(profileRow.tunnel_ip),
+        created_at: profileRow.created_at, updated_at: profileRow.updated_at }
+    ]
+  };
+}
+
 function makeUser(
   profileLimit = 1,
   profileCount = 1,
@@ -72,11 +92,16 @@ function makeUser(
     email: 'operator-target@example.test', email_verified_at: '2026-01-01T01:00:00Z',
     grants: [{
       id: 'grant-1', plan_id: 'plan-1',
+      can_create_configuration: profileCount < profileLimit,
+      configuration_count: profileCount,
+      configuration_limit: profileLimit,
       protocol_limits: [{ can_create: profileCount < profileLimit, profile_count: profileCount, profile_limit: profileLimit, protocol: 'wireguard' }],
       status: 'active', valid_until: null
     }],
     invite_issued_at: '2025-12-30T00:00:00Z', invite_redeemed_at: '2026-01-01T01:00:00Z',
     invited_by_kind: 'admin_secret', invited_by_label: 'Admin', invited_by_user_id: null,
+    configurations: profiles.filter((item) => item.protocol === 'wireguard' && item.status !== 'disabled')
+      .map((item, index) => configuration(item, index + 1)),
     profiles, registration_invite_id: 'invite-1',
     user_id: 'user-1'
   };
@@ -97,7 +122,7 @@ function renderAdmin() {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { gcTime: Infinity, retry: false } }
   });
-  return { queryClient, ...render(<QueryClientProvider client={queryClient}><App /></QueryClientProvider>) };
+  return { queryClient, ...render(<QueryClientProvider client={queryClient}><HashRouter><App /></HashRouter></QueryClientProvider>) };
 }
 
 async function renderDashboard(user: AdminUserSummary | null = makeUser()) {
@@ -109,7 +134,7 @@ async function renderDashboard(user: AdminUserSummary | null = makeUser()) {
 
 async function renderInvitesDashboard() {
   await renderDashboard();
-  fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+  fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
   await screen.findByRole('region', { name: 'Invites' });
 }
 
@@ -120,7 +145,7 @@ function expandUser(email = 'operator-target@example.test') {
 async function openRetirement(user: AdminUserSummary, newLimit = 1) {
   await renderDashboard(user);
   expandUser(user.email);
-  fireEvent.change(screen.getByLabelText('New WireGuard limit for grant grant-1'), { target: { value: String(newLimit) } });
+  fireEvent.change(screen.getByLabelText('New configuration limit for grant grant-1'), { target: { value: String(newLimit) } });
   fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
   return screen.findByRole('dialog', { name: 'Select connections to retire' });
 }
@@ -132,6 +157,7 @@ async function openDeleteDialog() {
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/#/users');
   vi.mocked(checkAdminSession).mockResolvedValue(true);
   vi.mocked(loginAdmin).mockResolvedValue();
   vi.mocked(logoutAdmin).mockResolvedValue();
@@ -320,19 +346,67 @@ describe('admin session and invites', () => {
 });
 
 describe('admin area navigation', () => {
+  test('root and unsupported hash routes replace-navigate to Users', async () => {
+    window.history.replaceState(null, '', '/#/unsupported');
+    renderAdmin();
+    await waitFor(() => expect(window.location.hash).toBe('#/users'));
+    expect(screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe('page');
+  });
+
+  test('direct supported hashes and reload-equivalent renders retain the requested area', async () => {
+    window.history.replaceState(null, '', '/#/invites');
+    const first = renderAdmin();
+    await screen.findByRole('region', { name: 'Invites' });
+    expect(screen.getByRole('link', { name: 'Invites' }).getAttribute('aria-current')).toBe('page');
+    first.unmount();
+    const second = renderAdmin();
+    await screen.findByRole('region', { name: 'Invites' });
+    second.unmount();
+    window.history.replaceState(null, '', '/#/connections');
+    renderAdmin();
+    await screen.findByRole('region', { name: 'Connections' });
+  });
+
+  test('unauthenticated direct hash survives session validation and successful login', async () => {
+    window.history.replaceState(null, '', '/#/connections');
+    vi.mocked(checkAdminSession).mockResolvedValue(false);
+    renderAdmin();
+    await screen.findByRole('heading', { name: 'Admin portal' });
+    fireEvent.change(screen.getByLabelText('Admin secret'), { target: { value: 'a'.repeat(32) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByRole('region', { name: 'Connections' });
+    expect(window.location.hash).toBe('#/connections');
+  });
+
+  test('area links push history entries and Back/Forward restores Admin areas', async () => {
+    await renderDashboard();
+    const initialLength = window.history.length;
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
+    await waitFor(() => expect(window.location.hash).toBe('#/invites'));
+    fireEvent.click(screen.getByRole('link', { name: 'Connections' }));
+    await waitFor(() => expect(window.location.hash).toBe('#/connections'));
+    expect(window.history.length).toBe(initialLength + 2);
+    act(() => window.history.back());
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Invites' }).getAttribute('aria-current')).toBe('page'));
+    act(() => window.history.back());
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe('page'));
+    act(() => window.history.forward());
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Invites' }).getAttribute('aria-current')).toBe('page'));
+  });
+
   test('switches areas while preserving Invite-local form state', async () => {
     await renderDashboard();
     expect(screen.getByRole('region', { name: 'Users' })).not.toBeNull();
     expect(screen.queryByRole('region', { name: 'Invites' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
     const email = within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/);
     fireEvent.change(email, { target: { value: 'draft@example.test' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Connections' }));
     expect(await screen.findByRole('region', { name: 'Connections' })).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Users' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Users' }));
     expect(screen.getByRole('region', { name: 'Users' })).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Invites' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
     expect((email as HTMLInputElement).value).toBe('draft@example.test');
   });
 
@@ -341,7 +415,7 @@ describe('admin area navigation', () => {
     await renderDashboard();
     expect(loadRuntimeConnections).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Connections' }));
     await waitFor(() => expect(loadRuntimeConnections).toHaveBeenCalledTimes(1));
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(loadRuntimeConnections).toHaveBeenCalledTimes(2);
@@ -349,11 +423,11 @@ describe('admin area navigation', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(loadRuntimeConnections).toHaveBeenCalledTimes(3);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Users' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Users' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
     expect(loadRuntimeConnections).toHaveBeenCalledTimes(3);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connections' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Connections' }));
     await waitFor(() => expect(loadRuntimeConnections).toHaveBeenCalledTimes(4));
 
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
@@ -497,16 +571,16 @@ describe('users, limits, and retirement', () => {
     await screen.findByText(first.email);
     await screen.findByText(second.email);
 
-    expect(screen.getByText('In use 1 / 3')).not.toBeNull();
-    expect(screen.getByText('In use 1 / 2')).not.toBeNull();
+    expect(screen.getByText('Configurations 1 / 3')).not.toBeNull();
+    expect(screen.getByText('Configurations 1 / 2')).not.toBeNull();
     const firstDetails = screen.getByText(first.email).closest('details') as HTMLDetailsElement;
     expect(firstDetails.open).toBe(false);
     expect(screen.getAllByRole('button', { name: 'Set limit' })).toHaveLength(2);
 
     expandUser(first.email);
     expect(firstDetails.open).toBe(true);
-    expect(screen.getByText('10.253.1.10')).not.toBeNull();
-    const history = screen.getByText('Disabled / retired (1)');
+    expect(screen.getAllByText('10.253.1.10').length).toBeGreaterThan(0);
+    const history = screen.getByText('Disabled / retired protocol variants (1)');
     const historyDetails = history.closest('details') as HTMLDetailsElement;
     expect(historyDetails.open).toBe(false);
     fireEvent.click(history);
@@ -514,15 +588,15 @@ describe('users, limits, and retirement', () => {
     expect(screen.getByText('10.253.1.99')).not.toBeNull();
   });
 
-  test('shows user-owned profile labels in expanded admin details without edit controls', async () => {
+  test('shows user-owned configuration labels in expanded admin details without edit controls', async () => {
     const labeled = { ...profile('profile-labeled', 'active', '10.253.1.42'), label: 'Studio computer' };
     await renderDashboard(makeUser(1, 1, [labeled]));
     expandUser();
-    expect(screen.getByText('Studio computer')).not.toBeNull();
+    expect(screen.getByText('Configuration #1 · Studio computer')).not.toBeNull();
     expect(screen.queryByLabelText(/Connection name/)).toBeNull();
   });
 
-  test('offers plain config navigation only for active WireGuard profiles', async () => {
+  test('offers existing config links for active ready WG and AWG variants, without Admin QR', async () => {
     const active = profile('profile/active 1', 'active', '10.253.1.10');
     const provisioning = profile('profile-provisioning', 'provisioning', '10.253.1.11');
     const failed = profile('profile-failed', 'provisioning_failed', '10.253.1.14');
@@ -532,10 +606,12 @@ describe('users, limits, and retirement', () => {
     const nonWireGuard = { ...profile('profile-other', 'active', '10.253.1.13'), protocol: 'amneziawg' };
     await renderDashboard(makeUser(3, 2, [active, provisioning, failed, disabling, disabled, retired, nonWireGuard]));
     expandUser();
-    const links = screen.getAllByRole('link', { name: /Download config for profile/ });
-    expect(links).toHaveLength(1);
-    expect(links[0]!.getAttribute('href')).toBe('/v2/admin/profiles/profile%2Factive%201/config');
-    expect((links[0] as HTMLAnchorElement).onclick).toBeNull();
+    const wg = screen.getByRole('link', { name: 'Download WireGuard config for profile profile/active 1' });
+    const awg = screen.getByRole('link', { name: 'Download AmneziaWG config for profile profile/active 1-awg' });
+    expect(wg.getAttribute('href')).toBe('/v2/admin/profiles/profile%2Factive%201/config');
+    expect(awg.getAttribute('href')).toBe('/v2/admin/profiles/profile%2Factive%201-awg/config');
+    expect((wg as HTMLAnchorElement).onclick).toBeNull();
+    expect(screen.queryByRole('button', { name: /QR/i })).toBeNull();
   });
 
   test('clears transient loading status after Search and List users complete', async () => {
@@ -563,7 +639,7 @@ describe('users, limits, and retirement', () => {
 
   test('renders compact user rows and reveals technical identifiers only after expansion', async () => {
     await renderDashboard();
-    expect(screen.getByText('In use 1 / 1')).not.toBeNull();
+    expect(screen.getByText('Configurations 1 / 1')).not.toBeNull();
     expect((screen.getByText('operator-target@example.test').closest('details') as HTMLDetailsElement).open).toBe(false);
     fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
@@ -572,7 +648,7 @@ describe('users, limits, and retirement', () => {
     }));
     await screen.findByText('operator-target@example.test');
     expandUser();
-    expect(screen.getByText('10.253.1.10')).not.toBeNull();
+    expect(screen.getAllByText('10.253.1.10').length).toBeGreaterThan(0);
     fireEvent.click(await screen.findByText('User details'));
     expect(screen.getByText('user-1')).not.toBeNull();
   });
@@ -580,7 +656,7 @@ describe('users, limits, and retirement', () => {
   test('increases 1 to 2 with an explicit empty retirement list', async () => {
     await renderDashboard();
     expandUser();
-    fireEvent.change(screen.getByLabelText('New WireGuard limit for grant grant-1'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('New configuration limit for grant grant-1'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
     await waitFor(() => expect(setWireGuardLimit).toHaveBeenCalledWith('grant-1', 2, []));
   });
@@ -603,6 +679,22 @@ describe('users, limits, and retirement', () => {
     await waitFor(() => expect(setWireGuardLimit).toHaveBeenCalledWith('grant-1', 1, ['profile-1', 'profile-2']));
   });
 
+  test('uses the AmneziaWG representative when a configuration has no WireGuard variant', async () => {
+    const base = makeUser(1, 1);
+    const awgOnly: AdminUserSummary = {
+      ...base,
+      configurations: [{
+        ...base.configurations[0]!,
+        variants: [base.configurations[0]!.variants[1]!]
+      }]
+    };
+    const dialog = await openRetirement(awgOnly, 0);
+    expect(within(dialog).getAllByRole('checkbox')).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm retirement + set limit' }));
+    await waitFor(() => expect(setWireGuardLimit).toHaveBeenCalledWith('grant-1', 0, ['profile-1-awg']));
+  });
+
   test('cancels retirement selection without submitting', async () => {
     const profiles = [profile('profile-1', 'active', '10.253.1.10'), profile('profile-2', 'active', '10.253.1.11')];
     const dialog = await openRetirement(makeUser(2, 2, profiles));
@@ -611,10 +703,14 @@ describe('users, limits, and retirement', () => {
     expect(setWireGuardLimit).not.toHaveBeenCalled();
   });
 
-  test('polls while profiles consume quota, then renders terminal state and unlocks controls', async () => {
+  test('polls until common count, configuration disappearance, and representative disabled state agree', async () => {
     const initialProfiles = [profile('profile-1', 'active', '10.253.1.10'), profile('profile-2', 'active', '10.253.1.11')];
     const initial = makeUser(2, 2, initialProfiles);
-    const progressing = makeUser(1, 2, [profile('profile-1', 'disabling', '10.253.1.10'), profile('profile-2', 'active', '10.253.1.11')]);
+    const progressingBase = makeUser(1, 1, [profile('profile-1', 'disabling', '10.253.1.10'), profile('profile-2', 'active', '10.253.1.11')]);
+    const progressing = {
+      ...progressingBase,
+      configurations: progressingBase.configurations.filter((item) => item.configuration_id !== 'configuration-profile-1')
+    };
     const terminal = makeUser(1, 1, [profile('profile-1', 'disabled', '10.253.1.10'), profile('profile-2', 'active', '10.253.1.11')]);
     vi.mocked(loadUsers).mockResolvedValueOnce([initial]).mockResolvedValueOnce([progressing]).mockResolvedValueOnce([terminal]);
     vi.mocked(setWireGuardLimit).mockResolvedValue(limitResponse({
@@ -623,12 +719,12 @@ describe('users, limits, and retirement', () => {
     const dialog = await openRetirement(initial);
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /10\.253\.1\.10/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm retirement + set limit' }));
-    await screen.findByText(/Profile retirement in progress for/);
+    await screen.findByText(/Configuration retirement in progress for/);
     expect((screen.getByRole('button', { name: 'Set limit' }) as HTMLButtonElement).disabled).toBe(true);
-    await screen.findByText(/Profile retirement completed for/, {}, { timeout: 5000 });
+    await screen.findByText(/Configuration retirement completed for/, {}, { timeout: 5000 });
     expect(screen.queryByText('retirement in progress')).toBeNull();
     expect(screen.getByText('1 / 1')).not.toBeNull();
-    const history = screen.getByText('Disabled / retired (1)');
+    const history = screen.getByText('Disabled / retired protocol variants (1)');
     expect((history.closest('details') as HTMLDetailsElement).open).toBe(false);
     fireEvent.click(history);
     expect(screen.getByText('disabled')).not.toBeNull();

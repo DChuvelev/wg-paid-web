@@ -5,6 +5,28 @@ export type ClientOptions = {
 };
 
 /**
+ * AccountConfigurationCreateResponse
+ */
+export type AccountConfigurationCreateResponse = {
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Variants
+     */
+    variants: Array<ConfigurationVariantMutation>;
+};
+
+/**
  * AccountMeResponse
  */
 export type AccountMeResponse = {
@@ -34,6 +56,38 @@ export type AccountMetadataUpdateRequest = {
      * Display Name
      */
     display_name: string | null;
+};
+
+/**
+ * AdminConfigurationCreateRequest
+ */
+export type AdminConfigurationCreateRequest = {
+    /**
+     * Label
+     */
+    label?: string | null;
+};
+
+/**
+ * AdminConfigurationCreateResponse
+ */
+export type AdminConfigurationCreateResponse = {
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Variants
+     */
+    variants: Array<ConfigurationVariantMutation>;
 };
 
 /**
@@ -653,6 +707,10 @@ export type AdminUserSummary = {
      */
     grants: Array<GrantSummary>;
     /**
+     * Configurations
+     */
+    configurations: Array<ConfigurationSummary>;
+    /**
      * Profiles
      */
     profiles: Array<ProfileSummary>;
@@ -757,6 +815,10 @@ export type AgentPeerResponse = {
      */
     node_id: string;
     /**
+     * Protocol
+     */
+    protocol?: 'wireguard' | 'amneziawg';
+    /**
      * Public Key
      */
     public_key: string;
@@ -806,6 +868,107 @@ export type CancelSubscriptionResponse = {
      * Job Ids
      */
     job_ids: Array<string>;
+};
+
+/**
+ * ConfigurationCreateRequest
+ */
+export type ConfigurationCreateRequest = {
+    /**
+     * Grant Id
+     */
+    grant_id: string;
+    /**
+     * Label
+     */
+    label?: string | null;
+};
+
+/**
+ * ConfigurationSummary
+ */
+export type ConfigurationSummary = {
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Ordinal
+     */
+    ordinal: number;
+    /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Variants
+     */
+    variants: Array<ConfigurationVariantSummary>;
+};
+
+/**
+ * ConfigurationVariantMutation
+ */
+export type ConfigurationVariantMutation = {
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
+    profile: ProfileSummary;
+    /**
+     * Job Id
+     */
+    job_id: string;
+    /**
+     * Job Created
+     */
+    job_created: boolean;
+};
+
+/**
+ * ConfigurationVariantSummary
+ */
+export type ConfigurationVariantSummary = {
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string | null;
+    /**
+     * Ready
+     */
+    ready: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
 };
 
 /**
@@ -912,6 +1075,18 @@ export type GrantSummary = {
      * Valid Until
      */
     valid_until: string | null;
+    /**
+     * Configuration Limit
+     */
+    configuration_limit: number;
+    /**
+     * Configuration Count
+     */
+    configuration_count: number;
+    /**
+     * Can Create Configuration
+     */
+    can_create_configuration: boolean;
     /**
      * Protocol Limits
      */
@@ -1175,7 +1350,7 @@ export type ProfileCreateRequest = {
     /**
      * Protocol
      */
-    protocol?: 'wireguard';
+    protocol?: 'wireguard' | 'amneziawg';
     /**
      * Label
      */
@@ -1796,6 +1971,10 @@ export type GetEnabledPeersAgentPeersGetData = {
          * Node Id
          */
         node_id: string;
+        /**
+         * Protocol
+         */
+        protocol?: 'wireguard' | 'amneziawg';
     };
     url: '/agent/peers';
 };
@@ -1834,6 +2013,10 @@ export type GetPendingJobsAgentJobsGetData = {
          * Node Id
          */
         node_id: string;
+        /**
+         * Protocol
+         */
+        protocol?: 'wireguard' | 'amneziawg';
         /**
          * Limit
          */
@@ -2415,6 +2598,88 @@ export type AccountProfileCreateV2AccountProfilesPostResponses = {
 
 export type AccountProfileCreateV2AccountProfilesPostResponse = AccountProfileCreateV2AccountProfilesPostResponses[keyof AccountProfileCreateV2AccountProfilesPostResponses];
 
+export type AccountConfigurationsV2AccountProfilesConfigurationsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/profiles/configurations';
+};
+
+export type AccountConfigurationsV2AccountProfilesConfigurationsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountConfigurationsV2AccountProfilesConfigurationsGetError = AccountConfigurationsV2AccountProfilesConfigurationsGetErrors[keyof AccountConfigurationsV2AccountProfilesConfigurationsGetErrors];
+
+export type AccountConfigurationsV2AccountProfilesConfigurationsGetResponses = {
+    /**
+     * Response Account Configurations V2 Account Profiles Configurations Get
+     *
+     * Successful Response
+     */
+    200: Array<ConfigurationSummary>;
+};
+
+export type AccountConfigurationsV2AccountProfilesConfigurationsGetResponse = AccountConfigurationsV2AccountProfilesConfigurationsGetResponses[keyof AccountConfigurationsV2AccountProfilesConfigurationsGetResponses];
+
+export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostData = {
+    body: ConfigurationCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/account/profiles/configurations';
+};
+
+export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostError = AccountConfigurationCreateV2AccountProfilesConfigurationsPostErrors[keyof AccountConfigurationCreateV2AccountProfilesConfigurationsPostErrors];
+
+export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: AccountConfigurationCreateResponse;
+};
+
+export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponse = AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses[keyof AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses];
+
+export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchData = {
+    body: ProfileLabelUpdateRequest;
+    path: {
+        /**
+         * Configuration Id
+         */
+        configuration_id: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/configurations/{configuration_id}';
+};
+
+export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchError = AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchErrors[keyof AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchErrors];
+
+export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConfigurationSummary;
+};
+
+export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponse = AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponses[keyof AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponses];
+
 export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchData = {
     body: ProfileLabelUpdateRequest;
     path: {
@@ -2739,6 +3004,42 @@ export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses = {
 };
 
 export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponse = AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses[keyof AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses];
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostData = {
+    body: AdminConfigurationCreateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Grant Id
+         */
+        grant_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/grants/{grant_id}/configurations';
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostError = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors];
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: AdminConfigurationCreateResponse;
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponse = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses];
 
 export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetData = {
     body?: never;

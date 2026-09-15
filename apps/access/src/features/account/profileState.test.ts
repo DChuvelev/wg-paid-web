@@ -1,24 +1,22 @@
 import { expect, test } from 'vitest';
-import type { ProfileSummary } from '@wg-paid/api';
-import { hasTransitionalProfile, profilePollingInterval } from './profileState';
+import type { ConfigurationSummary } from '@wg-paid/api';
+import { configurationPollTimeoutMs, configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
 
-function profile(status: string): ProfileSummary {
+function configuration(wgStatus: string, awgStatus = 'active'): ConfigurationSummary {
   return {
-    access_grant_id: 'grant-1',
-    created_at: '2026-01-01T00:00:00Z',
-    id: `profile-${status}`,
-    label: null,
-    protocol: 'wireguard',
-    status,
-    tunnel_ip: null,
-    updated_at: '2026-01-01T00:00:00Z'
+    access_grant_id: 'grant-1', configuration_id: 'configuration-1', ordinal: 1,
+    label: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    variants: [
+      { protocol: 'wireguard', profile_id: 'wg-1', status: wgStatus, ready: wgStatus === 'active', tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+      { protocol: 'amneziawg', profile_id: 'awg-1', status: awgStatus, ready: awgStatus === 'active', tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+    ]
   };
 }
 
-test('keeps polling bounded to transitional profile states', () => {
-  expect(hasTransitionalProfile([profile('requested')])).toBe(true);
-  expect(profilePollingInterval([profile('provisioning')])).toBe(3000);
-  expect(profilePollingInterval([profile('disabling')])).toBe(3000);
-  expect(profilePollingInterval([profile('active')])).toBe(false);
-  expect(profilePollingInterval([profile('disabled')])).toBe(false);
+test('polls either transitional variant, then stops on terminal state or timeout', () => {
+  expect(hasTransitionalConfiguration([configuration('active', 'provisioning')])).toBe(true);
+  expect(configurationPollingInterval([configuration('requested')], 1000, 1000)).toBe(3000);
+  expect(configurationPollingInterval([configuration('active', 'disabling')], 1000, 2000)).toBe(3000);
+  expect(configurationPollingInterval([configuration('active')], 1000, 2000)).toBe(false);
+  expect(configurationPollingInterval([configuration('provisioning')], 1000, 1000 + configurationPollTimeoutMs)).toBe(false);
 });

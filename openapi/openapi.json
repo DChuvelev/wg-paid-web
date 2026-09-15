@@ -436,6 +436,20 @@
             }
           },
           {
+            "name": "protocol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "wireguard",
+                "amneziawg"
+              ],
+              "type": "string",
+              "default": "wireguard",
+              "title": "Protocol"
+            }
+          },
+          {
             "name": "x-agent-token",
             "in": "header",
             "required": false,
@@ -495,6 +509,20 @@
             "schema": {
               "type": "string",
               "title": "Node Id"
+            }
+          },
+          {
+            "name": "protocol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "wireguard",
+                "amneziawg"
+              ],
+              "type": "string",
+              "default": "wireguard",
+              "title": "Protocol"
             }
           },
           {
@@ -1706,6 +1734,217 @@
         }
       }
     },
+    "/v2/account/profiles/configurations": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Configurations",
+        "operationId": "account_configurations_v2_account_profiles_configurations_get",
+        "parameters": [
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConfigurationSummary"
+                  },
+                  "title": "Response Account Configurations V2 Account Profiles Configurations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Configuration Create",
+        "operationId": "account_configuration_create_v2_account_profiles_configurations_post",
+        "parameters": [
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountConfigurationCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/profiles/configurations/{configuration_id}": {
+      "patch": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Configuration Update Label",
+        "operationId": "account_configuration_update_label_v2_account_profiles_configurations__configuration_id__patch",
+        "parameters": [
+          {
+            "name": "configuration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Configuration Id"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileLabelUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/account/profiles/{profile_id}": {
       "patch": {
         "tags": [
@@ -2499,6 +2738,107 @@
         }
       }
     },
+    "/v2/admin/grants/{grant_id}/configurations": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Create Configuration",
+        "operationId": "admin_create_configuration_v2_admin_grants__grant_id__configurations_post",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Grant Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminConfigurationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminConfigurationCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/profiles/{profile_id}/config": {
       "get": {
         "tags": [
@@ -3157,6 +3497,46 @@
   },
   "components": {
     "schemas": {
+      "AccountConfigurationCreateResponse": {
+        "properties": {
+          "configuration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Configuration Id"
+          },
+          "access_grant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Access Grant Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationVariantMutation"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configuration_id",
+          "access_grant_id",
+          "label",
+          "variants"
+        ],
+        "title": "AccountConfigurationCreateResponse"
+      },
       "AccountMeResponse": {
         "properties": {
           "user_id": {
@@ -3216,6 +3596,64 @@
           "display_name"
         ],
         "title": "AccountMetadataUpdateRequest"
+      },
+      "AdminConfigurationCreateRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "title": "AdminConfigurationCreateRequest"
+      },
+      "AdminConfigurationCreateResponse": {
+        "properties": {
+          "configuration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Configuration Id"
+          },
+          "access_grant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Access Grant Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationVariantMutation"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configuration_id",
+          "access_grant_id",
+          "label",
+          "variants"
+        ],
+        "title": "AdminConfigurationCreateResponse"
       },
       "AdminInviteLimitUpdateRequest": {
         "properties": {
@@ -4342,6 +4780,13 @@
             "type": "array",
             "title": "Grants"
           },
+          "configurations": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationSummary"
+            },
+            "type": "array",
+            "title": "Configurations"
+          },
           "profiles": {
             "items": {
               "$ref": "#/components/schemas/ProfileSummary"
@@ -4366,6 +4811,7 @@
           "invited_by_user_id",
           "invited_by_label",
           "grants",
+          "configurations",
           "profiles"
         ],
         "title": "AdminUserSummary"
@@ -4537,6 +4983,15 @@
             "type": "string",
             "title": "Node Id"
           },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
+            "title": "Protocol",
+            "default": "wireguard"
+          },
           "public_key": {
             "type": "string",
             "title": "Public Key"
@@ -4629,6 +5084,178 @@
           "job_ids"
         ],
         "title": "CancelSubscriptionResponse"
+      },
+      "ConfigurationCreateRequest": {
+        "properties": {
+          "grant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Grant Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "grant_id"
+        ],
+        "title": "ConfigurationCreateRequest"
+      },
+      "ConfigurationSummary": {
+        "properties": {
+          "configuration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Configuration Id"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "access_grant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Access Grant Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationVariantSummary"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configuration_id",
+          "ordinal",
+          "access_grant_id",
+          "label",
+          "created_at",
+          "updated_at",
+          "variants"
+        ],
+        "title": "ConfigurationSummary"
+      },
+      "ConfigurationVariantMutation": {
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
+            "title": "Protocol"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileSummary"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_created": {
+            "type": "boolean",
+            "title": "Job Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "protocol",
+          "profile",
+          "job_id",
+          "job_created"
+        ],
+        "title": "ConfigurationVariantMutation"
+      },
+      "ConfigurationVariantSummary": {
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
+            "title": "Protocol"
+          },
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "tunnel_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tunnel Ip"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "protocol",
+          "profile_id",
+          "status",
+          "tunnel_ip",
+          "ready",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConfigurationVariantSummary"
       },
       "DisablePeerResponse": {
         "properties": {
@@ -4782,6 +5409,18 @@
             ],
             "title": "Valid Until"
           },
+          "configuration_limit": {
+            "type": "integer",
+            "title": "Configuration Limit"
+          },
+          "configuration_count": {
+            "type": "integer",
+            "title": "Configuration Count"
+          },
+          "can_create_configuration": {
+            "type": "boolean",
+            "title": "Can Create Configuration"
+          },
           "protocol_limits": {
             "items": {
               "$ref": "#/components/schemas/GrantProtocolLimitSummary"
@@ -4796,6 +5435,9 @@
           "status",
           "plan_id",
           "valid_until",
+          "configuration_limit",
+          "configuration_count",
+          "can_create_configuration",
           "protocol_limits"
         ],
         "title": "GrantSummary"
@@ -5189,7 +5831,10 @@
           },
           "protocol": {
             "type": "string",
-            "const": "wireguard",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
             "title": "Protocol",
             "default": "wireguard"
           },
