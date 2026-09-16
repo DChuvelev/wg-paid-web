@@ -2455,6 +2455,97 @@
         }
       }
     },
+    "/v2/admin/invites/{invite_id}/share-token/reissue": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Reissue Invite Share Token",
+        "operationId": "admin_reissue_invite_share_token_v2_admin_invites__invite_id__share_token_reissue_post",
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminInviteShareTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/invites/{invite_id}/wireguard-limit": {
       "patch": {
         "tags": [
@@ -3779,6 +3870,25 @@
         ],
         "title": "AdminInviteResponse"
       },
+      "AdminInviteShareTokenResponse": {
+        "properties": {
+          "invite_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invite Id"
+          },
+          "invite_token": {
+            "type": "string",
+            "title": "Invite Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invite_id",
+          "invite_token"
+        ],
+        "title": "AdminInviteShareTokenResponse"
+      },
       "AdminInviteSummary": {
         "properties": {
           "invite_id": {
@@ -3936,6 +4046,10 @@
             "type": "boolean",
             "title": "Can Change Email"
           },
+          "can_reissue_share_link": {
+            "type": "boolean",
+            "title": "Can Reissue Share Link"
+          },
           "can_revoke": {
             "type": "boolean",
             "title": "Can Revoke"
@@ -3962,6 +4076,7 @@
           "resend_available_at",
           "can_resend",
           "can_change_email",
+          "can_reissue_share_link",
           "can_revoke"
         ],
         "title": "AdminInviteSummary"
@@ -4102,10 +4217,38 @@
             ],
             "title": "Display Name"
           },
+          "configuration_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Configuration Id"
+          },
+          "configuration_ordinal": {
+            "type": "integer",
+            "title": "Configuration Ordinal"
+          },
+          "configuration_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuration Label"
+          },
           "profile_id": {
             "type": "string",
             "format": "uuid",
             "title": "Profile Id"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
+            "title": "Protocol"
           },
           "profile_label": {
             "anyOf": [
@@ -4192,7 +4335,11 @@
           "user_id",
           "email",
           "display_name",
+          "configuration_id",
+          "configuration_ordinal",
+          "configuration_label",
           "profile_id",
+          "protocol",
           "profile_label",
           "tunnel_ip",
           "selector",
@@ -6028,6 +6175,14 @@
             "format": "uuid",
             "title": "Profile Id"
           },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "wireguard",
+              "amneziawg"
+            ],
+            "title": "Protocol"
+          },
           "tunnel_ip": {
             "type": "string",
             "title": "Tunnel Ip"
@@ -6105,6 +6260,7 @@
         "type": "object",
         "required": [
           "profile_id",
+          "protocol",
           "tunnel_ip",
           "selector",
           "active_now",

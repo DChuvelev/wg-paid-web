@@ -159,6 +159,20 @@ export type AdminInviteResponse = {
 };
 
 /**
+ * AdminInviteShareTokenResponse
+ */
+export type AdminInviteShareTokenResponse = {
+    /**
+     * Invite Id
+     */
+    invite_id: string;
+    /**
+     * Invite Token
+     */
+    invite_token: string;
+};
+
+/**
  * AdminInviteSummary
  */
 export type AdminInviteSummary = {
@@ -238,6 +252,10 @@ export type AdminInviteSummary = {
      * Can Change Email
      */
     can_change_email: boolean;
+    /**
+     * Can Reissue Share Link
+     */
+    can_reissue_share_link: boolean;
     /**
      * Can Revoke
      */
@@ -343,9 +361,25 @@ export type AdminRuntimeConnectionRow = {
      */
     display_name: string | null;
     /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Configuration Ordinal
+     */
+    configuration_ordinal: number;
+    /**
+     * Configuration Label
+     */
+    configuration_label: string | null;
+    /**
      * Profile Id
      */
     profile_id: string;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
     /**
      * Profile Label
      */
@@ -1464,6 +1498,10 @@ export type RuntimeSnapshotRowRequest = {
      * Profile Id
      */
     profile_id: string;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
     /**
      * Tunnel Ip
      */
@@ -2896,6 +2934,42 @@ export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchRespon
 };
 
 export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponse = AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses[keyof AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses];
+
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/invites/{invite_id}/share-token/reissue';
+};
+
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostError = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors];
+
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminInviteShareTokenResponse;
+};
+
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponse = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses];
 
 export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchData = {
     body: AdminInviteLimitUpdateRequest;

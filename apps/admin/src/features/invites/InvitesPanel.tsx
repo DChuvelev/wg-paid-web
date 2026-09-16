@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminInviteSummary } from '@wg-paid/api';
+import type { AdminInviteRequest, AdminInviteSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
 import { StatusBadge } from '../../components/StatusBadge';
 import {
@@ -9,6 +9,7 @@ import {
   isUnauthorized,
   loadInvites,
   loadPlans,
+  reissueInviteShareLink,
   resendAdminInvite,
   revokeInvite,
   updateInviteRecipient,
@@ -20,21 +21,20 @@ interface InvitesPanelProps {
   onSessionExpired: () => void;
 }
 
-interface RecentlyCreatedInvite {
-  emailSent: boolean;
-  intendedEmail: string | null;
-  inviteId: string;
-  state: string;
+interface EphemeralInviteToken {
+  source: 'create' | 'reissue';
   token: string;
-  url: string | null;
 }
 
 interface InviteRowProps {
   invite: AdminInviteSummary;
   mutationPending: boolean;
   planName: (id: string | null) => string;
+  shareToken?: string;
   onChangeLimit?: (invite: AdminInviteSummary) => void;
   onChangeRecipient?: (invite: AdminInviteSummary) => void;
+  onCopy?: (inviteId: string, token: string) => void;
+  onReissue?: (inviteId: string) => void;
   onResend?: (inviteId: string) => void;
   onRevoke?: (inviteId: string) => void;
 }
@@ -46,45 +46,76 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : 'No expiration';
 }
 
+function inviteShortCode(inviteId: string) {
+  return inviteId.replaceAll('-', '').slice(0, 8).toUpperCase();
+}
+
+function shareUrl(inviteId: string, token: string) {
+  return `https://access.secret-studio.ru/invite#token=${encodeURIComponent(token)}&invite=${encodeURIComponent(inviteId)}`;
+}
+
+function withoutToken(current: Map<string, EphemeralInviteToken>, inviteId: string) {
+  if (!current.has(inviteId)) return current;
+  const next = new Map(current);
+  next.delete(inviteId);
+  return next;
+}
+
 function InviteRow({
   invite,
   mutationPending,
   planName,
+  shareToken,
   onChangeLimit,
   onChangeRecipient,
+  onCopy,
+  onReissue,
   onResend,
   onRevoke
 }: InviteRowProps) {
   const visibleEmail = invite.pending_email || invite.intended_email || 'Transferable invite';
+  const transferable = !invite.intended_email && !invite.pending_email;
+  const url = shareToken && invite.state === 'active' && transferable ? shareUrl(invite.invite_id, shareToken) : null;
   return (
     <article className={styles.inviteRow}>
       <div className={styles.invitePrimary}>
-        <strong title={visibleEmail}>{visibleEmail}</strong>
+        <div className={styles.inviteIdentity}>
+          <strong>Invite {inviteShortCode(invite.invite_id)}</strong>
+          <span title={visibleEmail}>{visibleEmail}</span>
+          <small>Created {formatDate(invite.created_at)}</small>
+        </div>
         <StatusBadge status={invite.state} />
       </div>
       <dl className={styles.inviteMetadata}>
         {invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? <div><dt>Bound email</dt><dd>{invite.intended_email}</dd></div> : null}
         <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
-        <div><dt>WireGuard connections</dt><dd>{invite.wireguard_profile_limit}</dd></div>
+        <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
         <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
         {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
         {invite.magic_link_expires_at ? <div><dt>Current link expires</dt><dd>{formatDate(invite.magic_link_expires_at)}</dd></div> : null}
         {invite.resend_available_at ? <div><dt>Resend available</dt><dd>{invite.can_resend ? 'Now' : formatDate(invite.resend_available_at)}</dd></div> : null}
       </dl>
-      {onResend || onChangeRecipient || onChangeLimit || onRevoke ? (
+      {onResend || onChangeRecipient || onChangeLimit || onReissue || onRevoke ? (
         <div className={styles.inviteActions}>
           {invite.can_resend && onResend ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onResend(invite.invite_id)}>Resend email</button> : null}
           {invite.can_change_email && onChangeRecipient ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onChangeRecipient(invite)}>Change recipient</button> : null}
-          {onChangeLimit ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onChangeLimit(invite)}>Change WireGuard limit</button> : null}
+          {transferable && invite.can_reissue_share_link && onReissue ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onReissue(invite.invite_id)}>Reissue share link</button> : null}
+          {onChangeLimit ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onChangeLimit(invite)}>Change configuration limit</button> : null}
           {invite.can_revoke && onRevoke ? (
             <button
-              aria-label={`Revoke invite for ${visibleEmail}`}
+              aria-label={`Revoke invite ${inviteShortCode(invite.invite_id)}`}
               className={styles.dangerTextButton}
               disabled={mutationPending}
               type="button"
               onClick={() => onRevoke(invite.invite_id)}
             >Revoke</button>
           ) : null}
+        </div>
+      ) : null}
+      {url && onCopy ? (
+        <div className={styles.inviteShareLink}>
+          <code title={url}>{url}</code>
+          <button aria-label={`Copy invite ${inviteShortCode(invite.invite_id)}`} className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onCopy(invite.invite_id, shareToken!)}>Copy</button>
         </div>
       ) : null}
     </article>
@@ -96,7 +127,7 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
   const [planId, setPlanId] = useState('');
   const [profileLimit, setProfileLimit] = useState(0);
   const [email, setEmail] = useState('');
-  const [recentInvites, setRecentInvites] = useState<Array<RecentlyCreatedInvite>>([]);
+  const [ephemeralTokens, setEphemeralTokens] = useState<Map<string, EphemeralInviteToken>>(() => new Map());
   const [status, setStatus] = useState('');
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [recipientTarget, setRecipientTarget] = useState<AdminInviteSummary | null>(null);
@@ -124,10 +155,17 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
 
   useEffect(() => {
     if (!invitesQuery.data) return;
-    setRecentInvites((current) => current.map((recent) => {
-      const summary = invitesQuery.data.find((item) => item.invite_id === recent.inviteId);
-      return summary ? { ...recent, state: summary.state } : recent;
-    }));
+    setEphemeralTokens((current) => {
+      let next = current;
+      for (const inviteId of current.keys()) {
+        const invite = invitesQuery.data.find((item) => item.invite_id === inviteId);
+        if (!invite || invite.state !== 'active' || invite.intended_email || invite.pending_email) {
+          if (next === current) next = new Map(current);
+          next.delete(inviteId);
+        }
+      }
+      return next;
+    });
   }, [invitesQuery.data]);
 
   const refreshInvites = () => queryClient.invalidateQueries({ queryKey: invitesKey });
@@ -140,23 +178,26 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
   };
 
   const createMutation = useMutation({
-    mutationFn: createInvite,
-    onSuccess: async (result, variables) => {
-      const intendedEmail = variables.intended_email ?? null;
-      setRecentInvites((current) => [{
+    mutationFn: async (request: AdminInviteRequest) => {
+      const result = await createInvite(request);
+      if (!request.intended_email) {
+        setEphemeralTokens((current) => new Map(current).set(result.invite_id, {
+          source: 'create',
+          token: result.invite_token
+        }));
+      }
+      return {
         emailSent: result.email_sent,
-        intendedEmail,
-        inviteId: result.invite_id,
-        state: intendedEmail ? 'awaiting_confirmation' : 'active',
-        token: result.invite_token,
-        url: intendedEmail ? null : `https://access.secret-studio.ru/invite#token=${encodeURIComponent(result.invite_token)}`
-      }, ...current]);
+        intendedEmail: request.intended_email ?? null
+      };
+    },
+    onSuccess: async (result) => {
       setEmail('');
-      setStatus(intendedEmail
-        ? result.email_sent
-          ? `Invite created; registration email sent to ${intendedEmail}.`
-          : `Invite created for ${intendedEmail}, but mail delivery was not confirmed.`
-        : 'Transferable invite created. Copy its registration URL for manual delivery.');
+      setStatus(result.intendedEmail
+        ? result.emailSent
+          ? `Invite created; registration email sent to ${result.intendedEmail}.`
+          : `Invite created for ${result.intendedEmail}, but mail delivery was not confirmed.`
+        : 'Transferable invite created. Copy its registration URL from Active Invites.');
       await refreshInvites();
     },
     onError: (error) => void mutationError(error, 'Unable to create invite.')
@@ -164,8 +205,8 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
 
   const revokeMutation = useMutation({
     mutationFn: revokeInvite,
-    onSuccess: async (result, inviteId) => {
-      setRecentInvites((current) => current.map((invite) => invite.inviteId === inviteId ? { ...invite, state: result.state } : invite));
+    onSuccess: async (_result, inviteId) => {
+      setEphemeralTokens((current) => withoutToken(current, inviteId));
       setRevokeTarget(null);
       setStatus('Invite revoked.');
       await refreshInvites();
@@ -182,21 +223,32 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     onError: (error) => void mutationError(error, 'Unable to resend the registration email.')
   });
 
+  const reissueMutation = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const result = await reissueInviteShareLink(inviteId);
+      setEphemeralTokens((current) => new Map(current).set(result.invite_id, {
+        source: 'reissue',
+        token: result.invite_token
+      }));
+      return result.invite_id;
+    },
+    onSuccess: async () => {
+      setStatus('Share link reissued. Copy the new URL; the previous share link no longer works.');
+      await refreshInvites();
+    },
+    onError: (error) => void mutationError(error, 'Unable to reissue the share link.')
+  });
+
   const recipientMutation = useMutation({
     mutationFn: ({ inviteId, nextEmail }: { inviteId: string; nextEmail: string | null }) => updateInviteRecipient(inviteId, nextEmail),
     onSuccess: async (result, variables) => {
-      setRecentInvites((current) => current.map((invite) => invite.inviteId === variables.inviteId ? {
-        ...invite,
-        emailSent: false,
-        intendedEmail: variables.nextEmail,
-        state: result.state,
-        url: variables.nextEmail ? null : `https://access.secret-studio.ru/invite#token=${encodeURIComponent(invite.token)}`
-      } : invite));
+      setEphemeralTokens((current) => withoutToken(current, variables.inviteId));
       setRecipientTarget(null);
       setStatus(variables.nextEmail
         ? `Recipient changed to ${variables.nextEmail}; current lifecycle was refreshed.`
-        : 'Recipient cleared. The invite is now transferable for manual sharing.');
+        : 'Recipient cleared. Reissue a share link before manual sharing.');
       await refreshInvites();
+      return result;
     },
     onError: (error) => { setRecipientTarget(null); void mutationError(error, 'Unable to change the invite recipient.'); }
   });
@@ -205,10 +257,10 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     mutationFn: ({ inviteId, nextLimit }: { inviteId: string; nextLimit: number }) => updateInviteWireGuardLimit(inviteId, nextLimit),
     onSuccess: async (_result, variables) => {
       setLimitTarget(null);
-      setStatus(`Pending WireGuard limit changed to ${variables.nextLimit}.`);
+      setStatus(`Configuration limit changed to ${variables.nextLimit}.`);
       await refreshInvites();
     },
-    onError: (error) => { setLimitTarget(null); void mutationError(error, 'Unable to change the invite WireGuard limit.'); }
+    onError: (error) => { setLimitTarget(null); void mutationError(error, 'Unable to change the configuration limit.'); }
   });
 
   const submit = (event: FormEvent) => {
@@ -222,10 +274,9 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     });
   };
 
-  const copyUrl = async (invite: RecentlyCreatedInvite) => {
-    if (invite.state !== 'active' || !invite.url) return;
+  const copyUrl = async (inviteId: string, token: string) => {
     try {
-      await navigator.clipboard.writeText(invite.url);
+      await navigator.clipboard.writeText(shareUrl(inviteId, token));
       setStatus('Registration URL copied.');
     } catch {
       setStatus('Copy failed; select the URL manually.');
@@ -237,15 +288,22 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
     return plan ? `${plan.display_name} (${plan.code})` : id ?? 'Unknown plan';
   };
 
-  const operationalInvites = invitesQuery.data?.filter((item) => item.state === 'active' || item.state === 'awaiting_confirmation') ?? [];
-  const archivedInvites = invitesQuery.data?.filter((item) => item.state === 'used' || item.state === 'revoked' || item.state === 'expired') ?? [];
-  const mutationPending = createMutation.isPending || revokeMutation.isPending || resendMutation.isPending || recipientMutation.isPending || limitMutation.isPending;
+  const activeInvites = (invitesQuery.data ?? [])
+    .filter((item) => item.state === 'active' || item.state === 'awaiting_confirmation')
+    .sort((first, second) => (
+      Date.parse(second.created_at) - Date.parse(first.created_at)
+      || first.invite_id.localeCompare(second.invite_id)
+    ));
+  const archivedInvites = (invitesQuery.data ?? [])
+    .filter((item) => item.state === 'used' || item.state === 'revoked' || item.state === 'expired');
+  const mutationPending = createMutation.isPending || revokeMutation.isPending || resendMutation.isPending
+    || reissueMutation.isPending || recipientMutation.isPending || limitMutation.isPending;
 
   return (
     <section className={styles.sectionCard} id="invites" aria-labelledby="invites-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>Access onboarding</p><h2 id="invites-title">Invites</h2></div>
-        {invitesQuery.data ? <span className={styles.count}>{operationalInvites.length}</span> : null}
+        {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
       </div>
 
       <form className={styles.inviteForm} onSubmit={submit}>
@@ -256,70 +314,50 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
           </select>
         </label>
         <label className={styles.field}>
-          <span>Number of WireGuard connections</span>
+          <span>Number of configurations</span>
           <input min="0" required type="number" value={profileLimit} disabled={createMutation.isPending} onChange={(event) => setProfileLimit(event.target.valueAsNumber)} />
         </label>
         <label className={styles.field}>
-          <span>Email <small>optional</small></span>
-          <input autoComplete="off" type="email" value={email} disabled={createMutation.isPending} onChange={(event) => setEmail(event.target.value)} />
-          <small>{email.trim() ? 'The backend sends a registration email directly.' : 'Leave blank to create a transferable URL for manual sharing.'}</small>
+          <span>Email (optional)</span>
+          <input
+            autoComplete="off"
+            placeholder="Leave blank to create a transferable URL for manual sharing"
+            type="email"
+            value={email}
+            disabled={createMutation.isPending}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          {email.trim() ? <small>The backend sends a registration email directly.</small> : null}
         </label>
         <button className={styles.primaryButton} disabled={!planId || createMutation.isPending || !Number.isInteger(profileLimit) || profileLimit < 0} type="submit">
           {createMutation.isPending ? 'Creating…' : 'Create invite'}
         </button>
       </form>
 
-      {recentInvites.length ? (
-        <div className={styles.recentInvites}>
-          <div className={styles.recentInvitesHeading}><strong>Recently created</strong><span>Available only on this page until it is reloaded.</span></div>
-          <div className={styles.recentInviteList}>
-            {recentInvites.map((invite) => (
-              <article className={styles.recentInviteRow} key={invite.inviteId}>
-                <div className={styles.recentInviteIdentity}>
-                  <strong title={invite.intendedEmail || 'Transferable invite'}>{invite.intendedEmail || 'Transferable invite'}</strong>
-                  <span>Invite <code>{invite.inviteId}</code></span>
-                </div>
-                {invite.state === 'used' || invite.state === 'revoked' || invite.state === 'expired' ? (
-                  <><StatusBadge status={invite.state} /><span className={styles.revokedInviteText}>Invite is {invite.state}.</span></>
-                ) : invite.url && invite.state === 'active' ? (
-                  <>
-                    <code className={styles.recentInviteUrl} title={invite.url}>{invite.url}</code>
-                    <button aria-label={`Copy invite ${invite.inviteId}`} className={styles.secondaryButton} type="button" onClick={() => void copyUrl(invite)}>Copy</button>
-                  </>
-                ) : invite.intendedEmail ? (
-                  <div className={invite.emailSent ? styles.deliverySuccess : styles.warningBox}>
-                    {invite.emailSent
-                      ? `Invite created; registration email sent to ${invite.intendedEmail}.`
-                      : `Invite exists, but delivery to ${invite.intendedEmail} was not confirmed. Use the operational invite actions below.`}
-                  </div>
-                ) : (
-                  <><StatusBadge status={invite.state} /><span className={styles.revokedInviteText}>Registration is {invite.state.replace('_', ' ')}.</span></>
-                )}
-              </article>
-            ))}
-          </div>
-          <p>Registration URLs contain tokens. Only transferable invites expose a URL for manual sharing.</p>
-        </div>
-      ) : null}
-
       <p className={styles.statusLine} role="status" aria-live="polite">
-        {status || (invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : invitesQuery.data?.length ? `${operationalInvites.length} operational invite(s).` : 'No invites.')}
+        {status || (invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : invitesQuery.data?.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
       </p>
 
-      <div className={styles.inviteList} aria-label="Operational invites">
-        {operationalInvites.length ? operationalInvites.map((item) => (
-          <InviteRow
-            invite={item}
-            key={item.invite_id}
-            mutationPending={mutationPending}
-            planName={planName}
-            onChangeLimit={(target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
-            onChangeRecipient={(target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
-            onResend={(inviteId) => resendMutation.mutate(inviteId)}
-            onRevoke={setRevokeTarget}
-          />
-        )) : invitesQuery.data ? <p className={styles.emptyState}>No operational invites.</p> : null}
-      </div>
+      <section className={styles.activeInvites} aria-labelledby="active-invites-title">
+        <h3 id="active-invites-title">Active Invites</h3>
+        <div className={styles.inviteList}>
+          {activeInvites.length ? activeInvites.map((item) => (
+            <InviteRow
+              invite={item}
+              key={item.invite_id}
+              mutationPending={mutationPending}
+              planName={planName}
+              shareToken={ephemeralTokens.get(item.invite_id)?.token}
+              onChangeLimit={(target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
+              onChangeRecipient={(target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
+              onCopy={(inviteId, token) => void copyUrl(inviteId, token)}
+              onReissue={(inviteId) => reissueMutation.mutate(inviteId)}
+              onResend={(inviteId) => resendMutation.mutate(inviteId)}
+              onRevoke={setRevokeTarget}
+            />
+          )) : invitesQuery.data ? <p className={styles.emptyState}>No active invites.</p> : null}
+        </div>
+      </section>
 
       {archivedInvites.length ? (
         <details className={styles.inviteArchive}>
@@ -333,7 +371,7 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
       {recipientTarget ? (
         <ModalDialog title="Change invite recipient" onClose={() => !recipientMutation.isPending && setRecipientTarget(null)}>
           <label className={styles.field}><span>Email</span><input autoComplete="off" type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} /></label>
-          <p>Setting an email issues a new registration link. Clearing it returns the invite to transferable/manual-link semantics.</p>
+          <p>Setting an email issues a new registration link. Clearing it returns the invite to transferable/manual-link semantics, but a new share link must be reissued.</p>
           <div className={styles.dialogActions}>
             <button className={styles.secondaryButton} disabled={recipientMutation.isPending} type="button" onClick={() => recipientMutation.mutate({ inviteId: recipientTarget.invite_id, nextEmail: null })}>Clear recipient</button>
             <button className={styles.primaryButton} disabled={recipientMutation.isPending || !recipientEmail.trim()} type="button" onClick={() => recipientMutation.mutate({ inviteId: recipientTarget.invite_id, nextEmail: recipientEmail.trim() })}>Save recipient</button>
@@ -342,8 +380,8 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
       ) : null}
 
       {limitTarget ? (
-        <ModalDialog title="Change pending WireGuard limit" onClose={() => !limitMutation.isPending && setLimitTarget(null)}>
-          <label className={styles.field}><span>Number of WireGuard connections</span><input min="0" required type="number" value={limitDraft} onChange={(event) => setLimitDraft(event.target.valueAsNumber)} /></label>
+        <ModalDialog title="Change configuration limit" onClose={() => !limitMutation.isPending && setLimitTarget(null)}>
+          <label className={styles.field}><span>Number of configurations</span><input min="0" required type="number" value={limitDraft} onChange={(event) => setLimitDraft(event.target.valueAsNumber)} /></label>
           <div className={styles.dialogActions}>
             <button className={styles.secondaryButton} disabled={limitMutation.isPending} type="button" onClick={() => setLimitTarget(null)}>Cancel</button>
             <button className={styles.primaryButton} disabled={limitMutation.isPending || !Number.isInteger(limitDraft) || limitDraft < 0} type="button" onClick={() => limitMutation.mutate({ inviteId: limitTarget.invite_id, nextLimit: limitDraft })}>Save limit</button>

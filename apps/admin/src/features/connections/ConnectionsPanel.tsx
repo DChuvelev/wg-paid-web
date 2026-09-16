@@ -1,7 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isUnauthorized, loadRuntimeConnections } from '../../lib/adminApi';
-import { formatTimestamp, runtimeConnectionsKey } from './connectionsDomain';
+import {
+  type ConnectionSort,
+  type ConnectionSortKey,
+  type RuntimeProtocol,
+  type RuntimeStatus,
+  formatTimestamp,
+  groupRuntimeConnections,
+  runtimeConnectionsKey,
+  selectors
+} from './connectionsDomain';
 import { ConnectionsTable } from './ConnectionsTable';
 import { SelectorLoadView } from './SelectorLoadView';
 import adminStyles from '../../app/Admin.module.css';
@@ -18,9 +27,33 @@ function seconds(value: number | null) {
   return value === null ? '—' : `${Math.round(value)} s`;
 }
 
+function toggled<T>(current: ReadonlySet<T>, value: T, checked: boolean) {
+  const next = new Set(current);
+  if (checked) next.add(value);
+  else next.delete(value);
+  return next;
+}
+
+const statusOptions: Array<{ label: string; value: RuntimeStatus }> = [
+  { label: 'Now', value: 'now' },
+  { label: 'Active', value: 'active' },
+  { label: 'Idle', value: 'idle' },
+  { label: 'Never Seen', value: 'never_seen' }
+];
+
+const protocolOptions: Array<{ label: string; value: RuntimeProtocol }> = [
+  { label: 'WG', value: 'wireguard' },
+  { label: 'AWG', value: 'amneziawg' }
+];
+
 export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<'table' | 'selectors'>('table');
+  const [search, setSearch] = useState('');
+  const [statuses, setStatuses] = useState<Set<RuntimeStatus>>(() => new Set());
+  const [selectedSelectors, setSelectedSelectors] = useState<Set<string>>(() => new Set());
+  const [protocols, setProtocols] = useState<Set<RuntimeProtocol>>(() => new Set());
+  const [sort, setSort] = useState<ConnectionSort>({ direction: 'asc', key: 'user' });
   const query = useQuery({
     queryKey: runtimeConnectionsKey,
     queryFn: ({ signal }) => loadRuntimeConnections(signal),
@@ -42,6 +75,20 @@ export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelP
   const snapshot = query.data;
   const hasSnapshot = snapshot !== undefined && snapshot.generated_at !== null;
   const hasRows = hasSnapshot && snapshot.rows.length > 0;
+  const groups = useMemo(() => groupRuntimeConnections(
+    snapshot?.rows ?? [],
+    { protocols, search, selectors: selectedSelectors, statuses },
+    sort
+  ), [protocols, search, selectedSelectors, snapshot?.rows, sort, statuses]);
+
+  const changeSort = (key: ConnectionSortKey) => {
+    setSort((current) => current.key === key
+      ? { ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+      : {
+          key,
+          direction: key === 'last_handshake' || key === 'last_activity' ? 'desc' : 'asc'
+        });
+  };
 
   return (
     <section className={adminStyles.sectionCard} id="connections" aria-labelledby="connections-title">
@@ -79,8 +126,53 @@ export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelP
 
       {hasRows ? (
         <>
-          <p className={styles.counterNote}>RX/TX totals are current WireGuard runtime counters. They are not monthly traffic, billing usage, or quota.</p>
-          {view === 'table' ? <ConnectionsTable rows={snapshot.rows} /> : <SelectorLoadView rows={snapshot.rows} />}
+          <p className={styles.counterNote}>RX/TX totals are current protocol runtime counters. They are not monthly traffic, billing usage, or quota.</p>
+          {view === 'table' ? (
+            <>
+              <div className={styles.filters} aria-label="Connection filters">
+                <label className={styles.searchFilter}>
+                  <span>Search user or configuration</span>
+                  <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+                </label>
+                <fieldset>
+                  <legend>Status</legend>
+                  <div>{statusOptions.map((option) => (
+                    <label key={option.value}><input
+                      checked={statuses.has(option.value)}
+                      type="checkbox"
+                      onChange={(event) => setStatuses(toggled(statuses, option.value, event.target.checked))}
+                    />{option.label}</label>
+                  ))}</div>
+                </fieldset>
+                <fieldset>
+                  <legend>Selector</legend>
+                  <div>{selectors.map((selector) => (
+                    <label key={selector}><input
+                      checked={selectedSelectors.has(selector)}
+                      type="checkbox"
+                      onChange={(event) => setSelectedSelectors(toggled(selectedSelectors, selector, event.target.checked))}
+                    />{selector}</label>
+                  ))}</div>
+                </fieldset>
+                <fieldset>
+                  <legend>Protocol</legend>
+                  <div>{protocolOptions.map((option) => (
+                    <label key={option.value}><input
+                      checked={protocols.has(option.value)}
+                      type="checkbox"
+                      onChange={(event) => setProtocols(toggled(protocols, option.value, event.target.checked))}
+                    />{option.label}</label>
+                  ))}</div>
+                </fieldset>
+                <small>No selection means all values.</small>
+              </div>
+              {groups.length ? (
+                <ConnectionsTable groups={groups} sort={sort} onSort={changeSort} />
+              ) : (
+                <p className={styles.emptyState}>No runtime connection rows match the current filters.</p>
+              )}
+            </>
+          ) : <SelectorLoadView rows={snapshot.rows} />}
         </>
       ) : null}
     </section>

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
   AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
-  loginAdmin, logoutAdmin, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
+  loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
   updateInviteRecipient, updateInviteWireGuardLimit
 } from './lib/adminApi';
 
@@ -16,7 +16,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
     ...actual,
     checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
     loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
-    resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
+    reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
     updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn()
   };
 });
@@ -26,7 +26,7 @@ const plan = {
   display_name: 'Standard', id: 'plan-1'
 };
 const invite: AdminInviteSummary = {
-  can_change_email: true, can_resend: true, can_revoke: true,
+  can_change_email: true, can_reissue_share_link: false, can_resend: true, can_revoke: true,
   created_by_kind: 'admin_secret', created_by_label: 'Admin', created_by_user_id: null,
   created_at: '2026-01-01T00:00:00Z', expires_at: '2026-02-01T00:00:00Z',
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
@@ -170,6 +170,7 @@ beforeEach(() => {
     invite_token: 'secret-invite-token', wireguard_profile_limit: 2
   });
   vi.mocked(resendAdminInvite).mockResolvedValue({ ...invite, state: 'awaiting_confirmation' });
+  vi.mocked(reissueInviteShareLink).mockResolvedValue({ invite_id: '12345678-1234-1234-1234-123456789abc', invite_token: 'replacement-token' });
   vi.mocked(revokeInvite).mockResolvedValue({ ...invite, can_change_email: false, can_resend: false, can_revoke: false, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
   vi.mocked(updateInviteRecipient).mockImplementation(async (_inviteId, recipient) => ({ ...invite, intended_email: recipient, pending_email: recipient, state: recipient ? 'awaiting_confirmation' : 'active' }));
   vi.mocked(updateInviteWireGuardLimit).mockImplementation(async (_inviteId, profileLimit) => ({ ...invite, wireguard_profile_limit: profileLimit }));
@@ -212,23 +213,78 @@ describe('admin session and invites', () => {
     await screen.findByText('Invalid admin secret.');
   });
 
-  test('initializes the WireGuard snapshot from the selected plan and sends it explicitly', async () => {
+  test('creates a transferable invite and exposes its one-time URL only in the canonical active row', async () => {
+    const transferable = {
+      ...makeInvite('12345678-1234-1234-1234-123456789abc', 'active', ''),
+      can_change_email: true, can_reissue_share_link: true, can_resend: false, intended_email: null
+    };
+    vi.mocked(loadInvites).mockResolvedValue([transferable]);
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: false, expires_at: null, intended_email: null, invite_id: transferable.invite_id,
+      invite_token: 'secret token/+', wireguard_profile_limit: 2
+    });
     await renderInvitesDashboard();
     const createButton = screen.getByRole('button', { name: 'Create invite' });
     await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
-    expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('2');
+    expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('2');
+    expect(screen.getByPlaceholderText('Leave blank to create a transferable URL for manual sharing')).not.toBeNull();
     fireEvent.click(createButton);
-    await screen.findByText('Transferable invite created. Copy its registration URL for manual delivery.');
+    await screen.findByText('Transferable invite created. Copy its registration URL from Active Invites.');
     expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: 'plan-1', wireguard_profile_limit: 2 });
-    expect(screen.getByText('https://access.secret-studio.ru/invite#token=secret-invite-token')).not.toBeNull();
+    const active = screen.getByRole('region', { name: 'Active Invites' });
+    expect(within(active).getByText('Invite 12345678')).not.toBeNull();
+    expect(within(active).getByText('https://access.secret-studio.ru/invite#token=secret%20token%2F%2B&invite=12345678-1234-1234-1234-123456789abc')).not.toBeNull();
+    expect(screen.queryByText(/Recently created/i)).toBeNull();
   });
 
-  test('resets the pending WireGuard snapshot to a newly selected plan default', async () => {
+  test('reissue atomically replaces the ephemeral share URL and remounting forgets it', async () => {
+    const inviteId = '12345678-1234-1234-1234-123456789abc';
+    const transferable = {
+      ...makeInvite(inviteId, 'active', ''),
+      can_change_email: true, can_reissue_share_link: true, can_resend: false, intended_email: null
+    };
+    vi.mocked(loadInvites).mockResolvedValue([transferable]);
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
+      invite_token: 'first-token', wireguard_profile_limit: 2
+    });
+    vi.mocked(reissueInviteShareLink).mockResolvedValue({ invite_id: inviteId, invite_token: 'replacement-token' });
+    window.history.replaceState(null, '', '/#/invites');
+    const first = renderAdmin();
+    await screen.findByRole('region', { name: 'Invites' });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await screen.findByText(/token=first-token/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reissue share link' }));
+    await screen.findByText('Share link reissued. Copy the new URL; the previous share link no longer works.');
+    expect(screen.queryByText(/token=first-token/)).toBeNull();
+    expect(screen.getByText(new RegExp(`token=replacement-token&invite=${inviteId}`))).not.toBeNull();
+    expect(reissueInviteShareLink).toHaveBeenCalledWith(inviteId);
+
+    first.unmount();
+    renderAdmin();
+    await screen.findByRole('region', { name: 'Invites' });
+    expect(screen.queryByText(/token=replacement-token/)).toBeNull();
+  });
+
+  test('sorts Active Invites newest first with invite ID as the deterministic tie-break', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([
+      { ...makeInvite('bbbbbbbb-0000-0000-0000-000000000000', 'active', ''), created_at: '2026-01-02T00:00:00Z', intended_email: null },
+      { ...makeInvite('cccccccc-0000-0000-0000-000000000000', 'active', ''), created_at: '2026-01-03T00:00:00Z', intended_email: null },
+      { ...makeInvite('aaaaaaaa-0000-0000-0000-000000000000', 'active', ''), created_at: '2026-01-03T00:00:00Z', intended_email: null }
+    ]);
+    await renderInvitesDashboard();
+    const labels = within(screen.getByRole('region', { name: 'Active Invites' })).getAllByText(/^Invite [A-F0-9]{8}$/).map((node) => node.textContent);
+    expect(labels).toEqual(['Invite AAAAAAAA', 'Invite CCCCCCCC', 'Invite BBBBBBBB']);
+  });
+
+  test('resets the pending configuration snapshot to a newly selected plan default', async () => {
     vi.mocked(loadPlans).mockResolvedValue([plan, { ...plan, code: 'zero', default_wireguard_limit: 0, display_name: 'Zero', id: 'plan-2' }]);
     await renderInvitesDashboard();
-    fireEvent.change(screen.getByLabelText('Number of WireGuard connections'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('Number of configurations'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'plan-2' } });
-    expect((screen.getByLabelText('Number of WireGuard connections') as HTMLInputElement).value).toBe('0');
+    expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('0');
   });
 
   test('email mode reports confirmed delivery and never exposes its raw invite URL', async () => {
@@ -255,9 +311,8 @@ describe('admin session and invites', () => {
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'retry@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
 
-    await screen.findByText('Invite exists, but delivery to retry@example.test was not confirmed. Use the operational invite actions below.');
+    await screen.findByText('Invite created for retry@example.test, but mail delivery was not confirmed.');
     expect(screen.queryByText(/email sent to retry@example.test/i)).toBeNull();
-    expect(screen.getByText('invite-retry')).not.toBeNull();
     expect(document.body.textContent).not.toContain('must-not-be-visible');
   });
 
@@ -276,7 +331,7 @@ describe('admin session and invites', () => {
     ]);
     await renderInvitesDashboard();
 
-    const operational = screen.getByLabelText('Operational invites');
+    const operational = screen.getByRole('region', { name: 'Active Invites' });
     expect(within(operational).getByText('pending@example.test')).not.toBeNull();
     expect(within(operational).getByText('4')).not.toBeNull();
     expect(within(operational).getByText('Registration email issued')).not.toBeNull();
@@ -307,13 +362,13 @@ describe('admin session and invites', () => {
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Change invite recipient' })).getByRole('button', { name: 'Clear recipient' }));
     await waitFor(() => expect(updateInviteRecipient).toHaveBeenCalledWith('invite-1', null));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Change WireGuard limit' }));
-    const limitDialog = await screen.findByRole('dialog', { name: 'Change pending WireGuard limit' });
-    fireEvent.change(within(limitDialog).getByLabelText('Number of WireGuard connections'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Change configuration limit' }));
+    const limitDialog = await screen.findByRole('dialog', { name: 'Change configuration limit' });
+    fireEvent.change(within(limitDialog).getByLabelText('Number of configurations'), { target: { value: '0' } });
     fireEvent.click(within(limitDialog).getByRole('button', { name: 'Save limit' }));
     await waitFor(() => expect(updateInviteWireGuardLimit).toHaveBeenCalledWith('invite-1', 0));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Revoke invite for invitee@example.test' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke invite INVITE1' }));
     const dialog = await screen.findByRole('dialog', { name: 'Revoke invite?' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke invite' }));
     await screen.findByText('Invite revoked.');
@@ -322,12 +377,13 @@ describe('admin session and invites', () => {
   });
 
   test('capability booleans control resend, recipient, and revoke actions', async () => {
-    vi.mocked(loadInvites).mockResolvedValue([{ ...invite, can_change_email: false, can_resend: false, can_revoke: false }]);
+    vi.mocked(loadInvites).mockResolvedValue([{ ...invite, can_change_email: false, can_reissue_share_link: true, can_resend: false, can_revoke: false }]);
     await renderInvitesDashboard();
     expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change recipient' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Revoke invite/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Change WireGuard limit' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Change configuration limit' })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reissue share link' })).toBeNull();
   });
 
   test('429 and 409 refresh state without presenting stale success', async () => {

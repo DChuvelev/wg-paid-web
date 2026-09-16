@@ -4,6 +4,7 @@ import {
   adminListInvitesV2AdminInvitesGet,
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
+  adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet,
   adminResendInviteV2AdminInvitesInviteIdResendPost,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost,
@@ -16,6 +17,7 @@ import {
   adminUpdateUserMetadataV2AdminUsersUserIdPatch,
   type AdminInviteRequest,
   type AdminInviteResponse,
+  type AdminInviteShareTokenResponse,
   type AdminInviteSummary,
   type AdminPlanSummary,
   type AdminProtocolLimitUpdateResponse,
@@ -138,6 +140,13 @@ export async function resendAdminInvite(inviteId: string): Promise<AdminInviteSu
     ...mutationOptions(),
     path: { invite_id: inviteId }
   }), 'Unable to resend the registration email.');
+}
+
+export async function reissueInviteShareLink(inviteId: string): Promise<AdminInviteShareTokenResponse> {
+  return requireData(await adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost({
+    ...mutationOptions(),
+    path: { invite_id: inviteId }
+  }), 'Unable to reissue the share link.');
 }
 
 export async function updateInviteRecipient(inviteId: string, email: string | null): Promise<AdminInviteSummary> {

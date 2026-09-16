@@ -118,30 +118,23 @@
 .adminNote textarea { width: 100%; max-width: 100%; min-height: 6rem; resize: vertical; padding: 0.7rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #172033; background: #fff; font: inherit; }
 .noteActions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .noteSuccess { margin: 0; color: #166534; font-size: 0.85rem; font-weight: 650; }
-.recentInvites { margin-top: 1rem; padding: 0.9rem; border: 1px solid #bcd0ef; border-radius: 0.65rem; background: #f0f6ff; }
-.recentInvitesHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-.recentInvitesHeading span, .recentInvites > p { color: #63738a; font-size: 0.8rem; }
-.recentInvites > p { margin: 0.65rem 0 0; }
-.recentInviteList { display: grid; gap: 0.45rem; margin-top: 0.65rem; }
-.recentInviteRow { display: grid; grid-template-columns: minmax(8rem, 0.65fr) minmax(10rem, 1.35fr) auto; align-items: center; gap: 0.65rem; min-width: 0; padding: 0.55rem; border: 1px solid #d3e0f3; border-radius: 0.5rem; background: #fff; }
-.recentInviteIdentity { display: grid; min-width: 0; }
-.recentInviteIdentity strong, .recentInviteIdentity span, .recentInviteUrl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recentInviteIdentity span { color: #68778c; font-size: 0.72rem; }
-.recentInviteUrl { color: #173e79; }
-.revokedInviteText { color: #68778c; font-size: 0.82rem; font-weight: 700; }
-.recentInviteRow .revokedInviteText { grid-column: 2 / -1; }
+.activeInvites { margin-top: 1rem; }
+.activeInvites > h3 { margin: 0 0 0.65rem; color: #263750; font-size: 0.95rem; }
 .inviteRow { display: grid; grid-template-columns: minmax(11rem, 0.8fr) minmax(18rem, 1.6fr) auto; align-items: start; gap: 0.8rem; min-width: 0; padding: 0.75rem; border: 1px solid #e0e6ee; border-radius: 0.65rem; }
-.invitePrimary { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
-.invitePrimary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.invitePrimary strong { flex: 1; min-width: 0; }
+.invitePrimary { display: flex; align-items: flex-start; gap: 0.55rem; min-width: 0; }
+.inviteIdentity { display: grid; flex: 1; min-width: 0; gap: 0.08rem; }
+.inviteIdentity strong, .inviteIdentity span, .inviteIdentity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inviteIdentity span, .inviteIdentity small { color: #68778c; font-size: 0.74rem; }
 .inviteMetadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem 0.8rem; margin: 0; }
 .inviteMetadata div { min-width: 0; }
 .inviteMetadata dt { color: #718096; font-size: 0.68rem; font-weight: 750; text-transform: uppercase; }
 .inviteMetadata dd { overflow-wrap: anywhere; margin: 0.08rem 0 0; color: #40516c; font-size: 0.78rem; }
 .inviteActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.45rem; }
 .inviteActions button { min-height: 2.35rem; padding-block: 0.42rem; font-size: 0.78rem; }
-.deliverySuccess { padding: 0.7rem 0.8rem; border-left: 4px solid #1d8a4c; border-radius: 0.4rem; color: #166534; background: #edf8f0; font-weight: 650; }
-.recentInviteRow .deliverySuccess, .recentInviteRow .warningBox { grid-column: 2 / -1; margin: 0; }
+.inviteShareLink { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; min-width: 0; padding: 0.7rem 0.8rem; border-left: 4px solid #1d8a4c; border-radius: 0.4rem; color: #166534; background: #edf8f0; }
+.inviteShareLink > div { display: grid; min-width: 0; gap: 0.18rem; }
+.inviteShareLink strong { font-size: 0.85rem; }
+.inviteShareLink code { overflow: hidden; color: #173e79; text-overflow: ellipsis; white-space: nowrap; }
 .inviteArchive { margin-top: 0.85rem; border-top: 1px solid #e1e7f0; }
 .inviteArchive > summary { min-height: 3rem; padding: 0.8rem 0.55rem; }
 .inviteArchive[open] > summary { margin-bottom: 0.2rem; }
@@ -208,19 +201,14 @@
   .dangerZone { align-items: stretch; flex-direction: column; padding: 1rem; }
   .adminNote { margin-inline: 1rem; }
   .dangerActions { display: grid; grid-template-columns: 1fr; }
-  .recentInvites { padding: 0.7rem; }
-  .recentInvitesHeading { display: grid; gap: 0.1rem; }
-  .recentInviteRow { grid-template-columns: minmax(0, 1fr) auto; }
-  .recentInviteUrl { grid-column: 1; grid-row: 2; }
-  .recentInviteRow .secondaryButton { grid-column: 2; grid-row: 1 / span 2; }
-  .recentInviteRow .badge { justify-self: end; }
-  .recentInviteRow .revokedInviteText { grid-column: 1 / -1; }
   .invitePrimary .badge { flex: none; }
   .inviteRow { grid-template-columns: 1fr; }
   .inviteMetadata, .inviteActions { grid-column: 1; grid-row: auto; }
   .inviteMetadata { grid-template-columns: 1fr; }
   .inviteActions { justify-content: stretch; }
   .inviteActions button { flex: 1 1 100%; }
+  .inviteShareLink { grid-template-columns: 1fr; }
+  .inviteShareLink button { justify-self: stretch; }
   .inviteRow .dangerTextButton { padding-inline: 0.7rem; }
   .compactDetails { grid-template-columns: 1fr; }
   .identifier { grid-template-columns: minmax(0, 1fr) auto; }

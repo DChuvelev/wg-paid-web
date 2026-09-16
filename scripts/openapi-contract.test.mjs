@@ -47,7 +47,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 56, schemas: 62 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 57, schemas: 63 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
@@ -73,6 +73,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminInviteSummary.required).toContain('wireguard_profile_limit');
     expect(schemas.AdminInviteSummary.required).toContain('can_resend');
     expect(schemas.AdminInviteSummary.required).toContain('can_change_email');
+    expect(schemas.AdminInviteSummary.required).toContain('can_reissue_share_link');
     expect(schemas.AdminInviteSummary.required).toContain('can_revoke');
     expect(schemas.AdminInviteRequest.properties.wireguard_profile_limit.anyOf[0].minimum).toBe(0);
     expect(schemas.AdminInviteLimitUpdateRequest.properties.profile_limit.minimum).toBe(0);
@@ -81,6 +82,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/auth/invites/change-email');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
+    expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/share-token/reissue');
+    expect(document.paths['/v2/admin/invites/{invite_id}/share-token/reissue'].post.responses['200'].content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/AdminInviteShareTokenResponse' });
+    expect(schemas.AdminInviteShareTokenResponse.required).toEqual(['invite_id', 'invite_token']);
     expect(document.paths).toHaveProperty('/v2/admin/profiles/{profile_id}/config');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}');
@@ -111,10 +116,12 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminRuntimeConnectionsResponse.properties.rows.items)
       .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionRow' });
     expect(Object.keys(schemas.AdminRuntimeConnectionRow.properties)).toEqual([
-      'user_id', 'email', 'display_name', 'profile_id', 'profile_label', 'tunnel_ip', 'selector',
+      'user_id', 'email', 'display_name', 'configuration_id', 'configuration_ordinal',
+      'configuration_label', 'profile_id', 'protocol', 'profile_label', 'tunnel_ip', 'selector',
       'active_now', 'active_state', 'last_active_at', 'last_reassign_at', 'last_handshake_at',
       'rx_bytes', 'tx_bytes', 'rx_bytes_per_second', 'tx_bytes_per_second'
     ]);
+    expect(schemas.AdminRuntimeConnectionRow.properties.protocol.enum).toEqual(['wireguard', 'amneziawg']);
     expect(schemas.AdminRuntimeConnectionRow.required)
       .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties));
 
