@@ -206,6 +206,29 @@ test('stores the idempotency attempt before POST and retries an uncertain create
   expect(screen.queryByText('Payment confirmed.')).toBeNull();
 });
 
+test.each([502, 409])('HTTP %s create failure requires explicit abandonment before a new logical key', async (status) => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
+  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(status)).mockResolvedValueOnce({ payment_id: 'payment-new', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
+  renderApp('/account');
+  const paymentButton = await screen.findByRole('button', { name: 'Pay for one month' });
+  fireEvent.click(paymentButton);
+  await screen.findByText(/request failed and was not accepted/i);
+  expect(screen.queryByText(/result is uncertain/i)).toBeNull();
+  const failedAttempt = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
+  expect((paymentButton as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(paymentButton);
+  expect(createBillingPayment).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!)).toEqual(failedAttempt);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Abandon failed attempt' }));
+  await screen.findByText(/failed attempt was reset/i);
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Pay for one month' }));
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
+  const newKey = vi.mocked(createBillingPayment).mock.calls[1]?.[0];
+  expect(newKey).not.toBe(failedAttempt.idempotency_key);
+});
+
 test('recovers one pending history item through authoritative item GET and never assumes return success', async () => {
   const pending = { payment_id: 'recover-1', status: 'pending' as const, provider_status: null, kind: 'initial' as const, amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), succeeded_at: null };
   vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });

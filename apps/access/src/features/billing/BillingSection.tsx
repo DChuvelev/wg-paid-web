@@ -25,6 +25,7 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   const [paymentId, setPaymentId] = useState<string | null>(initialAttempt?.payment_id ?? null);
   const [startedAt, setStartedAt] = useState(initialAttempt?.started_at ?? Date.now());
   const [message, setMessage] = useState('');
+  const [definiteCreateFailure, setDefiniteCreateFailure] = useState(false);
   const history = useQuery({ queryKey: billingPaymentsKey, queryFn: loadBillingPayments, enabled: Boolean(account.billing), retry: false, refetchOnWindowFocus: true });
 
   const finish = async (payment: BillingPaymentSummary) => {
@@ -72,7 +73,12 @@ export function BillingSection({ account, onUnauthorized }: Props) {
     mutationFn: createBillingPayment,
     onError: (error) => {
       singleFlight.current = false;
-      if (error instanceof AccessApiError && error.status === 401) onUnauthorized(error);
+      if (error instanceof AccessApiError && error.status === 401) { onUnauthorized(error); return; }
+      if (error instanceof AccessApiError && (error.status === 409 || error.status === 502)) {
+        setDefiniteCreateFailure(true);
+        setMessage(t('paymentCreateDefiniteFailure'));
+        return;
+      }
       setMessage(t('paymentRetrySameAttempt'));
     },
     onSuccess: (created) => {
@@ -92,7 +98,7 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   });
 
   const submit = (existing?: PaymentAttempt) => {
-    if (singleFlight.current || create.isPending) return;
+    if (singleFlight.current || create.isPending || definiteCreateFailure) return;
     if (history.data?.some(isPendingPayment) && !existing) { setMessage(t('paymentAlreadyPending')); return; }
     const current = existing ?? { version: 1 as const, user_id: account.user_id, idempotency_key: crypto.randomUUID(), started_at: Date.now() };
     writePaymentAttempt(current);
@@ -101,6 +107,19 @@ export function BillingSection({ account, onUnauthorized }: Props) {
     setMessage(t('paymentCreating'));
     singleFlight.current = true;
     create.mutate(current.idempotency_key);
+  };
+
+  const abandonFailedAttempt = async () => {
+    clearPaymentAttemptForUser(account.user_id);
+    setAttempt(null);
+    setPaymentId(null);
+    setDefiniteCreateFailure(false);
+    setMessage(t('paymentAttemptAbandoned'));
+    create.reset();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: accountKey }),
+      queryClient.invalidateQueries({ queryKey: billingPaymentsKey })
+    ]);
   };
 
   useEffect(() => {
@@ -130,9 +149,10 @@ export function BillingSection({ account, onUnauthorized }: Props) {
     <section className={styles.section} aria-labelledby="billing-title">
       <h2 id="billing-title">{t('billing')}</h2>
       <div className={styles.card}><strong>{t(statusKey)}</strong><p>{t('billingPeriodEnd', { date: new Date(billing.current_period_end).toLocaleDateString() })}</p><p>{t('billingTerms', { amount: money, quantity: billing.slot_quantity })}</p>
-        {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : <button type="button" disabled={!canPay || create.isPending || singleFlight.current} onClick={() => submit(attempt ?? undefined)}>{billing.status === 'active_paid' ? t('renewPayment') : t('payForMonth')}</button>}
+        {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : <button type="button" disabled={!canPay || create.isPending || singleFlight.current || definiteCreateFailure} onClick={() => submit(attempt ?? undefined)}>{billing.status === 'active_paid' ? t('renewPayment') : t('payForMonth')}</button>}
       </div>
       {message ? <p role="status">{message}</p> : null}
+      {definiteCreateFailure ? <button className={styles.refresh} type="button" onClick={() => void abandonFailedAttempt()}>{t('abandonPaymentAttempt')}</button> : null}
       {payment.isError || history.isError ? <p className={styles.error} role="alert">{t('billingLoadFailed')}</p> : null}
       <details><summary>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{new Date(item.created_at).toLocaleDateString()} · {item.status} · {new Intl.NumberFormat(undefined, { style: 'currency', currency: item.currency }).format(item.amount_kopeks / 100)}</li>)}</ul></details>
       <button className={styles.refresh} type="button" onClick={() => { void history.refetch(); if (paymentId) void payment.refetch(); }}>{t('refresh')}</button>

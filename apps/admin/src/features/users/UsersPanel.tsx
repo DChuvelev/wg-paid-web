@@ -409,6 +409,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
             retirementGrants={retirementGrantsByUser.get(user.user_id) ?? new Set()}
             user={user}
             onMetadataUpdated={updateCachedMetadata}
+            onReferralPolicyError={(error) => handleError(error, 'Unable to update the referral policy.')}
             onReferralPolicyUpdated={updateCachedReferralPolicy}
             onRequestError={(error) => handleError(error, 'Unable to update the admin note.')}
             onDelete={() => setDeleteTarget(user)}

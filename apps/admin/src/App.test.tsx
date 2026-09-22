@@ -519,6 +519,31 @@ describe('users, limits, and retirement', () => {
     await waitFor(() => expect(updateReferralPolicy).toHaveBeenCalledWith(user.user_id, true, 0));
     expect(await screen.findByText('Referral policy saved.')).toBeTruthy();
   });
+  test('disables referral-policy controls and cannot PATCH while user deletion is active', async () => {
+    const user = makeUser(1, 1, undefined, '2026-09-22T10:00:00Z');
+    await renderDashboard(user);
+    expandUser(user.email);
+    const toggle = screen.getByRole('checkbox', { name: 'Allow invitations' }) as HTMLInputElement;
+    const limit = screen.getByLabelText(`Active invitation limit for ${user.email}`) as HTMLInputElement;
+    const save = screen.getByRole('button', { name: 'Save referral policy' }) as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    expect(limit.disabled).toBe(true);
+    expect(save.disabled).toBe(true);
+    fireEvent.click(toggle);
+    fireEvent.change(limit, { target: { value: '0' } });
+    fireEvent.click(save);
+    expect(updateReferralPolicy).not.toHaveBeenCalled();
+  });
+
+  test('uses referral-specific fallback wording when policy update fails', async () => {
+    vi.mocked(updateReferralPolicy).mockRejectedValue(new Error('network'));
+    const user = makeUser();
+    await renderDashboard(user);
+    expandUser(user.email);
+    fireEvent.click(screen.getByRole('button', { name: 'Save referral policy' }));
+    expect((await screen.findAllByText('Unable to update the referral policy.')).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('Unable to update the admin note.');
+  });
   test('uses a bounded internal scroll area with a sticky column header', async () => {
     await renderDashboard();
     const list = screen.getByLabelText('Users list');
