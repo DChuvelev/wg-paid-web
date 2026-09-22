@@ -15,6 +15,7 @@ import {
   adminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatch,
   adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch,
   adminUpdateUserMetadataV2AdminUsersUserIdPatch,
+  adminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatch,
   type AdminInviteRequest,
   type AdminInviteResponse,
   type AdminInviteShareTokenResponse,
@@ -25,6 +26,7 @@ import {
   type AdminListUsersV2AdminUsersGetData,
   type AdminUserDeleteResponse,
   type AdminUserMetadataUpdateResponse,
+  type AdminUserReferralPolicyResponse,
   type AdminUserSummary
 } from '@wg-paid/api';
 
@@ -196,6 +198,14 @@ export async function updateAdminNote(userId: string, adminNote: string | null):
     body: { admin_note: adminNote },
     path: { user_id: userId }
   }), 'Unable to update the admin note.');
+}
+
+export async function updateReferralPolicy(userId: string, enabled: boolean, limit: number): Promise<AdminUserReferralPolicyResponse> {
+  return requireData(await adminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatch({
+    ...mutationOptions(),
+    body: { enabled, limit },
+    path: { user_id: userId }
+  }), 'Unable to update the referral policy.');
 }
 
 export async function setWireGuardLimit(

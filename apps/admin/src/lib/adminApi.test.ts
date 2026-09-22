@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   createInvite: vi.fn(), deleteUser: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
-  runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn()
+  runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -23,6 +23,7 @@ vi.mock('@wg-paid/api', () => ({
   adminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatch: sdk.updateInviteRecipient,
   adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch: sdk.updateInviteLimit,
   adminUpdateUserMetadataV2AdminUsersUserIdPatch: sdk.updateUser
+  , adminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatch: sdk.updateReferralPolicy
 }));
 
 import {
@@ -34,6 +35,7 @@ import {
   reissueInviteShareLink,
   resendAdminInvite,
   updateAdminNote,
+  updateReferralPolicy,
   updateInviteRecipient,
   updateInviteWireGuardLimit
 } from './adminApi';
@@ -41,6 +43,13 @@ import {
 afterEach(() => {
   document.cookie = 'wg_admin_csrf=; Max-Age=0; Path=/';
   vi.clearAllMocks();
+});
+
+test('updates referral enabled and limit atomically with admin CSRF', async () => {
+  document.cookie = 'wg_admin_csrf=admin%20csrf; Path=/';
+  sdk.updateReferralPolicy.mockResolvedValue({ data: { user_id: 'user-1', enabled: false, limit: 3 }, response: new Response(null, { status: 200 }) });
+  await updateReferralPolicy('user-1', false, 3);
+  expect(sdk.updateReferralPolicy).toHaveBeenCalledWith(expect.objectContaining({ body: { enabled: false, limit: 3 }, headers: { 'x-admin-csrf-token': 'admin csrf' }, path: { user_id: 'user-1' } }));
 });
 
 describe('admin CSRF cookie handling', () => {

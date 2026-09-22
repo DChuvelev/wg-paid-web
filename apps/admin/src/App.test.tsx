@@ -7,7 +7,7 @@ import { App } from './App';
 import {
   AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
-  updateInviteRecipient, updateInviteWireGuardLimit
+  updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
 } from './lib/adminApi';
 
 vi.mock('./lib/adminApi', async (importOriginal) => {
@@ -17,7 +17,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
     checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
     loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
     reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
-    updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn()
+    updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn(), updateReferralPolicy: vi.fn()
   };
 });
 
@@ -103,6 +103,7 @@ function makeUser(
     configurations: profiles.filter((item) => item.protocol === 'wireguard' && item.status !== 'disabled')
       .map((item, index) => configuration(item, index + 1)),
     profiles, registration_invite_id: 'invite-1',
+    referral_limit: 3, referrals_enabled: false,
     user_id: 'user-1'
   };
 }
@@ -181,6 +182,7 @@ beforeEach(() => {
     display_name: 'Mitya',
     user_id: userId
   }));
+  vi.mocked(updateReferralPolicy).mockImplementation(async (userId, enabled, limit) => ({ user_id: userId, enabled, limit }));
 });
 
 afterEach(() => {
@@ -285,6 +287,19 @@ describe('admin session and invites', () => {
     fireEvent.change(screen.getByLabelText('Number of configurations'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'plan-2' } });
     expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('0');
+  });
+
+  test('offers both backend-returned account plans and submits the selected plan id and default limit', async () => {
+    const commercial = { ...plan, code: 'commercial', default_wireguard_limit: 4, display_name: 'Commercial', id: 'commercial-plan-id' };
+    vi.mocked(loadPlans).mockResolvedValue([plan, commercial]);
+    await renderInvitesDashboard();
+    const selector = screen.getByLabelText('Plan');
+    expect(within(selector).getByRole('option', { name: 'Standard (standard)' })).toBeTruthy();
+    expect(within(selector).getByRole('option', { name: 'Commercial (commercial)' })).toBeTruthy();
+    fireEvent.change(selector, { target: { value: commercial.id } });
+    expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('4');
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await waitFor(() => expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: commercial.id, wireguard_profile_limit: 4 }));
   });
 
   test('email mode reports confirmed delivery and never exposes its raw invite URL', async () => {
@@ -406,7 +421,7 @@ describe('admin area navigation', () => {
     window.history.replaceState(null, '', '/#/unsupported');
     renderAdmin();
     await waitFor(() => expect(window.location.hash).toBe('#/users'));
-    expect(screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe('page');
+    expect((await screen.findByRole('link', { name: 'Users' })).getAttribute('aria-current')).toBe('page');
   });
 
   test('direct supported hashes and reload-equivalent renders retain the requested area', async () => {
@@ -492,6 +507,18 @@ describe('admin area navigation', () => {
 });
 
 describe('users, limits, and retirement', () => {
+  test('displays backend false/3 referral policy and submits toggle and limit atomically', async () => {
+    const user = makeUser();
+    await renderDashboard(user);
+    expandUser(user.email);
+    expect((screen.getByRole('checkbox', { name: 'Allow invitations' }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText(`Active invitation limit for ${user.email}`) as HTMLInputElement).value).toBe('3');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow invitations' }));
+    fireEvent.change(screen.getByLabelText(`Active invitation limit for ${user.email}`), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save referral policy' }));
+    await waitFor(() => expect(updateReferralPolicy).toHaveBeenCalledWith(user.user_id, true, 0));
+    expect(await screen.findByText('Referral policy saved.')).toBeTruthy();
+  });
   test('uses a bounded internal scroll area with a sticky column header', async () => {
     await renderDashboard();
     const list = screen.getByLabelText('Users list');

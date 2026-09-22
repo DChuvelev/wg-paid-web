@@ -4,7 +4,7 @@ import type { AdminUserMetadataUpdateResponse, AdminUserSummary, ConfigurationSu
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
 import { configurationsForGrant, consumesQuota, formatDate, wireGuardLimit } from './userDomain';
-import { adminProfileConfigUrl, AdminApiError, updateAdminNote } from '../../lib/adminApi';
+import { adminProfileConfigUrl, AdminApiError, updateAdminNote, updateReferralPolicy } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
 interface GrantCardProps {
@@ -183,6 +183,34 @@ function AdminNoteEditor({ user, onError, onUpdated }: AdminNoteEditorProps) {
   );
 }
 
+interface ReferralPolicyEditorProps {
+  user: AdminUserSummary;
+  onError: (error: unknown) => void;
+  onUpdated: (userId: string, enabled: boolean, limit: number) => void;
+}
+
+function ReferralPolicyEditor({ user, onError, onUpdated }: ReferralPolicyEditorProps) {
+  const [enabled, setEnabled] = useState(user.referrals_enabled);
+  const [limit, setLimit] = useState(String(user.referral_limit));
+  const [feedback, setFeedback] = useState('');
+  const mutation = useMutation({
+    mutationFn: () => updateReferralPolicy(user.user_id, enabled, Number(limit)),
+    onError: (error) => { onError(error); setFeedback(error instanceof AdminApiError ? error.message : 'Unable to update the referral policy.'); },
+    onSuccess: (updated) => { setEnabled(updated.enabled); setLimit(String(updated.limit)); onUpdated(updated.user_id, updated.enabled, updated.limit); setFeedback('Referral policy saved.'); }
+  });
+  useEffect(() => { setEnabled(user.referrals_enabled); setLimit(String(user.referral_limit)); }, [user.referral_limit, user.referrals_enabled]);
+  const valid = /^\d+$/.test(limit) && Number(limit) >= 0;
+  return (
+    <section className={styles.adminNote} aria-labelledby={`referral-policy-${user.user_id}`}>
+      <div><h3 id={`referral-policy-${user.user_id}`}>Referral policy</h3><span>Disabling prevents new invitations and reissue; existing links are not revoked.</span></div>
+      <label><input type="checkbox" checked={enabled} onChange={(event) => { setEnabled(event.target.checked); setFeedback(''); }} /> Allow invitations</label>
+      <label className={styles.field}><span>Active invitation limit</span><input aria-label={`Active invitation limit for ${user.email}`} inputMode="numeric" min="0" step="1" type="number" value={limit} onChange={(event) => { setLimit(event.target.value); setFeedback(''); }} /><small>0 = unlimited. The limit can be edited while invitations are disabled.</small></label>
+      <div className={styles.noteActions}><button className={styles.primaryButton} disabled={!valid || mutation.isPending} type="button" onClick={() => mutation.mutate()}>{mutation.isPending ? 'Saving…' : 'Save referral policy'}</button></div>
+      {feedback ? <p className={mutation.isError ? styles.fieldError : styles.noteSuccess} role={mutation.isError ? 'alert' : 'status'}>{feedback}</p> : null}
+    </section>
+  );
+}
+
 interface UserCardProps {
   deletingActive: boolean;
   limitPending: Set<string>;
@@ -196,11 +224,12 @@ interface UserCardProps {
     nextLimit: number
   ) => void;
   onMetadataUpdated: (updated: AdminUserMetadataUpdateResponse) => void;
+  onReferralPolicyUpdated: (userId: string, enabled: boolean, limit: number) => void;
   onRequestError: (error: unknown) => void;
   onRefreshDeleting: () => void;
 }
 
-export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onMetadataUpdated, onRequestError, onRefreshDeleting }: UserCardProps) {
+export function UserCard({ deletingActive, limitPending, retirementGrants, user, onDelete, onLimitRequest, onMetadataUpdated, onReferralPolicyUpdated, onRequestError, onRefreshDeleting }: UserCardProps) {
   const deleting = Boolean(user.deletion_requested_at) || deletingActive;
   const configurationCount = user.grants.reduce((total, grant) => total + grant.configuration_count, 0);
   const configurationLimit = user.grants.reduce((total, grant) => total + grant.configuration_limit, 0);
@@ -237,6 +266,7 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
           ) : null}
 
           <AdminNoteEditor user={user} onError={onRequestError} onUpdated={onMetadataUpdated} />
+          <ReferralPolicyEditor user={user} onError={onRequestError} onUpdated={onReferralPolicyUpdated} />
 
           <div className={styles.grantList}>
             {user.grants.length ? user.grants.map((grant) => {

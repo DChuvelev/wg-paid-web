@@ -335,6 +335,16 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     }) : current);
   };
 
+  const updateCachedReferralPolicy = (userId: string, enabled: boolean, limit: number) => {
+    queryClient.setQueryData<InfiniteData<Array<AdminUserSummary>>>(usersKey, (current) => current ? ({
+      ...current,
+      pages: current.pages.map((page) => page.map((user) => user.user_id === userId
+        ? { ...user, referrals_enabled: enabled, referral_limit: limit }
+        : user))
+    }) : current);
+    void queryClient.invalidateQueries({ queryKey: usersKey });
+  };
+
   const defaultStatus = usersQuery.isPending
     ? 'Loading users…'
     : usersQuery.isError
@@ -399,6 +409,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
             retirementGrants={retirementGrantsByUser.get(user.user_id) ?? new Set()}
             user={user}
             onMetadataUpdated={updateCachedMetadata}
+            onReferralPolicyUpdated={updateCachedReferralPolicy}
             onRequestError={(error) => handleError(error, 'Unable to update the admin note.')}
             onDelete={() => setDeleteTarget(user)}
             onLimitRequest={(grant, limit, configurations, nextLimit) => requestLimit(user, grant, limit, configurations, nextLimit)}
