@@ -1,7 +1,9 @@
-export const paymentAttemptStorageKey = 'wg-paid-payment-attempt-v1';
+export const paymentAttemptStorageKey = 'wg-paid-payment-attempt-v2';
+const legacyPaymentAttemptStorageKey = 'wg-paid-payment-attempt-v1';
 
 export interface PaymentAttempt {
-  version: 1;
+  version: 2;
+  state: 'active' | 'definite_failure';
   user_id: string;
   idempotency_key: string;
   started_at: number;
@@ -11,7 +13,8 @@ export interface PaymentAttempt {
 function isAttempt(value: unknown): value is PaymentAttempt {
   if (!value || typeof value !== 'object') return false;
   const item = value as Partial<PaymentAttempt>;
-  return item.version === 1
+  return item.version === 2
+    && (item.state === 'active' || item.state === 'definite_failure')
     && typeof item.user_id === 'string'
     && typeof item.idempotency_key === 'string'
     && typeof item.started_at === 'number'
@@ -19,6 +22,7 @@ function isAttempt(value: unknown): value is PaymentAttempt {
 }
 
 export function readPaymentAttempt(): PaymentAttempt | null {
+  sessionStorage.removeItem(legacyPaymentAttemptStorageKey);
   try {
     const raw = sessionStorage.getItem(paymentAttemptStorageKey);
     if (!raw) return null;

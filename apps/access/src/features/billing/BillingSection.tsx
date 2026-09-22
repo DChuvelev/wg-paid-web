@@ -24,8 +24,8 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   const [attempt, setAttempt] = useState<PaymentAttempt | null>(initialAttempt);
   const [paymentId, setPaymentId] = useState<string | null>(initialAttempt?.payment_id ?? null);
   const [startedAt, setStartedAt] = useState(initialAttempt?.started_at ?? Date.now());
-  const [message, setMessage] = useState('');
-  const [definiteCreateFailure, setDefiniteCreateFailure] = useState(false);
+  const [message, setMessage] = useState(() => initialAttempt?.state === 'definite_failure' ? t('paymentCreateDefiniteFailure') : '');
+  const [definiteCreateFailure, setDefiniteCreateFailure] = useState(initialAttempt?.state === 'definite_failure');
   const history = useQuery({ queryKey: billingPaymentsKey, queryFn: loadBillingPayments, enabled: Boolean(account.billing), retry: false, refetchOnWindowFocus: true });
 
   const finish = async (payment: BillingPaymentSummary) => {
@@ -75,6 +75,12 @@ export function BillingSection({ account, onUnauthorized }: Props) {
       singleFlight.current = false;
       if (error instanceof AccessApiError && error.status === 401) { onUnauthorized(error); return; }
       if (error instanceof AccessApiError && (error.status === 409 || error.status === 502)) {
+        const current = readPaymentAttemptForUser(account.user_id) ?? attempt;
+        if (current) {
+          const failed = { ...current, state: 'definite_failure' as const };
+          writePaymentAttempt(failed);
+          setAttempt(failed);
+        }
         setDefiniteCreateFailure(true);
         setMessage(t('paymentCreateDefiniteFailure'));
         return;
@@ -100,7 +106,7 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   const submit = (existing?: PaymentAttempt) => {
     if (singleFlight.current || create.isPending || definiteCreateFailure) return;
     if (history.data?.some(isPendingPayment) && !existing) { setMessage(t('paymentAlreadyPending')); return; }
-    const current = existing ?? { version: 1 as const, user_id: account.user_id, idempotency_key: crypto.randomUUID(), started_at: Date.now() };
+    const current = existing ?? { version: 2 as const, state: 'active' as const, user_id: account.user_id, idempotency_key: crypto.randomUUID(), started_at: Date.now() };
     writePaymentAttempt(current);
     setAttempt(current);
     setStartedAt(current.started_at);
@@ -125,7 +131,7 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   useEffect(() => {
     if (recovered.current || history.isPending) return;
     recovered.current = true;
-    if (initialAttempt?.payment_id) return;
+    if (initialAttempt?.payment_id || initialAttempt?.state === 'definite_failure') return;
     if (initialAttempt) { submit(initialAttempt); return; }
     const candidates = history.data?.filter(isPendingPayment) ?? [];
     if (candidates.length === 1) {

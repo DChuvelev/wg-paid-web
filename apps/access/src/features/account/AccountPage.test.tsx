@@ -209,14 +209,21 @@ test('stores the idempotency attempt before POST and retries an uncertain create
 test.each([502, 409])('HTTP %s create failure requires explicit abandonment before a new logical key', async (status) => {
   vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
   vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(status)).mockResolvedValueOnce({ payment_id: 'payment-new', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
-  renderApp('/account');
+  const firstRender = renderApp('/account');
   const paymentButton = await screen.findByRole('button', { name: 'Pay for one month' });
   fireEvent.click(paymentButton);
   await screen.findByText(/request failed and was not accepted/i);
   expect(screen.queryByText(/result is uncertain/i)).toBeNull();
   const failedAttempt = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
+  expect(failedAttempt.state).toBe('definite_failure');
   expect((paymentButton as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(paymentButton);
+  expect(createBillingPayment).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!)).toEqual(failedAttempt);
+
+  firstRender.unmount();
+  renderApp('/account');
+  await screen.findByText(/request failed and was not accepted/i);
   expect(createBillingPayment).toHaveBeenCalledTimes(1);
   expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!)).toEqual(failedAttempt);
 
@@ -227,6 +234,22 @@ test.each([502, 409])('HTTP %s create failure requires explicit abandonment befo
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   const newKey = vi.mocked(createBillingPayment).mock.calls[1]?.[0];
   expect(newKey).not.toBe(failedAttempt.idempotency_key);
+});
+
+test('reload resumes a stored uncertain attempt with the exact same key', async () => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
+  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce({ payment_id: 'resumed-payment', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
+  const firstRender = renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Pay for one month' }));
+  await screen.findByText(/result is uncertain/i);
+  const stored = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
+  expect(stored.state).toBe('active');
+  firstRender.unmount();
+
+  renderApp('/account');
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(createBillingPayment).mock.calls[0]?.[0]).toBe(stored.idempotency_key);
+  expect(vi.mocked(createBillingPayment).mock.calls[1]?.[0]).toBe(stored.idempotency_key);
 });
 
 test('recovers one pending history item through authoritative item GET and never assumes return success', async () => {
@@ -241,7 +264,7 @@ test('recovers one pending history item through authoritative item GET and never
 });
 
 test('reconciles a stored payment id and clears the current-user attempt only after terminal backend truth', async () => {
-  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ version: 1, user_id: account.user_id, idempotency_key: 'stored-key', started_at: Date.now(), payment_id: 'stored-payment' }));
+  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ version: 2, state: 'active', user_id: account.user_id, idempotency_key: 'stored-key', started_at: Date.now(), payment_id: 'stored-payment' }));
   vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
   vi.mocked(loadBillingPayment).mockResolvedValue({ payment_id: 'stored-payment', status: 'succeeded', provider_status: 'succeeded', kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:01Z', succeeded_at: '2026-01-01T00:00:01Z' });
   renderApp('/account');
