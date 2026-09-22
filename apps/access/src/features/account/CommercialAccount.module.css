@@ -1,0 +1,4 @@
+.sections { display: grid; gap: 1.5rem; }
+.sections > section { padding-top: 0.25rem; }
+.sections > section + section { padding-top: 1.5rem; border-top: 1px solid #d9e0ec; }
+.sections h2 { margin: 0 0 0.9rem; }

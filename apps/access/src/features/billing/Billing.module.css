@@ -1,0 +1,9 @@
+.section { display: grid; gap: 0.85rem; }
+.section h2, .section p { margin: 0; }
+.card { display: grid; gap: 0.5rem; padding: 1rem; border-radius: 0.75rem; background: #eef3fb; }
+.card button, .refresh { justify-self: start; padding: 0.55rem 0.8rem; border: 1px solid #2857a4; border-radius: 0.5rem; color: white; background: #2857a4; cursor: pointer; font-weight: 650; }
+.card button:disabled { opacity: 0.55; cursor: not-allowed; }
+.warning { color: #8a4a00; }
+.error { color: #9e2d2d; }
+.section ul { display: grid; gap: 0.5rem; padding-left: 1.25rem; }
+.refresh { color: #2857a4; background: white; }

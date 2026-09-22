@@ -35,7 +35,15 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
   };
 });
 
-const account = { display_name: null, email: 'person@example.test', grants: [], user_id: 'user-1' };
+const account = {
+  account_surface: 'pilot' as const,
+  billing: null,
+  display_name: null,
+  email: 'person@example.test',
+  grants: [],
+  referrals: { active_count: 0, can_create: false, enabled: false, limit: 3, remaining_count: 3 },
+  user_id: 'user-1'
+};
 const activeInvite: InviteInspectResponse = {
   can_change_email: false,
   can_resend: false,

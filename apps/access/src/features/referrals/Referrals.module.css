@@ -1,0 +1,12 @@
+.section { display: grid; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #d9e0ec; }
+.heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; align-items: start; }
+.heading h2, .heading p { margin: 0; }
+.heading p { margin-top: 0.35rem; color: #52627a; }
+.heading button, .token button, .list button { padding: 0.5rem 0.75rem; border: 1px solid #2857a4; border-radius: 0.5rem; color: #2857a4; background: white; cursor: pointer; }
+.heading button:disabled, .list button:disabled { opacity: 0.55; cursor: not-allowed; }
+.token { display: grid; gap: 0.5rem; padding: 0.85rem; border-radius: 0.6rem; background: #eef3fb; }
+.token input { min-width: 0; padding: 0.55rem; }
+.list { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.list li { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; padding: 0.75rem; border: 1px solid #d9e0ec; border-radius: 0.6rem; }
+.list li div { grid-column: 1 / -1; display: flex; gap: 0.5rem; }
+.error { color: #9e2d2d; }

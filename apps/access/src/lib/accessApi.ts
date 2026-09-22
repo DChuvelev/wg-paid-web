@@ -1,6 +1,13 @@
 import {
+  accountBillingPaymentCreateV2AccountBillingPaymentsPost,
+  accountBillingPaymentsV2AccountBillingPaymentsGet,
+  accountBillingPaymentV2AccountBillingPaymentsPaymentIdGet,
   accountMeUpdateV2AccountMePatch,
   accountMeV2AccountMeGet,
+  accountReferralCreateV2AccountReferralsPost,
+  accountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePost,
+  accountReferralRevokeV2AccountReferralsInviteIdRevokePost,
+  accountReferralsV2AccountReferralsGet,
   accountConfigurationCreateV2AccountProfilesConfigurationsPost,
   accountConfigurationsV2AccountProfilesConfigurationsGet,
   accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch,
@@ -12,9 +19,12 @@ import {
   redeemInviteRouteV2AuthInvitesRedeemPost,
   resendInviteRouteV2AuthInvitesResendPost,
   type AccountMeResponse,
+  type BillingPaymentSummary,
   type ConfigurationSummary,
   type InviteInspectResponse,
-  type ProfileConfigDownloadResponse
+  type ProfileConfigDownloadResponse,
+  type ReferralInviteCreateResponse,
+  type ReferralInviteSummary
 } from '@wg-paid/api';
 
 const csrfCookieName = 'wg_access_csrf';
@@ -128,6 +138,58 @@ export async function loadConfigurations(): Promise<Array<ConfigurationSummary>>
   if (result.data) {
     return result.data;
   }
+  throw accessApiError(result.response);
+}
+
+export async function loadBillingPayments(): Promise<Array<BillingPaymentSummary>> {
+  const result = await accountBillingPaymentsV2AccountBillingPaymentsGet(requestOptions());
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function loadBillingPayment(paymentId: string): Promise<BillingPaymentSummary> {
+  const result = await accountBillingPaymentV2AccountBillingPaymentsPaymentIdGet({
+    ...requestOptions(),
+    path: { payment_id: paymentId }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function createBillingPayment(idempotencyKey: string): Promise<BillingPaymentSummary> {
+  const result = await accountBillingPaymentCreateV2AccountBillingPaymentsPost({
+    ...requestOptions(),
+    headers: { ...getCsrfHeaders(), 'Idempotency-Key': idempotencyKey }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function loadReferrals(): Promise<Array<ReferralInviteSummary>> {
+  const result = await accountReferralsV2AccountReferralsGet(requestOptions());
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function createReferral(): Promise<ReferralInviteCreateResponse> {
+  const result = await accountReferralCreateV2AccountReferralsPost(mutationOptions());
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function reissueReferral(inviteId: string): Promise<ReferralInviteCreateResponse> {
+  const result = await accountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePost({
+    ...mutationOptions(), path: { invite_id: inviteId }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function revokeReferral(inviteId: string): Promise<ReferralInviteSummary> {
+  const result = await accountReferralRevokeV2AccountReferralsInviteIdRevokePost({
+    ...mutationOptions(), path: { invite_id: inviteId }
+  });
+  if (result.data) return result.data;
   throw accessApiError(result.response);
 }
 

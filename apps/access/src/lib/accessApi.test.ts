@@ -3,6 +3,9 @@ import { afterEach, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   accountMe: vi.fn(),
   accountMeUpdate: vi.fn(),
+  billingCreate: vi.fn(),
+  billingItem: vi.fn(),
+  billingList: vi.fn(),
   changeInviteEmail: vi.fn(),
   consumeMagic: vi.fn(),
   createConfiguration: vi.fn(),
@@ -13,11 +16,15 @@ const sdk = vi.hoisted(() => ({
   configurationUpdate: vi.fn(),
   redeemInvite: vi.fn(),
   resendInvite: vi.fn()
+  , referralCreate: vi.fn(), referralList: vi.fn(), referralReissue: vi.fn(), referralRevoke: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
   accountMeV2AccountMeGet: sdk.accountMe,
   accountMeUpdateV2AccountMePatch: sdk.accountMeUpdate,
+  accountBillingPaymentCreateV2AccountBillingPaymentsPost: sdk.billingCreate,
+  accountBillingPaymentV2AccountBillingPaymentsPaymentIdGet: sdk.billingItem,
+  accountBillingPaymentsV2AccountBillingPaymentsGet: sdk.billingList,
   accountConfigurationCreateV2AccountProfilesConfigurationsPost: sdk.createConfiguration,
   accountConfigurationsV2AccountProfilesConfigurationsGet: sdk.configurations,
   accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch: sdk.configurationUpdate,
@@ -28,11 +35,16 @@ vi.mock('@wg-paid/api', () => ({
   logoutV2AuthLogoutPost: sdk.logout,
   redeemInviteRouteV2AuthInvitesRedeemPost: sdk.redeemInvite,
   resendInviteRouteV2AuthInvitesResendPost: sdk.resendInvite
+  , accountReferralCreateV2AccountReferralsPost: sdk.referralCreate,
+  accountReferralsV2AccountReferralsGet: sdk.referralList,
+  accountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePost: sdk.referralReissue,
+  accountReferralRevokeV2AccountReferralsInviteIdRevokePost: sdk.referralRevoke
 }));
 
 import {
   AccessApiError,
   changeInviteEmail,
+  createBillingPayment,
   createConfiguration,
   createProfileConfigDownload,
   inspectInvite,
@@ -233,6 +245,14 @@ test('preserves Retry-After from an invite resend cooldown response', async () =
       status: 429
     })
   );
+});
+
+test('creates a payment with CSRF and the caller-owned idempotency key only in headers', async () => {
+  document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
+  sdk.billingCreate.mockResolvedValue({ data: { payment_id: 'payment-1' }, response: new Response(null, { status: 201 }) });
+  await createBillingPayment('logical-key');
+  expect(sdk.billingCreate).toHaveBeenCalledWith({ credentials: 'same-origin', headers: { 'Idempotency-Key': 'logical-key', 'x-csrf-token': 'csrf value' } });
+  expect(JSON.stringify(sdk.billingCreate.mock.calls[0]?.[0])).not.toContain('confirmation_url');
 });
 
 test('loads typed logical configurations through the generated GET operation', async () => {
