@@ -43,9 +43,15 @@ export type AccountMeResponse = {
      */
     display_name: string | null;
     /**
+     * Account Surface
+     */
+    account_surface: 'pilot' | 'commercial';
+    /**
      * Grants
      */
     grants: Array<GrantSummary>;
+    billing: BillingAccountSummary | null;
+    referrals: ReferralCapabilitySummary;
 };
 
 /**
@@ -681,6 +687,38 @@ export type AdminUserPeerResponse = {
 };
 
 /**
+ * AdminUserReferralPolicyResponse
+ */
+export type AdminUserReferralPolicyResponse = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Limit
+     */
+    limit: number;
+};
+
+/**
+ * AdminUserReferralPolicyUpdateRequest
+ */
+export type AdminUserReferralPolicyUpdateRequest = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Limit
+     */
+    limit: number;
+};
+
+/**
  * AdminUserSummary
  */
 export type AdminUserSummary = {
@@ -700,6 +738,14 @@ export type AdminUserSummary = {
      * Admin Note
      */
     admin_note: string | null;
+    /**
+     * Referrals Enabled
+     */
+    referrals_enabled: boolean;
+    /**
+     * Referral Limit
+     */
+    referral_limit: number;
     /**
      * Email Verified At
      */
@@ -872,6 +918,90 @@ export type AgentPeerResponse = {
      * Enabled
      */
     enabled: boolean;
+};
+
+/**
+ * BillingAccountSummary
+ */
+export type BillingAccountSummary = {
+    /**
+     * Status
+     */
+    status: 'trial' | 'active_paid' | 'past_due' | 'expired';
+    /**
+     * Current Period Start
+     */
+    current_period_start: string;
+    /**
+     * Current Period End
+     */
+    current_period_end: string;
+    /**
+     * Slot Quantity
+     */
+    slot_quantity: number;
+    /**
+     * Monthly Amount Kopeks
+     */
+    monthly_amount_kopeks: number;
+    /**
+     * Currency
+     */
+    currency: string;
+};
+
+/**
+ * BillingPaymentSummary
+ */
+export type BillingPaymentSummary = {
+    /**
+     * Payment Id
+     */
+    payment_id: string;
+    /**
+     * Status
+     */
+    status: 'created' | 'pending' | 'succeeded' | 'canceled';
+    /**
+     * Provider Status
+     */
+    provider_status: string | null;
+    /**
+     * Kind
+     */
+    kind: 'initial' | 'manual_renewal' | 'auto_renewal' | 'upgrade';
+    /**
+     * Amount Kopeks
+     */
+    amount_kopeks: number;
+    /**
+     * Currency
+     */
+    currency: string;
+    /**
+     * Target Period Start
+     */
+    target_period_start: string | null;
+    /**
+     * Target Period End
+     */
+    target_period_end: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Succeeded At
+     */
+    succeeded_at: string | null;
+    /**
+     * Confirmation Url
+     */
+    confirmation_url?: string | null;
 };
 
 /**
@@ -1452,6 +1582,77 @@ export type ProfileSummary = {
      * Updated At
      */
     updated_at: string;
+};
+
+/**
+ * ReferralCapabilitySummary
+ */
+export type ReferralCapabilitySummary = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Limit
+     */
+    limit: number;
+    /**
+     * Active Count
+     */
+    active_count: number;
+    /**
+     * Remaining Count
+     */
+    remaining_count: number | null;
+    /**
+     * Can Create
+     */
+    can_create: boolean;
+};
+
+/**
+ * ReferralInviteCreateResponse
+ */
+export type ReferralInviteCreateResponse = {
+    invite: ReferralInviteSummary;
+    /**
+     * Invite Token
+     */
+    invite_token: string;
+};
+
+/**
+ * ReferralInviteSummary
+ */
+export type ReferralInviteSummary = {
+    /**
+     * Invite Id
+     */
+    invite_id: string;
+    /**
+     * State
+     */
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
+    /**
+     * Used Count
+     */
+    used_count: number;
+    /**
+     * Max Uses
+     */
+    max_uses: number;
+    /**
+     * Can Reissue Share Link
+     */
+    can_reissue_share_link: boolean;
 };
 
 /**
@@ -2559,6 +2760,220 @@ export type AccountMeUpdateV2AccountMePatchResponses = {
 
 export type AccountMeUpdateV2AccountMePatchResponse = AccountMeUpdateV2AccountMePatchResponses[keyof AccountMeUpdateV2AccountMePatchResponses];
 
+export type AccountBillingPaymentsV2AccountBillingPaymentsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/billing/payments';
+};
+
+export type AccountBillingPaymentsV2AccountBillingPaymentsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountBillingPaymentsV2AccountBillingPaymentsGetError = AccountBillingPaymentsV2AccountBillingPaymentsGetErrors[keyof AccountBillingPaymentsV2AccountBillingPaymentsGetErrors];
+
+export type AccountBillingPaymentsV2AccountBillingPaymentsGetResponses = {
+    /**
+     * Response Account Billing Payments V2 Account Billing Payments Get
+     *
+     * Successful Response
+     */
+    200: Array<BillingPaymentSummary>;
+};
+
+export type AccountBillingPaymentsV2AccountBillingPaymentsGetResponse = AccountBillingPaymentsV2AccountBillingPaymentsGetResponses[keyof AccountBillingPaymentsV2AccountBillingPaymentsGetResponses];
+
+export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostData = {
+    body?: never;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/account/billing/payments';
+};
+
+export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostError = AccountBillingPaymentCreateV2AccountBillingPaymentsPostErrors[keyof AccountBillingPaymentCreateV2AccountBillingPaymentsPostErrors];
+
+export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: BillingPaymentSummary;
+};
+
+export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponse = AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses[keyof AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses];
+
+export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Payment Id
+         */
+        payment_id: string;
+    };
+    query?: never;
+    url: '/v2/account/billing/payments/{payment_id}';
+};
+
+export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetError = AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetErrors[keyof AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetErrors];
+
+export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: BillingPaymentSummary;
+};
+
+export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponse = AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses[keyof AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses];
+
+export type YookassaWebhookV2BillingYookassaWebhookPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/billing/yookassa/webhook';
+};
+
+export type YookassaWebhookV2BillingYookassaWebhookPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type AccountReferralsV2AccountReferralsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/referrals';
+};
+
+export type AccountReferralsV2AccountReferralsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralsV2AccountReferralsGetError = AccountReferralsV2AccountReferralsGetErrors[keyof AccountReferralsV2AccountReferralsGetErrors];
+
+export type AccountReferralsV2AccountReferralsGetResponses = {
+    /**
+     * Response Account Referrals V2 Account Referrals Get
+     *
+     * Successful Response
+     */
+    200: Array<ReferralInviteSummary>;
+};
+
+export type AccountReferralsV2AccountReferralsGetResponse = AccountReferralsV2AccountReferralsGetResponses[keyof AccountReferralsV2AccountReferralsGetResponses];
+
+export type AccountReferralCreateV2AccountReferralsPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/referrals';
+};
+
+export type AccountReferralCreateV2AccountReferralsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralCreateV2AccountReferralsPostError = AccountReferralCreateV2AccountReferralsPostErrors[keyof AccountReferralCreateV2AccountReferralsPostErrors];
+
+export type AccountReferralCreateV2AccountReferralsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ReferralInviteCreateResponse;
+};
+
+export type AccountReferralCreateV2AccountReferralsPostResponse = AccountReferralCreateV2AccountReferralsPostResponses[keyof AccountReferralCreateV2AccountReferralsPostResponses];
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostData = {
+    body?: never;
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/account/referrals/{invite_id}/share-token/reissue';
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostError = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors];
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReferralInviteCreateResponse;
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponse = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses];
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostData = {
+    body?: never;
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/account/referrals/{invite_id}/revoke';
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostError = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors];
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReferralInviteSummary;
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponse = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses];
+
 export type LogoutV2AuthLogoutPostData = {
     body?: never;
     path?: never;
@@ -3305,6 +3720,42 @@ export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses = {
 };
 
 export type AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponse = AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses[keyof AdminUpdateUserMetadataV2AdminUsersUserIdPatchResponses];
+
+export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchData = {
+    body: AdminUserReferralPolicyUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/users/{user_id}/referral-policy';
+};
+
+export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchError = AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchErrors[keyof AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchErrors];
+
+export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminUserReferralPolicyResponse;
+};
+
+export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponse = AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponses[keyof AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponses];
 
 export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutData = {
     body: AdminProtocolLimitUpdateRequest;

@@ -47,11 +47,18 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 57, schemas: 63 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 66, schemas: 70 });
 
     const schemas = document.components.schemas;
-    expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual(['user_id', 'email', 'display_name', 'grants']);
+    expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
+      'user_id', 'email', 'display_name', 'account_surface', 'grants', 'billing', 'referrals'
+    ]);
     expect(schemas.AccountMeResponse.properties).not.toHaveProperty('admin_note');
+    expect(schemas.AccountMeResponse.properties.account_surface.enum).toEqual(['pilot', 'commercial']);
+    expect(schemas.AccountMeResponse.properties.billing.anyOf[0])
+      .toEqual({ $ref: '#/components/schemas/BillingAccountSummary' });
+    expect(schemas.AccountMeResponse.properties.referrals)
+      .toEqual({ $ref: '#/components/schemas/ReferralCapabilitySummary' });
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[0]).toMatchObject({ type: 'string', maxLength: 160 });
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[1]).toEqual({ type: 'null' });
     expect(schemas.ProfileLabelUpdateRequest.properties.label.anyOf[0].maxLength).toBe(160);
@@ -66,6 +73,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.ConfigurationVariantSummary.properties.protocol.enum).toEqual(['wireguard', 'amneziawg']);
     expect(schemas.ConfigurationVariantSummary.required).toContain('ready');
     expect(schemas.AdminUserSummary.required).toContain('configurations');
+    expect(schemas.AdminUserSummary.required).toContain('referrals_enabled');
+    expect(schemas.AdminUserSummary.required).toContain('referral_limit');
     expect(schemas.AdminUserMetadataUpdateRequest.properties.admin_note.anyOf[0].maxLength).toBe(4000);
     expect(schemas.InviteInspectResponse.properties.state.enum).toEqual([
       'active', 'awaiting_confirmation', 'used', 'revoked', 'expired'
@@ -89,6 +98,23 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/admin/profiles/{profile_id}/config');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}');
+    expect(document.paths).toHaveProperty('/v2/account/billing/payments');
+    expect(document.paths).toHaveProperty('/v2/account/billing/payments/{payment_id}');
+    expect(document.paths['/v2/account/billing/payments'].post.operationId)
+      .toBe('account_billing_payment_create_v2_account_billing_payments_post');
+    expect(document.paths['/v2/account/billing/payments'].post.parameters)
+      .toContainEqual(expect.objectContaining({ in: 'header', name: 'Idempotency-Key', required: true }));
+    expect(document.paths['/v2/account/billing/payments/{payment_id}'].get.operationId)
+      .toBe('account_billing_payment_v2_account_billing_payments__payment_id__get');
+    expect(document.paths).toHaveProperty('/v2/account/referrals');
+    expect(document.paths).toHaveProperty('/v2/account/referrals/{invite_id}/share-token/reissue');
+    expect(document.paths).toHaveProperty('/v2/account/referrals/{invite_id}/revoke');
+    expect(document.paths).toHaveProperty('/v2/admin/users/{user_id}/referral-policy');
+    expect(document.paths['/v2/admin/users/{user_id}/referral-policy'].patch.operationId)
+      .toBe('admin_update_user_referral_policy_v2_admin_users__user_id__referral_policy_patch');
+    expect(document.paths).toHaveProperty('/v2/billing/yookassa/webhook');
+    expect(document.paths['/v2/billing/yookassa/webhook'].post.operationId)
+      .toBe('yookassa_webhook_v2_billing_yookassa_webhook_post');
     expect(document.paths['/v2/account/profiles/configurations'].post.requestBody.content['application/json'].schema)
       .toEqual({ $ref: '#/components/schemas/ConfigurationCreateRequest' });
     expect(document.paths['/v2/account/profiles/configurations/{configuration_id}'].patch.requestBody.content['application/json'].schema)

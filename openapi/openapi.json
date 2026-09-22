@@ -1550,6 +1550,475 @@
         }
       }
     },
+    "/v2/account/billing/payments": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Billing Payment Create",
+        "operationId": "account_billing_payment_create_v2_account_billing_payments_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingPaymentSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Billing Payments",
+        "operationId": "account_billing_payments_v2_account_billing_payments_get",
+        "parameters": [
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingPaymentSummary"
+                  },
+                  "title": "Response Account Billing Payments V2 Account Billing Payments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/billing/payments/{payment_id}": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Billing Payment",
+        "operationId": "account_billing_payment_v2_account_billing_payments__payment_id__get",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingPaymentSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/billing/yookassa/webhook": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Yookassa Webhook",
+        "operationId": "yookassa_webhook_v2_billing_yookassa_webhook_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/referrals": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Referrals",
+        "operationId": "account_referrals_v2_account_referrals_get",
+        "parameters": [
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferralInviteSummary"
+                  },
+                  "title": "Response Account Referrals V2 Account Referrals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Referral Create",
+        "operationId": "account_referral_create_v2_account_referrals_post",
+        "parameters": [
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralInviteCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/referrals/{invite_id}/share-token/reissue": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Referral Reissue",
+        "operationId": "account_referral_reissue_v2_account_referrals__invite_id__share_token_reissue_post",
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralInviteCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/account/referrals/{invite_id}/revoke": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Account Referral Revoke",
+        "operationId": "account_referral_revoke_v2_account_referrals__invite_id__revoke_post",
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          },
+          {
+            "name": "wg_access_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Session"
+            }
+          },
+          {
+            "name": "wg_access_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Access Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralInviteSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/auth/logout": {
       "post": {
         "tags": [
@@ -3443,6 +3912,107 @@
         }
       }
     },
+    "/v2/admin/users/{user_id}/referral-policy": {
+      "patch": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Update User Referral Policy",
+        "operationId": "admin_update_user_referral_policy_v2_admin_users__user_id__referral_policy_patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserReferralPolicyUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserReferralPolicyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/grants/{grant_id}/protocol-limits/{protocol}": {
       "put": {
         "tags": [
@@ -3650,12 +4220,33 @@
             ],
             "title": "Display Name"
           },
+          "account_surface": {
+            "type": "string",
+            "enum": [
+              "pilot",
+              "commercial"
+            ],
+            "title": "Account Surface"
+          },
           "grants": {
             "items": {
               "$ref": "#/components/schemas/GrantSummary"
             },
             "type": "array",
             "title": "Grants"
+          },
+          "billing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillingAccountSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "referrals": {
+            "$ref": "#/components/schemas/ReferralCapabilitySummary"
           }
         },
         "type": "object",
@@ -3663,7 +4254,10 @@
           "user_id",
           "email",
           "display_name",
-          "grants"
+          "account_surface",
+          "grants",
+          "billing",
+          "referrals"
         ],
         "title": "AccountMeResponse"
       },
@@ -4795,6 +5389,49 @@
         ],
         "title": "AdminUserPeerResponse"
       },
+      "AdminUserReferralPolicyResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "enabled",
+          "limit"
+        ],
+        "title": "AdminUserReferralPolicyResponse"
+      },
+      "AdminUserReferralPolicyUpdateRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "limit"
+        ],
+        "title": "AdminUserReferralPolicyUpdateRequest"
+      },
       "AdminUserSummary": {
         "properties": {
           "user_id": {
@@ -4827,6 +5464,14 @@
               }
             ],
             "title": "Admin Note"
+          },
+          "referrals_enabled": {
+            "type": "boolean",
+            "title": "Referrals Enabled"
+          },
+          "referral_limit": {
+            "type": "integer",
+            "title": "Referral Limit"
           },
           "email_verified_at": {
             "type": "string",
@@ -4948,6 +5593,8 @@
           "email",
           "display_name",
           "admin_note",
+          "referrals_enabled",
+          "referral_limit",
           "email_verified_at",
           "created_at",
           "deletion_requested_at",
@@ -5179,6 +5826,172 @@
           "enabled"
         ],
         "title": "AgentPeerResponse"
+      },
+      "BillingAccountSummary": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "trial",
+              "active_paid",
+              "past_due",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "current_period_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Current Period Start"
+          },
+          "current_period_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Current Period End"
+          },
+          "slot_quantity": {
+            "type": "integer",
+            "title": "Slot Quantity"
+          },
+          "monthly_amount_kopeks": {
+            "type": "integer",
+            "title": "Monthly Amount Kopeks"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "current_period_start",
+          "current_period_end",
+          "slot_quantity",
+          "monthly_amount_kopeks",
+          "currency"
+        ],
+        "title": "BillingAccountSummary"
+      },
+      "BillingPaymentSummary": {
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "pending",
+              "succeeded",
+              "canceled"
+            ],
+            "title": "Status"
+          },
+          "provider_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Status"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "manual_renewal",
+              "auto_renewal",
+              "upgrade"
+            ],
+            "title": "Kind"
+          },
+          "amount_kopeks": {
+            "type": "integer",
+            "title": "Amount Kopeks"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "target_period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Period Start"
+          },
+          "target_period_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Period End"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "succeeded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Succeeded At"
+          },
+          "confirmation_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_id",
+          "status",
+          "provider_status",
+          "kind",
+          "amount_kopeks",
+          "currency",
+          "target_period_start",
+          "target_period_end",
+          "created_at",
+          "updated_at",
+          "succeeded_at"
+        ],
+        "title": "BillingPaymentSummary"
       },
       "CancelSubscriptionResponse": {
         "properties": {
@@ -6113,6 +6926,123 @@
           "updated_at"
         ],
         "title": "ProfileSummary"
+      },
+      "ReferralCapabilitySummary": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "active_count": {
+            "type": "integer",
+            "title": "Active Count"
+          },
+          "remaining_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Count"
+          },
+          "can_create": {
+            "type": "boolean",
+            "title": "Can Create"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "limit",
+          "active_count",
+          "remaining_count",
+          "can_create"
+        ],
+        "title": "ReferralCapabilitySummary"
+      },
+      "ReferralInviteCreateResponse": {
+        "properties": {
+          "invite": {
+            "$ref": "#/components/schemas/ReferralInviteSummary"
+          },
+          "invite_token": {
+            "type": "string",
+            "title": "Invite Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invite",
+          "invite_token"
+        ],
+        "title": "ReferralInviteCreateResponse"
+      },
+      "ReferralInviteSummary": {
+        "properties": {
+          "invite_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invite Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "awaiting_confirmation",
+              "used",
+              "revoked",
+              "expired"
+            ],
+            "title": "State"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "used_count": {
+            "type": "integer",
+            "title": "Used Count"
+          },
+          "max_uses": {
+            "type": "integer",
+            "title": "Max Uses"
+          },
+          "can_reissue_share_link": {
+            "type": "boolean",
+            "title": "Can Reissue Share Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invite_id",
+          "state",
+          "created_at",
+          "expires_at",
+          "used_count",
+          "max_uses",
+          "can_reissue_share_link"
+        ],
+        "title": "ReferralInviteSummary"
       },
       "RuntimeSnapshotAccepted": {
         "properties": {
