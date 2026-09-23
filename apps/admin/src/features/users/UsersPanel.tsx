@@ -1,4 +1,4 @@
-import { type FormEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminUserMetadataUpdateResponse, AdminUserSummary, ConfigurationSummary, GrantProtocolLimitSummary, GrantSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
@@ -18,6 +18,7 @@ import styles from '../../app/Admin.module.css';
 
 const operationPollIntervalMs = 2500;
 const operationPollTimeoutMs = 60000;
+const searchDebounceMs = 250;
 const userBatchSize = 100;
 
 function mergeUserPages(pages: Array<Array<AdminUserSummary>> | undefined) {
@@ -52,11 +53,10 @@ interface DeletionOperation {
 
 export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const queryClient = useQueryClient();
-  const [draftFilter, setDraftFilter] = useState('');
-  const [filter, setFilter] = useState('');
+  const [draftQuery, setDraftQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<AdminUserSortBy>('created_at');
   const [sortDir, setSortDir] = useState<AdminUserSortDir>('desc');
-  const [userRequestPending, setUserRequestPending] = useState(false);
   const [status, setStatus] = useState('');
   const [retirementSelection, setRetirementSelection] = useState<RetirementSelection | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUserSummary | null>(null);
@@ -67,17 +67,29 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const pendingLimitIds = useRef(new Set<string>());
   const pendingDeleteIds = useRef(new Set<string>());
   const hasPolling = retirements.size > 0 || deletions.size > 0;
-  const usersKey = ['admin', 'users', filter, sortBy, sortDir] as const;
+  const usersKey = ['admin', 'users', searchQuery, sortBy, sortDir] as const;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const nextQuery = draftQuery.trim();
+      if (nextQuery === searchQuery) return;
+      setRetirements(new Map());
+      setDeletions(new Map());
+      setStatus('');
+      setSearchQuery(nextQuery);
+    }, searchDebounceMs);
+    return () => window.clearTimeout(timer);
+  }, [draftQuery, searchQuery]);
 
   const usersQuery = useInfiniteQuery({
     queryKey: usersKey,
-    queryFn: ({ pageParam }) => loadUsers({
-      email: filter,
+    queryFn: ({ pageParam, signal }) => loadUsers({
+      query: searchQuery,
       limit: userBatchSize,
       offset: pageParam,
       sortBy,
       sortDir
-    }),
+    }, signal),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => (
       lastPage.length < userBatchSize
@@ -91,12 +103,6 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const rows = useMemo(() => mergeUserPages(usersQuery.data?.pages), [usersQuery.data?.pages]);
 
   useEffect(() => {
-    if (!userRequestPending || usersQuery.isFetching) return;
-    setUserRequestPending(false);
-    setStatus((current) => current === 'Loading users…' ? '' : current);
-  }, [userRequestPending, usersQuery.isFetching]);
-
-  useEffect(() => {
     if (!usersQuery.error) return;
     if (isUnauthorized(usersQuery.error)) {
       setRetirements(new Map());
@@ -105,7 +111,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     } else if (hasPolling) {
       setRetirements(new Map());
       setDeletions(new Map());
-      setStatus('Automatic refresh stopped after an error. Use Search or List users to check again.');
+      setStatus('Automatic refresh stopped after an error. Change the search or sort to retry.');
     }
   }, [hasPolling, onSessionExpired, usersQuery.error]);
 
@@ -117,7 +123,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     for (const [grantId, operation] of retirements) {
       if (now >= operation.deadline) {
         nextRetirements.delete(grantId);
-        terminalMessage = `Automatic retirement refresh timed out for ${operation.email}. Use Search or List users to check again.`;
+        terminalMessage = `Automatic retirement refresh timed out for ${operation.email}. Change the search or sort to check again.`;
         continue;
       }
       const user = rows.find((item) => item.user_id === operation.userId);
@@ -163,32 +169,10 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     if (terminalMessage) setStatus(terminalMessage);
   }, [deletions, retirements, rows, usersQuery.data, usersQuery.dataUpdatedAt]);
 
-  const runSearch = (event?: FormEvent) => {
-    event?.preventDefault();
-    setRetirements(new Map());
-    setDeletions(new Map());
-    const nextFilter = draftFilter.trim();
-    setFilter(nextFilter);
-    setUserRequestPending(true);
-    setStatus('Loading users…');
-    if (nextFilter === filter) void usersQuery.refetch();
-  };
-
-  const listAll = () => {
-    setDraftFilter('');
-    setRetirements(new Map());
-    setDeletions(new Map());
-    setFilter('');
-    setUserRequestPending(true);
-    setStatus('Loading users…');
-    if (!filter) void usersQuery.refetch();
-  };
-
   const changeSort = (nextSortBy: AdminUserSortBy) => {
     setRetirements(new Map());
     setDeletions(new Map());
-    setStatus('Loading users…');
-    setUserRequestPending(true);
+    setStatus('');
     if (nextSortBy === sortBy) {
       setSortDir((current) => current === 'asc' ? 'desc' : 'asc');
     } else {
@@ -370,14 +354,12 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
         <div><p className={styles.eyebrow}>Accounts & connections</p><h2 id="users-title">Users</h2></div>
         {usersQuery.data ? <span className={styles.loadedCount}>Loaded {rows.length}</span> : null}
       </div>
-      <form className={styles.searchForm} onSubmit={runSearch}>
+      <div className={styles.searchForm}>
         <label className={styles.field}>
-          <span>Email contains or exact</span>
-          <input autoComplete="off" type="email" value={draftFilter} onChange={(event) => setDraftFilter(event.target.value)} />
+          <span>Email or display name contains</span>
+          <input autoComplete="off" type="text" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} />
         </label>
-        <button className={styles.primaryButton} type="submit">Search</button>
-        <button className={styles.secondaryButton} type="button" onClick={listAll}>List users</button>
-      </form>
+      </div>
       <p className={styles.statusLine} role="status" aria-live="polite">{status || defaultStatus}</p>
       <div
         className={styles.userListViewport}

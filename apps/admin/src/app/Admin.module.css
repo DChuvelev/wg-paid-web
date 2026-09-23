@@ -17,7 +17,9 @@
 .sectionHeading h2 { margin: 0; color: #101828; font-size: clamp(1.4rem, 3vw, 1.85rem); letter-spacing: -0.02em; }
 .count { display: grid; min-width: 2.15rem; height: 2.15rem; place-items: center; padding: 0 0.55rem; border-radius: 999px; color: #2857a4; background: #eaf1fd; font-weight: 800; }
 .loadedCount { padding: 0.45rem 0.7rem; border-radius: 999px; color: #2857a4; background: #eaf1fd; font-size: 0.8rem; font-weight: 800; white-space: nowrap; }
-.searchForm, .inviteForm { display: grid; grid-template-columns: minmax(15rem, 1fr) auto auto; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #e1e7f0; border-radius: 0.75rem; background: #f8fafc; }
+.searchForm, .inviteForm { display: grid; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #e1e7f0; border-radius: 0.75rem; background: #f8fafc; }
+.searchForm { grid-template-columns: minmax(15rem, 1fr); }
+.inviteForm { grid-template-columns: minmax(15rem, 1fr) auto auto; }
 .inviteForm { grid-template-columns: minmax(10rem, 0.7fr) minmax(12rem, 0.8fr) minmax(15rem, 1fr) auto; }
 .field, .limitControl label { display: grid; gap: 0.35rem; min-width: 0; color: #34435a; font-size: 0.875rem; font-weight: 700; }
 .field small { color: #718096; font-weight: 500; }
@@ -171,7 +173,8 @@
   .app { width: min(100% - 1rem, 92rem); padding-top: 0.5rem; }
   .appHeader { align-items: flex-start; }
   .headerActions { align-items: flex-end; flex-direction: column-reverse; gap: 0.5rem; }
-  .searchForm, .inviteForm { grid-template-columns: minmax(0, 1fr) auto; }
+  .searchForm { grid-template-columns: minmax(0, 1fr); }
+  .inviteForm { grid-template-columns: minmax(0, 1fr) auto; }
   .searchForm .field, .inviteForm .field { grid-column: 1 / -1; }
   .inviteForm .primaryButton { grid-column: 1 / -1; }
   .inviteRow { grid-template-columns: minmax(0, 1fr) auto; }
@@ -184,7 +187,7 @@
   .headerActions { align-items: stretch; flex-direction: column-reverse; }
   .headerActions nav { justify-content: space-between; }
   .sectionCard { padding: 0.8rem; }
-  .searchForm { grid-template-columns: 1fr 1fr; padding: 0.8rem; }
+  .searchForm { grid-template-columns: 1fr; padding: 0.8rem; }
   .inviteForm { grid-template-columns: 1fr; padding: 0.8rem; }
   .inviteForm .field, .inviteForm .primaryButton { grid-column: auto; }
   .userSummaryRow { gap: 0.55rem; padding-inline: 0.75rem; }

@@ -172,18 +172,21 @@ export type AdminUserSortBy = NonNullable<AdminUserListQuery['sort_by']>;
 export type AdminUserSortDir = NonNullable<AdminUserListQuery['sort_dir']>;
 
 export interface LoadUsersOptions {
-  email?: string;
+  query?: string;
   limit: number;
   offset: number;
   sortBy: AdminUserSortBy;
   sortDir: AdminUserSortDir;
 }
 
-export async function loadUsers({ email = '', limit, offset, sortBy, sortDir }: LoadUsersOptions): Promise<Array<AdminUserSummary>> {
+export async function loadUsers(
+  { query = '', limit, offset, sortBy, sortDir }: LoadUsersOptions,
+  signal?: AbortSignal
+): Promise<Array<AdminUserSummary>> {
   return requireData(await adminListUsersV2AdminUsersGet({
-    ...requestOptions(),
+    ...requestOptions(signal),
     query: {
-      ...(email ? { email } : {}),
+      ...(query ? { query } : {}),
       limit,
       offset,
       sort_by: sortBy,

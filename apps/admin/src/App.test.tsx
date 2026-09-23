@@ -558,16 +558,22 @@ describe('users, limits, and retirement', () => {
       ...makeUser(), email: `user-${index}@example.test`, user_id: `user-${index}`
     }));
     const nextUser = { ...makeUser(), email: 'user-100@example.test', user_id: 'user-100' };
-    vi.mocked(loadUsers)
-      .mockResolvedValueOnce(firstBatch)
-      .mockResolvedValueOnce([firstBatch[99]!, nextUser]);
+    vi.mocked(loadUsers).mockImplementation(async (options) => (
+      !options.query ? [] : options.offset === 0 ? firstBatch : [firstBatch[99]!, nextUser]
+    ));
     renderAdmin();
-    await screen.findByText('user-0@example.test');
+    await screen.findByRole('heading', { name: 'Operations admin' });
     expect(loadUsers).toHaveBeenNthCalledWith(1, {
-      email: '', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
-    });
+      query: '', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal));
+    fireEvent.change(screen.getByLabelText('Email or display name contains'), { target: { value: 'Studio team' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'Studio team', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
+    await screen.findByText('user-0@example.test');
 
     const list = screen.getByLabelText('Users list');
+    await waitFor(() => expect(list.getAttribute('aria-busy')).toBe('false'));
     Object.defineProperties(list, {
       clientHeight: { configurable: true, value: 500 },
       scrollHeight: { configurable: true, value: 2000 },
@@ -575,9 +581,9 @@ describe('users, limits, and retirement', () => {
     });
     fireEvent.scroll(list);
 
-    await waitFor(() => expect(loadUsers).toHaveBeenNthCalledWith(2, {
-      email: '', limit: 100, offset: 100, sortBy: 'created_at', sortDir: 'desc'
-    }));
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'Studio team', limit: 100, offset: 100, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
     await screen.findByText('user-100@example.test');
     expect(screen.getAllByText('user-99@example.test')).toHaveLength(1);
     expect(screen.getByText('Loaded 101')).not.toBeNull();
@@ -586,14 +592,18 @@ describe('users, limits, and retirement', () => {
   test('resets batching when server-side sort changes and sends exact sort parameters', async () => {
     vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
     await renderDashboard();
+    fireEvent.change(screen.getByLabelText('Email or display name contains'), { target: { value: 'Mitya' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'Mitya', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
     fireEvent.click(screen.getByRole('button', { name: 'Sort by Email' }));
     await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
-      email: '', limit: 100, offset: 0, sortBy: 'email', sortDir: 'asc'
-    }));
+      query: 'Mitya', limit: 100, offset: 0, sortBy: 'email', sortDir: 'asc'
+    }, expect.any(AbortSignal)));
     fireEvent.click(screen.getByRole('button', { name: 'Sort by Email' }));
     await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
-      email: '', limit: 100, offset: 0, sortBy: 'email', sortDir: 'desc'
-    }));
+      query: 'Mitya', limit: 100, offset: 0, sortBy: 'email', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
     expect(screen.getByRole('button', { name: 'Sort by Email' }).closest('[role="columnheader"]')?.getAttribute('aria-sort')).toBe('descending');
   });
 
@@ -610,8 +620,8 @@ describe('users, limits, and retirement', () => {
     for (const [label, field, direction] of mappings) {
       fireEvent.click(screen.getByRole('button', { name: `Sort by ${label}` }));
       await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
-        email: '', limit: 100, offset: 0, sortBy: field, sortDir: direction
-      }));
+        query: '', limit: 100, offset: 0, sortBy: field, sortDir: direction
+      }, expect.any(AbortSignal)));
     }
   });
 
@@ -722,38 +732,61 @@ describe('users, limits, and retirement', () => {
     expect(screen.queryByRole('button', { name: /QR/i })).toBeNull();
   });
 
-  test('clears transient loading status after Search and List users complete', async () => {
-    let resolveSearch!: (users: Array<AdminUserSummary>) => void;
-    let resolveList!: (users: Array<AdminUserSummary>) => void;
-    vi.mocked(loadUsers)
-      .mockResolvedValueOnce([makeUser()])
-      .mockReturnValueOnce(new Promise((resolve) => { resolveSearch = resolve; }))
-      .mockReturnValueOnce(new Promise((resolve) => { resolveList = resolve; }));
+  test('debounces trimmed text search and removes the manual search controls', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await renderDashboard();
+    const initialCalls = vi.mocked(loadUsers).mock.calls.length;
+    const input = screen.getByLabelText('Email or display name contains');
 
-    fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(await screen.findByText('Loading users…')).not.toBeNull();
-    await act(async () => resolveSearch([makeUser()]));
-    await screen.findByText('Loaded 1 user(s).');
-    expect(screen.queryByText('Loading users…')).toBeNull();
+    fireEvent.change(input, { target: { value: '  Mitya Studio  ' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(249); });
+    expect(loadUsers).toHaveBeenCalledTimes(initialCalls);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'Mitya Studio', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(loadUsers).toHaveBeenCalledTimes(initialCalls + 1);
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'List users' })).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'List users' }));
-    expect(await screen.findByText('Loading users…')).not.toBeNull();
-    await act(async () => resolveList([]));
-    await screen.findByText('No users found.');
-    expect(screen.queryByText('Loading users…')).toBeNull();
+  test('aborts an older search and ignores its late result', async () => {
+    let resolveOld!: (users: Array<AdminUserSummary>) => void;
+    await renderDashboard();
+    vi.mocked(loadUsers).mockImplementation(async (options, _signal) => {
+      void _signal?.aborted;
+      if (options.query === 'older') {
+        return new Promise((resolve) => { resolveOld = resolve; });
+      }
+      if (options.query === 'newer') return [{ ...makeUser(), display_name: 'New Result', email: 'new@example.test', user_id: 'new-user' }];
+      return [makeUser()];
+    });
+    const input = screen.getByLabelText('Email or display name contains');
+    fireEvent.change(input, { target: { value: 'older' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'older', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
+    const oldSignal = vi.mocked(loadUsers).mock.calls.at(-1)?.[1];
+    fireEvent.change(input, { target: { value: 'newer' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
+      query: 'newer', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
+    await screen.findByText('new@example.test');
+    expect(oldSignal?.aborted).toBe(true);
+    await act(async () => resolveOld([{ ...makeUser(), email: 'stale@example.test', user_id: 'stale-user' }]));
+    expect(screen.queryByText('stale@example.test')).toBeNull();
+    expect(screen.getByText('new@example.test')).not.toBeNull();
   });
 
   test('renders compact user rows and reveals technical identifiers only after expansion', async () => {
     await renderDashboard();
     expect(screen.getByText('Configurations 1 / 1')).not.toBeNull();
     expect((screen.getByText('operator-target@example.test').closest('details') as HTMLDetailsElement).open).toBe(false);
-    fireEvent.change(screen.getByLabelText('Email contains or exact'), { target: { value: 'target@example.test' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    fireEvent.change(screen.getByLabelText('Email or display name contains'), { target: { value: 'target@example.test' } });
     await waitFor(() => expect(loadUsers).toHaveBeenCalledWith({
-      email: 'target@example.test', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
-    }));
+      query: 'target@example.test', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
+    }, expect.any(AbortSignal)));
     await screen.findByText('operator-target@example.test');
     expandUser();
     expect(screen.getAllByText('10.253.1.10').length).toBeGreaterThan(0);

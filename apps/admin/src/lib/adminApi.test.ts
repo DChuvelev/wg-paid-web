@@ -63,13 +63,15 @@ describe('admin CSRF cookie handling', () => {
     expect(getAdminCsrfHeaders('unrelated=x')).toBeUndefined();
   });
 
-  test('maps offset and authoritative sorting to the generated users query', async () => {
+  test('maps search, offset, authoritative sorting, and AbortSignal to the generated users query', async () => {
     sdk.listUsers.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
-    await loadUsers({ email: 'person@example.test', limit: 100, offset: 200, sortBy: 'invited_by_label', sortDir: 'asc' });
+    const controller = new AbortController();
+    await loadUsers({ query: 'Person Name', limit: 100, offset: 200, sortBy: 'invited_by_label', sortDir: 'asc' }, controller.signal);
     expect(sdk.listUsers).toHaveBeenCalledWith({
       credentials: 'same-origin',
+      signal: controller.signal,
       query: {
-        email: 'person@example.test', limit: 100, offset: 200, sort_by: 'invited_by_label', sort_dir: 'asc'
+        query: 'Person Name', limit: 100, offset: 200, sort_by: 'invited_by_label', sort_dir: 'asc'
       }
     });
   });
