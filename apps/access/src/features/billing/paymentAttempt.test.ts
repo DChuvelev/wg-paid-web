@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest';
 import { clearPaymentAttemptForUser, paymentAttemptStorageKey, readPaymentAttemptForUser, writePaymentAttempt } from './paymentAttempt';
-import { paymentPollingInterval, paymentPollIntervalMs, paymentPollWindowMs } from './paymentState';
+import { paymentPollingInterval, paymentPollIntervalMs, paymentPollWindowMs, resolvePendingPayments } from './paymentState';
 
 beforeEach(() => sessionStorage.clear());
 
@@ -36,4 +36,13 @@ test('polls only nonterminal payments inside the original bounded window', () =>
   expect(paymentPollingInterval(pending, Date.now())).toBe(paymentPollIntervalMs);
   expect(paymentPollingInterval(pending, Date.now() - paymentPollWindowMs - 1)).toBe(false);
   expect(paymentPollingInterval({ ...pending, status: 'succeeded' } as Parameters<typeof paymentPollingInterval>[0], Date.now())).toBe(false);
+});
+
+test('resolves zero, one, and ambiguous pending payments including created status', () => {
+  const payment = (payment_id: string, status: 'created' | 'pending' | 'succeeded' | 'canceled') => ({ payment_id, status } as Parameters<typeof resolvePendingPayments>[0][number]);
+  expect(resolvePendingPayments([payment('done', 'succeeded')])).toEqual({ kind: 'none' });
+  expect(resolvePendingPayments([payment('created', 'created'), payment('done', 'canceled')])).toEqual({ kind: 'one', payment: payment('created', 'created') });
+  expect(resolvePendingPayments([payment('one', 'created'), payment('two', 'pending')])).toEqual({
+    kind: 'ambiguous', payments: [payment('one', 'created'), payment('two', 'pending')]
+  });
 });

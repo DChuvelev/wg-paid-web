@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { focusManager } from '@tanstack/react-query';
-import type { AccountMeResponse, ConfigurationSummary, ReferralInviteSummary } from '@wg-paid/api';
+import type { AccountMeResponse, BillingPaymentSummary, ConfigurationSummary, ReferralInviteSummary } from '@wg-paid/api';
 import {
   AccessApiError,
   createBillingPayment,
@@ -130,6 +130,34 @@ const referral = (inviteId: string, state: ReferralInviteSummary['state'] = 'act
   used_count: state === 'used' ? 1 : 0,
   max_uses: 1,
   can_reissue_share_link: state === 'active'
+});
+
+const commercialAccount = (status: NonNullable<AccountMeResponse['billing']>['status'] = 'trial'): AccountMeResponse => ({
+  ...account,
+  account_surface: 'commercial',
+  billing: {
+    status,
+    current_period_start: '2026-01-01T00:00:00Z',
+    current_period_end: '2026-02-01T00:00:00Z',
+    slot_quantity: 2,
+    monthly_amount_kopeks: 99000,
+    currency: 'RUB'
+  }
+});
+
+const billingPayment = (paymentId: string, status: BillingPaymentSummary['status'], overrides: Partial<BillingPaymentSummary> = {}): BillingPaymentSummary => ({
+  payment_id: paymentId,
+  status,
+  provider_status: null,
+  kind: 'initial',
+  amount_kopeks: 99000,
+  currency: 'RUB',
+  target_period_start: null,
+  target_period_end: null,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  succeeded_at: status === 'succeeded' ? '2026-01-01T00:00:00Z' : null,
+  ...overrides
 });
 
 test('pilot keeps the legacy cabinet and does not mount billing or referrals when disabled', async () => {
@@ -284,9 +312,9 @@ test.each([
   vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status, current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 4, monthly_amount_kopeks: 123400, currency: 'RUB' } });
   renderApp('/account');
   expect(await screen.findByText(label)).toBeTruthy();
-  expect(screen.getByText(/4 device slot/)).toBeTruthy();
+  expect(screen.getByText(/4 devices/)).toBeTruthy();
   expect(screen.getByText(/1[,. ]?234/)).toBeTruthy();
-  expect(screen.getByRole('button', { name: action })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: action })).toBeTruthy();
 });
 
 test('past-due commercial account has no payment action and cannot POST', async () => {
@@ -373,6 +401,102 @@ test('recovers one pending history item through authoritative item GET and never
   await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('recover-1'));
   expect(screen.queryByText('Payment confirmed.')).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('history loading and failure both prevent a new payment POST', async () => {
+  let resolveHistory!: (payments: Array<BillingPaymentSummary>) => void;
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockImplementation(() => new Promise((resolve) => { resolveHistory = resolve; }));
+  const first = renderApp('/account');
+  expect(await screen.findByText('Checking for unfinished payments…')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+  await act(async () => resolveHistory([]));
+  expect(await screen.findByRole('button', { name: 'Pay for one month' })).toBeTruthy();
+  first.unmount();
+
+  vi.mocked(loadBillingPayments).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+  expect(await screen.findByText('Payment history is unavailable. A new payment cannot be created until it is checked.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('one pending payment resumes only from its authoritative item URL', async () => {
+  const pending = billingPayment('resume-existing', 'pending', { confirmation_url: 'https://list.example/must-not-be-used' });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
+  vi.mocked(loadBillingPayment).mockResolvedValue({ ...pending, confirmation_url: 'https://checkout.example/resume-existing' });
+  renderApp('/account');
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('resume-existing'));
+  const resume = await screen.findByRole('link', { name: 'Continue payment' });
+  expect((resume as HTMLAnchorElement).href).toBe('https://checkout.example/resume-existing');
+  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem(paymentAttemptStorageKey) ?? '').not.toContain('checkout.example');
+  const historyCalls = vi.mocked(loadBillingPayments).mock.calls.length;
+  const itemCalls = vi.mocked(loadBillingPayment).mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  await waitFor(() => expect(loadBillingPayments).toHaveBeenCalledTimes(historyCalls + 1));
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledTimes(itemCalls + 1));
+});
+
+test('pending without a checkout URL stays in processing and never creates a replacement', async () => {
+  const now = new Date().toISOString();
+  const pending = billingPayment('processing-existing', 'created', { created_at: now, updated_at: now });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
+  vi.mocked(loadBillingPayment).mockResolvedValue(pending);
+  renderApp('/account');
+  expect(await screen.findByText('The existing payment is still processing. A replacement payment cannot be created.')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Continue payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('multiple pending payments block both resume and new payment creation', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockResolvedValue([billingPayment('one', 'created'), billingPayment('two', 'pending')]);
+  renderApp('/account');
+  expect(await screen.findByText('More than one unfinished payment exists. Refresh or check payment history; no success is assumed.')).toBeTruthy();
+  expect(loadBillingPayment).not.toHaveBeenCalled();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+});
+
+test('Refresh reports checking, unchanged, changed, and error states', async () => {
+  const original = billingPayment('history-one', 'canceled');
+  let resolveRefresh!: (payments: Array<BillingPaymentSummary>) => void;
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockResolvedValueOnce([original]).mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+  renderApp('/account');
+  await screen.findByRole('button', { name: 'Pay for one month' });
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  expect(await screen.findByText('Checking…')).toBeTruthy();
+  await act(async () => resolveRefresh([original]));
+  expect(await screen.findByText('Checked just now.')).toBeTruthy();
+
+  vi.mocked(loadBillingPayments).mockResolvedValueOnce([{ ...original, status: 'succeeded', updated_at: '2026-01-01T00:00:01Z' }]);
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  expect(await screen.findByText('Payment status changed.')).toBeTruthy();
+
+  vi.mocked(loadBillingPayments).mockRejectedValueOnce(new AccessApiError(503));
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  expect(await screen.findByText('Unable to check payment status. Try again.')).toBeTruthy();
+});
+
+test('payment history localizes every supported status instead of rendering raw API values', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
+  vi.mocked(loadBillingPayments).mockResolvedValue([
+    billingPayment('created', 'created'), billingPayment('pending', 'pending'),
+    billingPayment('succeeded', 'succeeded'), billingPayment('canceled', 'canceled')
+  ]);
+  renderApp('/account');
+  const history = (await screen.findByText('Payment history')).closest('details')!;
+  await waitFor(() => expect(history.textContent).toContain('Processing'));
+  const text = history.textContent ?? '';
+  for (const label of ['Created', 'Processing', 'Paid', 'Canceled']) expect(text).toContain(label);
+  for (const raw of [' · created · ', ' · pending · ', ' · succeeded · ', ' · canceled · ']) expect(text).not.toContain(raw);
 });
 
 test('reconciles a stored payment id and clears the current-user attempt only after terminal backend truth', async () => {
