@@ -49,6 +49,7 @@ import {
   createProfileConfigDownload,
   inspectInvite,
   loadConfigurations,
+  loadReferrals,
   resendInvite,
   updateDisplayName,
   updateConfigurationLabel
@@ -58,6 +59,13 @@ afterEach(() => {
   document.cookie = 'wg_access_csrf=; Max-Age=0; Path=/';
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+test('loads referrals with same-origin credentials and propagates AbortSignal', async () => {
+  const controller = new AbortController();
+  sdk.referralList.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
+  await expect(loadReferrals(controller.signal)).resolves.toEqual([]);
+  expect(sdk.referralList).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
 });
 
 test('creates a logical configuration without protocol selection and with CSRF', async () => {

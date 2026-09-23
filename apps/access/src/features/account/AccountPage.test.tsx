@@ -1,7 +1,7 @@
-import { beforeEach, expect, test, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { focusManager } from '@tanstack/react-query';
-import type { AccountMeResponse, ConfigurationSummary } from '@wg-paid/api';
+import type { AccountMeResponse, ConfigurationSummary, ReferralInviteSummary } from '@wg-paid/api';
 import {
   AccessApiError,
   createBillingPayment,
@@ -14,6 +14,8 @@ import {
   loadConfigurations,
   loadReferrals,
   logout,
+  reissueReferral,
+  revokeReferral,
   updateDisplayName,
   updateConfigurationLabel
 } from '../../lib/accessApi';
@@ -115,6 +117,21 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+const referral = (inviteId: string, state: ReferralInviteSummary['state'] = 'active'): ReferralInviteSummary => ({
+  invite_id: inviteId,
+  state,
+  created_at: '2026-01-01T00:00:00Z',
+  expires_at: '2026-02-01T00:00:00Z',
+  used_count: state === 'used' ? 1 : 0,
+  max_uses: 1,
+  can_reissue_share_link: state === 'active'
+});
+
 test('pilot keeps the legacy cabinet and does not mount billing or referrals when disabled', async () => {
   renderApp('/account');
   await screen.findByText('Configurations: 2 / 3');
@@ -133,20 +150,115 @@ test('pilot gains only the referral section when backend enables it', async () =
   expect(screen.queryByText('Access and billing')).toBeNull();
 });
 
-test('renders every referral status and exposes the one-time token with the existing invite fragment contract', async () => {
+test('renders only actionable referral cards and keeps distinct URLs tied to invite ids', async () => {
   vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { active_count: 2, can_create: true, enabled: true, limit: 3, remaining_count: 1 } });
-  vi.mocked(loadReferrals).mockResolvedValue((['active', 'awaiting_confirmation', 'used', 'revoked', 'expired'] as const).map((state, index) => ({
-    invite_id: `invite-${index}`, state, created_at: '2026-01-01T00:00:00Z', expires_at: null, used_count: state === 'used' ? 1 : 0, max_uses: 1, can_reissue_share_link: state === 'active'
-  })));
-  vi.mocked(createReferral).mockResolvedValue({ invite: { invite_id: 'created', state: 'active', created_at: '2026-01-01T00:00:00Z', expires_at: null, used_count: 0, max_uses: 1, can_reissue_share_link: true }, invite_token: 'secret token/+' });
+  const initialReferrals = [
+    referral('first'), referral('awaiting', 'awaiting_confirmation'), referral('used', 'used'),
+    referral('revoked', 'revoked'), referral('expired', 'expired')
+  ];
+  vi.mocked(loadReferrals).mockResolvedValueOnce(initialReferrals).mockResolvedValue([
+    referral('created'), ...initialReferrals
+  ]);
+  vi.mocked(createReferral).mockResolvedValue({ invite: referral('created'), invite_token: 'created token/+' });
+  vi.mocked(reissueReferral).mockResolvedValue({ invite: referral('first'), invite_token: 'first-token' });
   renderApp('/account');
   await screen.findByText(/Remaining: 1/);
   await screen.findByText('Active');
-  for (const label of ['Awaiting confirmation', 'Used', 'Revoked', 'Expired']) expect(screen.getByText(label)).toBeTruthy();
+  expect(screen.getByText('Awaiting confirmation')).toBeTruthy();
+  for (const label of ['Used', 'Revoked', 'Expired']) expect(screen.queryByText(label)).toBeNull();
+
+  fireEvent.click(screen.getAllByRole('button', { name: /previous link stops working/ })[0]!);
+  const firstShare = await screen.findByLabelText('One-time invitation URL first');
+  expect((firstShare as HTMLInputElement).value).toContain('token=first-token');
   fireEvent.click(screen.getByRole('button', { name: 'Create invitation' }));
-  const share = await screen.findByLabelText('One-time invitation URL');
-  expect((share as HTMLInputElement).value).toBe(`${window.location.origin}/invite#token=secret%20token%2F%2B`);
-  expect((share as HTMLInputElement).value).not.toContain('&invite=');
+  const createdShare = await screen.findByLabelText('One-time invitation URL created');
+  expect((createdShare as HTMLInputElement).value).toBe(`${window.location.origin}/invite#token=created%20token%2F%2B`);
+  expect((firstShare as HTMLInputElement).value).toContain('token=first-token');
+  expect(sessionStorage.length).toBe(0);
+  expect(localStorage.getItem('first-token')).toBeNull();
+});
+
+test('referral polling clears a terminal URL, synchronizes account, then stops', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const active = referral('changing');
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { active_count: 1, can_create: false, enabled: true, limit: 1, remaining_count: 0 } });
+  vi.mocked(loadReferrals)
+    .mockResolvedValueOnce([active])
+    .mockResolvedValueOnce([active])
+    .mockResolvedValueOnce([{ ...active, state: 'awaiting_confirmation', can_reissue_share_link: false }])
+    .mockResolvedValueOnce([{ ...active, state: 'used', used_count: 1, can_reissue_share_link: false }]);
+  vi.mocked(reissueReferral).mockResolvedValue({ invite: active, invite_token: 'temporary-token' });
+  renderApp('/account');
+  await screen.findByText('Active');
+  fireEvent.click(screen.getByRole('button', { name: /previous link stops working/ }));
+  await screen.findByLabelText('One-time invitation URL changing');
+  const accountLoadsBeforePoll = vi.mocked(loadAccount).mock.calls.length;
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  await screen.findByText('Awaiting confirmation');
+  expect(screen.queryByLabelText('One-time invitation URL changing')).toBeNull();
+  await waitFor(() => expect(vi.mocked(loadAccount).mock.calls.length).toBeGreaterThan(accountLoadsBeforePoll));
+  expect(loadReferrals).toHaveBeenCalledTimes(3);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  await waitFor(() => expect(screen.queryByText('Awaiting confirmation')).toBeNull());
+  expect(loadReferrals).toHaveBeenCalledTimes(4);
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(loadReferrals).toHaveBeenCalledTimes(4);
+});
+
+test('revoke clears its URL immediately and a late reissue cannot restore it', async () => {
+  let resolveReissue!: (value: { invite: ReferralInviteSummary; invite_token: string }) => void;
+  const active = referral('race');
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { active_count: 1, can_create: true, enabled: true, limit: 2, remaining_count: 1 } });
+  vi.mocked(loadReferrals).mockResolvedValue([active]);
+  vi.mocked(createReferral).mockResolvedValue({ invite: active, invite_token: 'current-token' });
+  vi.mocked(reissueReferral).mockImplementation(() => new Promise((resolve) => { resolveReissue = resolve; }));
+  vi.mocked(revokeReferral).mockResolvedValue({ ...active, state: 'revoked', can_reissue_share_link: false });
+  renderApp('/account');
+  await screen.findByText('Active');
+  fireEvent.click(screen.getByRole('button', { name: 'Create invitation' }));
+  await screen.findByLabelText('One-time invitation URL race');
+  fireEvent.click(screen.getByRole('button', { name: /previous link stops working/ }));
+  await waitFor(() => expect(reissueReferral).toHaveBeenCalledWith('race'));
+  fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+  expect(screen.queryByLabelText('One-time invitation URL race')).toBeNull();
+  await waitFor(() => expect(revokeReferral).toHaveBeenCalledWith('race'));
+  await act(async () => resolveReissue({ invite: active, invite_token: 'stale-token' }));
+  expect(screen.queryByLabelText('One-time invitation URL race')).toBeNull();
+});
+
+test('copy feedback is per invite and reports success and clipboard failure', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));
+  vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { active_count: 1, can_create: true, enabled: true, limit: 2, remaining_count: 1 } });
+  vi.mocked(loadReferrals).mockResolvedValue([referral('copy-one')]);
+  vi.mocked(reissueReferral).mockResolvedValue({ invite: referral('copy-one'), invite_token: 'copy-token' });
+  renderApp('/account');
+  await screen.findByText('Active');
+  fireEvent.click(screen.getByRole('button', { name: /previous link stops working/ }));
+  await screen.findByLabelText('One-time invitation URL copy-one');
+  fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+  expect(await screen.findByText('Copied')).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+  expect(screen.queryByText('Copied')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+  expect(await screen.findByText('Copy failed. Select and copy the URL manually.')).toBeTruthy();
+});
+
+test('remounting an active referral cannot recover its ephemeral URL', async () => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { active_count: 1, can_create: false, enabled: true, limit: 1, remaining_count: 0 } });
+  vi.mocked(loadReferrals).mockResolvedValue([referral('memory-only')]);
+  vi.mocked(reissueReferral).mockResolvedValue({ invite: referral('memory-only'), invite_token: 'memory-token' });
+  const first = renderApp('/account');
+  await screen.findByText('Active');
+  fireEvent.click(screen.getByRole('button', { name: /previous link stops working/ }));
+  await screen.findByLabelText('One-time invitation URL memory-only');
+  first.unmount();
+
+  renderApp('/account');
+  await screen.findByText('Active');
+  expect(screen.queryByLabelText('One-time invitation URL memory-only')).toBeNull();
   expect(sessionStorage.length).toBe(0);
 });
 

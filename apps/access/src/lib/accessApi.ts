@@ -66,8 +66,8 @@ export function getCsrfHeaders(cookie = document.cookie): Record<string, string>
   }
 }
 
-function requestOptions() {
-  return { credentials: 'same-origin' as const };
+function requestOptions(signal?: AbortSignal) {
+  return { credentials: 'same-origin' as const, ...(signal ? { signal } : {}) };
 }
 
 function mutationOptions() {
@@ -165,8 +165,8 @@ export async function createBillingPayment(idempotencyKey: string): Promise<Bill
   throw accessApiError(result.response);
 }
 
-export async function loadReferrals(): Promise<Array<ReferralInviteSummary>> {
-  const result = await accountReferralsV2AccountReferralsGet(requestOptions());
+export async function loadReferrals(signal?: AbortSignal): Promise<Array<ReferralInviteSummary>> {
+  const result = await accountReferralsV2AccountReferralsGet(requestOptions(signal));
   if (result.data) return result.data;
   throw accessApiError(result.response);
 }
