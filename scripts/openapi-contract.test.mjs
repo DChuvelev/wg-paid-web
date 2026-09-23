@@ -152,6 +152,16 @@ describe('OpenAPI canonical fingerprint guard', () => {
       .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties));
 
     const query = document.paths['/v2/admin/users'].get.parameters;
+    expect(query.find((parameter) => parameter.name === 'email')).toMatchObject({
+      in: 'query',
+      required: false,
+      schema: { anyOf: [{ type: 'string' }, { type: 'null' }] }
+    });
+    expect(query.find((parameter) => parameter.name === 'query')).toMatchObject({
+      in: 'query',
+      required: false,
+      schema: { anyOf: [{ type: 'string' }, { type: 'null' }] }
+    });
     expect(query.find((parameter) => parameter.name === 'limit').schema).toMatchObject({ default: 100, type: 'integer' });
     expect(query.find((parameter) => parameter.name === 'offset').schema).toMatchObject({ default: 0, type: 'integer' });
     expect(query.find((parameter) => parameter.name === 'sort_by').schema.enum).toEqual([

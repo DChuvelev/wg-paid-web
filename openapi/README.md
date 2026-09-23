@@ -4,17 +4,19 @@ The canonical `openapi.json` is committed from the deliberately imported and ind
 
 The deliberate import must verify all of the following before generation:
 
-- Backend source commit: `1f749d67720a312eca3f80ea344eb904389bc02d`
-- Backend source tree: `5e353f56ffc918cfbef657e7ef26e5a28be2a51c`
+- Backend source commit: `6d7f4e4918f5ce57e7bcf3bf5b2338e198fb17d0`
+- Backend source tree: `687015a7b396b9fa58f19886e36bbbdf70e85375`
 - Alembic head: `0013_user_referral_policy`
-- Reproduction runtime: Python `3.12.3` on Windows, FastAPI `0.141.1`, Pydantic `2.13.5` (the accepted backend runtime uses Python `3.12.14`)
+- Deliberate export runtime: Python `3.12.13`, FastAPI `0.141.1`, Pydantic `2.13.5`, SQLAlchemy `2.0.54`, Alembic `1.20.0`
+- Import artifact SHA-256: `955a07e3c201fea78fded27209ba7d37fa5113ae9aded0cecabc16698d2355df`
+- VM121 source archive SHA-256: `5385e6f84b72e1a0bd3724728e543c4075d5ace7c30a7403498c7998f00c0888`
 - OpenAPI version: `3.1.0`
 - operations: `66`
 - schemas: `70`
-- observed raw SHA-256: `c86729b04f022e4ec930efdb563f70cfc3e81b919857138f49b11523245f1d84`
-- canonical SHA-256: `3b85dda3ae4488ca68f2648802033e4172ab16cfef9f37071ba44f0f926e9b81`
+- observed raw SHA-256: `288ff744638d9935dc5c285b46f37e54ecc56f41fd5288bc05b87fa5932ebebf`
+- canonical SHA-256: `07e7602271c81f4a7b32c12e590cb1d98eb1d024a326773dc846b458b266cbc4`
 
-For a reproduction check, the same local Python/FastAPI/Pydantic environment applied to the prior pinned backend commit `d24e7ceed335da2419295bfe3192a51fc083525a` produced 57 operations, 63 schemas, and its previously committed canonical SHA-256 `90de8d7ec9eca8b013848d75ec0e99e3c4742e932182f0055069c2099e0b4f05`.
+The accepted read-only export was produced from `app.main:app.openapi()` in the identified VM121 runtime. The imported document differs from the prior pinned contract only by the optional `query` parameter on `GET /v2/admin/users`; the existing optional `email`, pagination, and sorting parameters remain compatible.
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 

@@ -3610,6 +3610,10 @@ export type AdminListUsersV2AdminUsersGetData = {
          */
         email?: string | null;
         /**
+         * Query
+         */
+        query?: string | null;
+        /**
          * Limit
          */
         limit?: number;
