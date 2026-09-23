@@ -31,6 +31,7 @@ import {
   AdminApiError,
   getAdminCsrfHeaders,
   loadRuntimeConnections,
+  loadInvites,
   loadUsers,
   reissueInviteShareLink,
   resendAdminInvite,
@@ -114,6 +115,13 @@ describe('admin CSRF cookie handling', () => {
     sdk.runtimeConnections.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
     await expect(loadRuntimeConnections(controller.signal)).resolves.toEqual(response);
     expect(sdk.runtimeConnections).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
+  });
+
+  test('loads invites through the generated same-origin GET and preserves AbortSignal', async () => {
+    const controller = new AbortController();
+    sdk.listInvites.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
+    await expect(loadInvites(controller.signal)).resolves.toEqual([]);
+    expect(sdk.listInvites).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
   });
 
   test('converts runtime failures and builds encoded config navigation without fetching it', async () => {

@@ -18,6 +18,7 @@ import {
 import styles from '../../app/Admin.module.css';
 
 interface InvitesPanelProps {
+  active: boolean;
   onSessionExpired: () => void;
 }
 
@@ -52,6 +53,15 @@ function inviteShortCode(inviteId: string) {
 
 function shareUrl(inviteId: string, token: string) {
   return `https://access.secret-studio.ru/invite#token=${encodeURIComponent(token)}&invite=${encodeURIComponent(inviteId)}`;
+}
+
+function createdBy(invite: AdminInviteSummary) {
+  if (invite.created_by_kind === 'admin_secret' || invite.created_by_kind === 'admin_user' || invite.created_by_kind === 'admin') {
+    return 'Admin';
+  }
+  const label = invite.created_by_label?.trim();
+  if (label) return label;
+  return invite.created_by_user_id ? 'Account user' : 'Unknown';
 }
 
 function withoutToken(current: Map<string, EphemeralInviteToken>, inviteId: string) {
@@ -89,6 +99,7 @@ function InviteRow({
       <dl className={styles.inviteMetadata}>
         {invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? <div><dt>Bound email</dt><dd>{invite.intended_email}</dd></div> : null}
         <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
+        <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>
         <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
         <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
         {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
@@ -122,7 +133,7 @@ function InviteRow({
   );
 }
 
-export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
+export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const queryClient = useQueryClient();
   const [planId, setPlanId] = useState('');
   const [profileLimit, setProfileLimit] = useState(0);
@@ -135,7 +146,19 @@ export function InvitesPanel({ onSessionExpired }: InvitesPanelProps) {
   const [limitTarget, setLimitTarget] = useState<AdminInviteSummary | null>(null);
   const [limitDraft, setLimitDraft] = useState(0);
   const plansQuery = useQuery({ queryKey: plansKey, queryFn: loadPlans, retry: false });
-  const invitesQuery = useQuery({ queryKey: invitesKey, queryFn: loadInvites, retry: false });
+  const invitesQuery = useQuery({
+    queryKey: invitesKey,
+    queryFn: ({ signal }) => loadInvites(signal),
+    enabled: active,
+    refetchInterval: active ? 5000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    retry: false
+  });
+
+  useEffect(() => {
+    if (!active) void queryClient.cancelQueries({ queryKey: invitesKey });
+  }, [active, queryClient]);
 
   const selectPlan = (nextPlanId: string) => {
     setPlanId(nextPlanId);

@@ -111,8 +111,8 @@ export async function loadPlans(): Promise<Array<AdminPlanSummary>> {
   return requireData(await adminListPlansV2AdminPlansGet(requestOptions()), 'Unable to load plans.');
 }
 
-export async function loadInvites(): Promise<Array<AdminInviteSummary>> {
-  return requireData(await adminListInvitesV2AdminInvitesGet(requestOptions()), 'Unable to load invites.');
+export async function loadInvites(signal?: AbortSignal): Promise<Array<AdminInviteSummary>> {
+  return requireData(await adminListInvitesV2AdminInvitesGet(requestOptions(signal)), 'Unable to load invites.');
 }
 
 export async function loadRuntimeConnections(signal?: AbortSignal): Promise<AdminRuntimeConnectionsResponse> {

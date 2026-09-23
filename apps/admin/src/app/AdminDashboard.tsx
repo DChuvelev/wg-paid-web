@@ -65,7 +65,7 @@ export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboard
       {logoutError ? <p className={styles.alert} role="alert">{logoutError}</p> : null}
       <main className={styles.dashboard}>
         <div hidden={activeArea !== 'users'}><UsersPanel onSessionExpired={onSessionExpired} /></div>
-        <div hidden={activeArea !== 'invites'}><InvitesPanel onSessionExpired={onSessionExpired} /></div>
+        <div hidden={activeArea !== 'invites'}><InvitesPanel active={activeArea === 'invites'} onSessionExpired={onSessionExpired} /></div>
         <div hidden={activeArea !== 'connections'}>
           <ConnectionsPanel active={activeArea === 'connections'} onSessionExpired={onSessionExpired} />
         </div>

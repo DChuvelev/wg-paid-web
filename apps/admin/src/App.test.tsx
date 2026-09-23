@@ -137,6 +137,7 @@ async function renderInvitesDashboard() {
   await renderDashboard();
   fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
   await screen.findByRole('region', { name: 'Invites' });
+  await waitFor(() => expect(screen.queryByText('Loading invites…')).toBeNull());
 }
 
 function expandUser(email = 'operator-target@example.test') {
@@ -270,6 +271,29 @@ describe('admin session and invites', () => {
     expect(screen.queryByText(/token=replacement-token/)).toBeNull();
   });
 
+  test('polling lifecycle changes clear an ephemeral admin share URL', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const inviteId = '12345678-1234-1234-1234-123456789abc';
+    const transferable = {
+      ...makeInvite(inviteId, 'active', ''),
+      can_change_email: true, can_reissue_share_link: true, can_resend: false, intended_email: null
+    };
+    vi.mocked(loadInvites).mockResolvedValue([transferable]);
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
+      invite_token: 'ephemeral-admin-token', wireguard_profile_limit: 2
+    });
+    window.history.replaceState(null, '', '/#/invites');
+    renderAdmin();
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await screen.findByText(/token=ephemeral-admin-token/);
+
+    vi.mocked(loadInvites).mockResolvedValue([{ ...transferable, state: 'awaiting_confirmation' }]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await waitFor(() => expect(screen.queryByText(/token=ephemeral-admin-token/)).toBeNull());
+  });
+
   test('sorts Active Invites newest first with invite ID as the deterministic tie-break', async () => {
     vi.mocked(loadInvites).mockResolvedValue([
       { ...makeInvite('bbbbbbbb-0000-0000-0000-000000000000', 'active', ''), created_at: '2026-01-02T00:00:00Z', intended_email: null },
@@ -279,6 +303,28 @@ describe('admin session and invites', () => {
     await renderInvitesDashboard();
     const labels = within(screen.getByRole('region', { name: 'Active Invites' })).getAllByText(/^Invite [A-F0-9]{8}$/).map((node) => node.textContent);
     expect(labels).toEqual(['Invite AAAAAAAA', 'Invite CCCCCCCC', 'Invite BBBBBBBB']);
+  });
+
+  test('shows operational creator provenance without exposing creator identifiers or tokens', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([
+      invite,
+      {
+        ...invite,
+        created_by_kind: 'user_referral',
+        created_by_label: 'referrer@example.test',
+        created_by_user_id: 'creator-uuid-must-stay-hidden',
+        intended_email: 'referred@example.test',
+        invite_id: 'referral-invite'
+      }
+    ]);
+    await renderInvitesDashboard();
+    await screen.findByText('referrer@example.test');
+    const activeInvites = screen.getByRole('region', { name: 'Active Invites' });
+    expect(within(activeInvites).getAllByText('Created by')).toHaveLength(2);
+    expect(within(activeInvites).getByText('Admin')).not.toBeNull();
+    expect(within(activeInvites).getByText('referrer@example.test')).not.toBeNull();
+    expect(document.body.textContent).not.toContain('creator-uuid-must-stay-hidden');
+    expect(document.body.textContent).not.toContain('secret-invite-token');
   });
 
   test('resets the pending configuration snapshot to a newly selected plan default', async () => {
@@ -503,6 +549,35 @@ describe('admin area navigation', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(loadRuntimeConnections).toHaveBeenCalledTimes(5);
+  });
+
+  test('polls invites only while Invites is active, cancels on leave, and resumes on return', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let secondSignal: AbortSignal | undefined;
+    vi.mocked(loadInvites).mockImplementation(async (signal) => {
+      if (vi.mocked(loadInvites).mock.calls.length === 2) {
+        secondSignal = signal;
+        return new Promise(() => undefined);
+      }
+      return [invite];
+    });
+    await renderDashboard();
+    expect(loadInvites).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
+    await waitFor(() => expect(loadInvites).toHaveBeenCalledTimes(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(loadInvites).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Users' }));
+    await waitFor(() => expect(secondSignal?.aborted).toBe(true));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(loadInvites).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
+    await waitFor(() => expect(loadInvites).toHaveBeenCalledTimes(3));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(loadInvites).toHaveBeenCalledTimes(4);
   });
 });
 
