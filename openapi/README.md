@@ -4,19 +4,18 @@ The canonical `openapi.json` is committed from the deliberately imported and ind
 
 The deliberate import must verify all of the following before generation:
 
-- Backend source commit: `6d7f4e4918f5ce57e7bcf3bf5b2338e198fb17d0`
-- Backend source tree: `687015a7b396b9fa58f19886e36bbbdf70e85375`
+- Backend source commit: `963a5cf3db7cacdad52976189dd3946d41d87cf7`
+- Backend source tree: `69c781ecb6284946d7065488acf15ac2e6322c0a`
 - Alembic head: `0013_user_referral_policy`
-- Deliberate export runtime: Python `3.12.13`, FastAPI `0.141.1`, Pydantic `2.13.5`, SQLAlchemy `2.0.54`, Alembic `1.20.0`
-- Import artifact SHA-256: `955a07e3c201fea78fded27209ba7d37fa5113ae9aded0cecabc16698d2355df`
-- VM121 source archive SHA-256: `5385e6f84b72e1a0bd3724728e543c4075d5ace7c30a7403498c7998f00c0888`
+- Deliberate import bundle SHA-256: `5d6c31ae666f8407462a8be678f2139b8c5bf0f7cf25d5a46c651e92f83b96c9`
+- VM121 source archive SHA-256: `c608d8ba3f5039346bdcfca34cec217ca8a02d184783742ea57a5614be7202fa`
 - OpenAPI version: `3.1.0`
-- operations: `66`
-- schemas: `70`
-- observed raw SHA-256: `288ff744638d9935dc5c285b46f37e54ecc56f41fd5288bc05b87fa5932ebebf`
-- canonical SHA-256: `07e7602271c81f4a7b32c12e590cb1d98eb1d024a326773dc846b458b266cbc4`
+- operations: `68`
+- schemas: `72`
+- observed raw SHA-256: `3e556acc5f0cec1ed1a9ae5554c5caf27f4f377f3da6cadc6a363ef90edc0f86`
+- canonical SHA-256: `0c0467837ec79eb7542956f406c792b3a5c4b3374df828789fabb5f5b0decec4`
 
-The accepted read-only export was produced from `app.main:app.openapi()` in the identified VM121 runtime. The imported document differs from the prior pinned contract only by the optional `query` parameter on `GET /v2/admin/users`; the existing optional `email`, pagination, and sorting parameters remain compatible.
+The accepted read-only export was generated from the exact identified VM121 source. The prior canonical contract was reproduced from reverse-A18 source before the new contract was accepted. The imported document adds only the expired-registration magic-link recovery and resend operations plus `MagicLinkRecoveryRequest` and `MagicLinkRecoveryResponse`.
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 

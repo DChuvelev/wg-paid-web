@@ -1456,6 +1456,42 @@ export type MagicLinkConsumeRequest = {
 };
 
 /**
+ * MagicLinkRecoveryRequest
+ */
+export type MagicLinkRecoveryRequest = {
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
+ * MagicLinkRecoveryResponse
+ */
+export type MagicLinkRecoveryResponse = {
+    /**
+     * State
+     */
+    state: 'expired_registration';
+    /**
+     * Pending Email Masked
+     */
+    pending_email_masked: string;
+    /**
+     * Resend Available At
+     */
+    resend_available_at: string | null;
+    /**
+     * Can Resend
+     */
+    can_resend: boolean;
+    /**
+     * Magic Link Ttl Seconds
+     */
+    magic_link_ttl_seconds: number;
+};
+
+/**
  * PeerResponse
  */
 export type PeerResponse = {
@@ -2681,6 +2717,54 @@ export type LoginRequestV2AuthLoginRequestPostErrors = {
 export type LoginRequestV2AuthLoginRequestPostError = LoginRequestV2AuthLoginRequestPostErrors[keyof LoginRequestV2AuthLoginRequestPostErrors];
 
 export type LoginRequestV2AuthLoginRequestPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostData = {
+    body: MagicLinkRecoveryRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/magic-link/recovery';
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostError = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors];
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: MagicLinkRecoveryResponse;
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponse = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses];
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostData = {
+    body: MagicLinkRecoveryRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/magic-link/resend';
+};
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostError = ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors[keyof ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors];
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostResponses = {
     /**
      * Successful Response
      */

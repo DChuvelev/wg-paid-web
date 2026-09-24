@@ -47,7 +47,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 66, schemas: 70 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 68, schemas: 72 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
@@ -89,6 +89,15 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/auth/invites/inspect');
     expect(document.paths).toHaveProperty('/v2/auth/invites/resend');
     expect(document.paths).toHaveProperty('/v2/auth/invites/change-email');
+    expect(document.paths['/v2/auth/magic-link/recovery'].post.operationId)
+      .toBe('inspect_magic_link_recovery_route_v2_auth_magic_link_recovery_post');
+    expect(document.paths['/v2/auth/magic-link/resend'].post.operationId)
+      .toBe('resend_expired_magic_link_route_v2_auth_magic_link_resend_post');
+    expect(schemas.MagicLinkRecoveryRequest.required).toEqual(['token']);
+    expect(schemas.MagicLinkRecoveryResponse.required).toEqual([
+      'state', 'pending_email_masked', 'resend_available_at', 'can_resend', 'magic_link_ttl_seconds'
+    ]);
+    expect(schemas.MagicLinkRecoveryResponse.properties.state.const).toBe('expired_registration');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/share-token/reissue');
