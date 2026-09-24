@@ -12,6 +12,7 @@
     "@wg-paid/api": "0.1.0",
     "@wg-paid/common": "0.1.0",
     "@wg-paid/ui": "0.1.0",
+    "qrcode.react": "4.2.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-hook-form": "7.62.0",

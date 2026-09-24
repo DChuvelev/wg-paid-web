@@ -5,6 +5,7 @@ import { ModalDialog } from '../../components/ModalDialog';
 import { StatusBadge } from '../../components/StatusBadge';
 import {
   AdminApiError,
+  type InviteOrigin,
   createInvite,
   isUnauthorized,
   loadInvites,
@@ -15,6 +16,9 @@ import {
   updateInviteRecipient,
   updateInviteWireGuardLimit
 } from '../../lib/adminApi';
+import { BulkInviteCampaigns } from './BulkInviteCampaigns';
+import { InviteOriginFilters } from './InviteOriginFilters';
+import inviteStyles from './Invites.module.css';
 import styles from '../../app/Admin.module.css';
 
 interface InvitesPanelProps {
@@ -45,6 +49,7 @@ interface InviteRowProps {
 
 const plansKey = ['admin', 'plans'] as const;
 const invitesKey = ['admin', 'invites'] as const;
+const defaultOrigins: Array<InviteOrigin> = ['user', 'admin'];
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : 'No expiration';
@@ -59,6 +64,7 @@ function shareUrl(inviteId: string, token: string) {
 }
 
 function createdBy(invite: AdminInviteSummary) {
+  if (invite.origin === 'campaign') return invite.bulk_campaign_label || 'Campaign';
   if (invite.created_by_kind === 'admin_secret' || invite.created_by_kind === 'admin_user' || invite.created_by_kind === 'admin') {
     return 'Admin';
   }
@@ -89,6 +95,7 @@ function InviteRow({
 }: InviteRowProps) {
   const visibleEmail = invite.pending_email || invite.intended_email || 'Transferable invite';
   const transferable = !invite.intended_email && !invite.pending_email;
+  const campaignChild = invite.origin === 'campaign';
   const url = shareToken && invite.state === 'active' && transferable ? shareUrl(invite.invite_id, shareToken) : null;
   return (
     <article className={styles.inviteRow}>
@@ -96,6 +103,7 @@ function InviteRow({
         <div className={styles.inviteIdentity}>
           <strong>Invite {inviteShortCode(invite.invite_id)}</strong>
           <span title={visibleEmail}>{visibleEmail}</span>
+          <span className={`${inviteStyles.originBadge} ${campaignChild ? inviteStyles.campaignOrigin : ''}`}>{campaignChild ? 'Campaign' : invite.origin}</span>
           <small>Created {formatDate(invite.created_at)}</small>
         </div>
         <StatusBadge status={invite.state} />
@@ -104,6 +112,7 @@ function InviteRow({
         {invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? <div><dt>Bound email</dt><dd>{invite.intended_email}</dd></div> : null}
         <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
         <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>
+        {campaignChild ? <div><dt>Parent campaign</dt><dd>{invite.bulk_campaign_label || 'Campaign'}</dd></div> : null}
         <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
         <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
         {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
@@ -144,6 +153,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const [planId, setPlanId] = useState('');
   const [profileLimit, setProfileLimit] = useState(0);
   const [email, setEmail] = useState('');
+  const [origins, setOrigins] = useState<Array<InviteOrigin>>(defaultOrigins);
   const [ephemeralTokens, setEphemeralTokens] = useState<Map<string, EphemeralInviteToken>>(() => new Map());
   const [copyFeedback, setCopyFeedback] = useState<Map<string, CopyFeedback>>(() => new Map());
   const copyTimers = useRef(new Map<string, number>());
@@ -156,9 +166,9 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const [limitDraft, setLimitDraft] = useState(0);
   const plansQuery = useQuery({ queryKey: plansKey, queryFn: loadPlans, retry: false });
   const invitesQuery = useQuery({
-    queryKey: invitesKey,
-    queryFn: ({ signal }) => loadInvites(signal),
-    enabled: active,
+    queryKey: [...invitesKey, origins],
+    queryFn: ({ signal }) => loadInvites(origins, signal),
+    enabled: active && origins.length > 0,
     refetchInterval: active ? 5000 : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -343,13 +353,14 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     return plan ? `${plan.display_name} (${plan.code})` : id ?? 'Unknown plan';
   };
 
-  const activeInvites = (invitesQuery.data ?? [])
+  const visibleInvites = origins.length > 0 ? (invitesQuery.data ?? []) : [];
+  const activeInvites = visibleInvites
     .filter((item) => item.state === 'active' || item.state === 'awaiting_confirmation')
     .sort((first, second) => (
       Date.parse(second.created_at) - Date.parse(first.created_at)
       || first.invite_id.localeCompare(second.invite_id)
     ));
-  const archivedInvites = (invitesQuery.data ?? [])
+  const archivedInvites = visibleInvites
     .filter((item) => item.state === 'used' || item.state === 'revoked' || item.state === 'expired');
   const mutationPending = createMutation.isPending || revokeMutation.isPending || resendMutation.isPending
     || reissueMutation.isPending || recipientMutation.isPending || limitMutation.isPending;
@@ -389,14 +400,18 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         </button>
       </form>
 
+      <InviteOriginFilters value={origins} onChange={setOrigins} />
+
       <p className={styles.statusLine} role="status" aria-live="polite">
-        {status || (invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : invitesQuery.data?.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
+        {status || (!origins.length ? 'No invite origins selected.' : invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : visibleInvites.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
       </p>
 
       <section className={styles.activeInvites} aria-labelledby="active-invites-title">
         <h3 id="active-invites-title">Active Invites</h3>
         <div className={styles.inviteList}>
-          {activeInvites.length ? activeInvites.map((item) => (
+          {activeInvites.length ? activeInvites.map((item) => {
+            const campaignChild = item.origin === 'campaign';
+            return (
             <InviteRow
               invite={item}
               key={item.invite_id}
@@ -404,14 +419,15 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
               planName={planName}
               shareToken={ephemeralTokens.get(item.invite_id)?.token}
               copyFeedback={copyFeedback.get(item.invite_id)}
-              onChangeLimit={(target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
-              onChangeRecipient={(target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
+              onChangeLimit={campaignChild ? undefined : (target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
+              onChangeRecipient={campaignChild ? undefined : (target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
               onCopy={(inviteId, token) => void copyUrl(inviteId, token)}
-              onReissue={(inviteId) => reissueMutation.mutate(inviteId)}
-              onResend={(inviteId) => resendMutation.mutate(inviteId)}
-              onRevoke={setRevokeTarget}
+              onReissue={campaignChild ? undefined : (inviteId) => reissueMutation.mutate(inviteId)}
+              onResend={campaignChild ? undefined : (inviteId) => resendMutation.mutate(inviteId)}
+              onRevoke={campaignChild ? undefined : setRevokeTarget}
             />
-          )) : invitesQuery.data ? <p className={styles.emptyState}>No active invites.</p> : null}
+            );
+          }) : (invitesQuery.data || !origins.length) ? <p className={styles.emptyState}>No active invites.</p> : null}
         </div>
       </section>
 
@@ -423,6 +439,8 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
           </div>
         </details>
       ) : null}
+
+      <BulkInviteCampaigns active={active} onSessionExpired={onSessionExpired} plans={plansQuery.data} />
 
       {recipientTarget ? (
         <ModalDialog title="Change invite recipient" onClose={() => !recipientMutation.isPending && setRecipientTarget(null)}>

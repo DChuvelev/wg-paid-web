@@ -1,12 +1,15 @@
 import {
+  adminCreateBulkInviteV2AdminBulkInvitesPost,
   adminCreateInviteV2AdminInvitesPost,
   adminDeleteUserV2AdminUsersUserIdDelete,
+  adminListBulkInvitesV2AdminBulkInvitesGet,
   adminListInvitesV2AdminInvitesGet,
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet,
   adminResendInviteV2AdminInvitesInviteIdResendPost,
+  adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost,
   adminSessionLoginV2AdminSessionLoginPost,
   adminSessionLogoutV2AdminSessionLogoutPost,
@@ -16,10 +19,14 @@ import {
   adminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatch,
   adminUpdateUserMetadataV2AdminUsersUserIdPatch,
   adminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatch,
+  type AdminBulkInviteCreateRequest,
+  type AdminBulkInviteCreateResponse,
+  type AdminBulkInviteSummary,
   type AdminInviteRequest,
   type AdminInviteResponse,
   type AdminInviteShareTokenResponse,
   type AdminInviteSummary,
+  type AdminListInvitesV2AdminInvitesGetData,
   type AdminPlanSummary,
   type AdminProtocolLimitUpdateResponse,
   type AdminRuntimeConnectionsResponse,
@@ -111,8 +118,35 @@ export async function loadPlans(): Promise<Array<AdminPlanSummary>> {
   return requireData(await adminListPlansV2AdminPlansGet(requestOptions()), 'Unable to load plans.');
 }
 
-export async function loadInvites(signal?: AbortSignal): Promise<Array<AdminInviteSummary>> {
-  return requireData(await adminListInvitesV2AdminInvitesGet(requestOptions(signal)), 'Unable to load invites.');
+type AdminInviteListQuery = NonNullable<AdminListInvitesV2AdminInvitesGetData['query']>;
+export type InviteOrigin = NonNullable<AdminInviteListQuery['origin']>[number];
+
+export async function loadInvites(origins: Array<InviteOrigin>, signal?: AbortSignal): Promise<Array<AdminInviteSummary>> {
+  return requireData(await adminListInvitesV2AdminInvitesGet({
+    ...requestOptions(signal),
+    query: { origin: origins }
+  }), 'Unable to load invites.');
+}
+
+export async function loadBulkInviteCampaigns(signal?: AbortSignal): Promise<Array<AdminBulkInviteSummary>> {
+  return requireData(
+    await adminListBulkInvitesV2AdminBulkInvitesGet(requestOptions(signal)),
+    'Unable to load bulk invite campaigns.'
+  );
+}
+
+export async function createBulkInviteCampaign(body: AdminBulkInviteCreateRequest): Promise<AdminBulkInviteCreateResponse> {
+  return requireData(
+    await adminCreateBulkInviteV2AdminBulkInvitesPost({ ...mutationOptions(), body }),
+    'Unable to create bulk invite campaign.'
+  );
+}
+
+export async function revokeBulkInviteCampaign(campaignId: string): Promise<AdminBulkInviteSummary> {
+  return requireData(await adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost({
+    ...mutationOptions(),
+    path: { campaign_id: campaignId }
+  }), 'Unable to revoke bulk invite campaign.');
 }
 
 export async function loadRuntimeConnections(signal?: AbortSignal): Promise<AdminRuntimeConnectionsResponse> {

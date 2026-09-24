@@ -14,16 +14,19 @@ import {
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   inspectInviteRouteV2AuthInvitesInspectPost,
+  inspectBulkInviteRouteV2AuthBulkInvitesInspectPost,
   inspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPost,
   loginRequestV2AuthLoginRequestPost,
   logoutV2AuthLogoutPost,
   redeemInviteRouteV2AuthInvitesRedeemPost,
+  redeemBulkInviteRouteV2AuthBulkInvitesRedeemPost,
   resendInviteRouteV2AuthInvitesResendPost,
   resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost,
   type AccountMeResponse,
   type BillingPaymentSummary,
   type ConfigurationSummary,
   type InviteInspectResponse,
+  type BulkInviteInspectResponse,
   type MagicLinkRecoveryResponse,
   type ProfileConfigDownloadResponse,
   type ReferralInviteCreateResponse,
@@ -147,6 +150,24 @@ export async function loadConfigurations(): Promise<Array<ConfigurationSummary>>
   if (result.data) {
     return result.data;
   }
+  throw accessApiError(result.response);
+}
+
+export async function inspectBulkInvite(campaignToken: string): Promise<BulkInviteInspectResponse> {
+  const result = await inspectBulkInviteRouteV2AuthBulkInvitesInspectPost({
+    ...requestOptions(),
+    body: { campaign_token: campaignToken }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function redeemBulkInvite(campaignToken: string, email: string): Promise<void> {
+  const result = await redeemBulkInviteRouteV2AuthBulkInvitesRedeemPost({
+    ...mutationOptions(),
+    body: { campaign_token: campaignToken, email }
+  });
+  if (result.response?.status === 202) return;
   throw accessApiError(result.response);
 }
 

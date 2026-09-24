@@ -10,12 +10,14 @@ const sdk = vi.hoisted(() => ({
   consumeMagic: vi.fn(),
   createConfiguration: vi.fn(),
   inspectInvite: vi.fn(),
+  inspectBulkInvite: vi.fn(),
   inspectMagicRecovery: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   configurations: vi.fn(),
   configurationUpdate: vi.fn(),
   redeemInvite: vi.fn(),
+  redeemBulkInvite: vi.fn(),
   resendInvite: vi.fn()
   , resendMagicRecovery: vi.fn()
   , referralCreate: vi.fn(), referralList: vi.fn(), referralReissue: vi.fn(), referralRevoke: vi.fn()
@@ -33,10 +35,12 @@ vi.mock('@wg-paid/api', () => ({
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost: sdk.changeInviteEmail,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
   inspectInviteRouteV2AuthInvitesInspectPost: sdk.inspectInvite,
+  inspectBulkInviteRouteV2AuthBulkInvitesInspectPost: sdk.inspectBulkInvite,
   inspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPost: sdk.inspectMagicRecovery,
   loginRequestV2AuthLoginRequestPost: sdk.login,
   logoutV2AuthLogoutPost: sdk.logout,
   redeemInviteRouteV2AuthInvitesRedeemPost: sdk.redeemInvite,
+  redeemBulkInviteRouteV2AuthBulkInvitesRedeemPost: sdk.redeemBulkInvite,
   resendInviteRouteV2AuthInvitesResendPost: sdk.resendInvite
   , resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost: sdk.resendMagicRecovery
   , accountReferralCreateV2AccountReferralsPost: sdk.referralCreate,
@@ -51,10 +55,12 @@ import {
   createBillingPayment,
   createConfiguration,
   createProfileConfigDownload,
+  inspectBulkInvite,
   inspectInvite,
   inspectMagicLinkRecovery,
   loadConfigurations,
   loadReferrals,
+  redeemBulkInvite,
   resendInvite,
   resendExpiredMagicLink,
   updateDisplayName,
@@ -259,6 +265,25 @@ test('preserves Retry-After from an invite resend cooldown response', async () =
       status: 429
     })
   );
+});
+
+test('uses generated bulk invite inspect and redeem without moving the credential into a URL', async () => {
+  document.cookie = 'wg_access_csrf=csrf-value; Path=/';
+  sdk.inspectBulkInvite.mockResolvedValue({ data: { state: 'active' }, response: new Response(null, { status: 200 }) });
+  sdk.redeemBulkInvite.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+
+  await expect(inspectBulkInvite('campaign-token')).resolves.toEqual({ state: 'active' });
+  await expect(redeemBulkInvite('campaign-token', 'person@example.test')).resolves.toBeUndefined();
+
+  expect(sdk.inspectBulkInvite).toHaveBeenCalledWith({
+    body: { campaign_token: 'campaign-token' }, credentials: 'same-origin'
+  });
+  expect(sdk.redeemBulkInvite).toHaveBeenCalledWith({
+    body: { campaign_token: 'campaign-token', email: 'person@example.test' },
+    credentials: 'same-origin', headers: { 'x-csrf-token': 'csrf-value' }
+  });
+  expect(JSON.stringify(sdk.inspectBulkInvite.mock.calls)).not.toContain('?campaign=');
+  expect(JSON.stringify(sdk.redeemBulkInvite.mock.calls)).not.toContain('?campaign=');
 });
 
 test('uses generated expired-registration recovery operations without persisting the token', async () => {

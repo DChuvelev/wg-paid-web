@@ -1,21 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HashRouter } from 'react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminRuntimeConnectionsResponse, AdminUserDeleteResponse, AdminUserSummary, ConfigurationSummary, ProfileSummary } from '@wg-paid/api';
+import type { AdminBulkInviteSummary, AdminInviteSummary, AdminProtocolLimitUpdateResponse, AdminRuntimeConnectionsResponse, AdminUserDeleteResponse, AdminUserSummary, ConfigurationSummary, ProfileSummary } from '@wg-paid/api';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
-  AdminApiError, checkAdminSession, createInvite, deleteUser, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
+  AdminApiError, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
-  updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
+  revokeBulkInviteCampaign, updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
 } from './lib/adminApi';
 
 vi.mock('./lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/adminApi')>();
   return {
     ...actual,
-    checkAdminSession: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadInvites: vi.fn(),
-    loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(),
+    checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
+    loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
     reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
     updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn(), updateReferralPolicy: vi.fn()
   };
@@ -27,6 +27,7 @@ const plan = {
 };
 const invite: AdminInviteSummary = {
   can_change_email: true, can_reissue_share_link: false, can_resend: true, can_revoke: true,
+  bulk_campaign_id: null, bulk_campaign_label: null, origin: 'admin',
   created_by_kind: 'admin_secret', created_by_label: 'Admin', created_by_user_id: null,
   created_at: '2026-01-01T00:00:00Z', expires_at: '2026-02-01T00:00:00Z',
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
@@ -37,6 +38,11 @@ const runtimeSnapshot: AdminRuntimeConnectionsResponse = {
   generated_at: '2026-09-12T10:00:00Z', received_at: '2026-09-12T10:00:01Z',
   rows: [], sample_interval_seconds: 5, snapshot_age_seconds: 1, stale: false,
   unmatched_runtime_rows_count: 0
+};
+const campaign: AdminBulkInviteSummary = {
+  campaign_id: 'campaign-1', created_at: '2026-09-01T00:00:00Z', expires_at: '2026-10-01T00:00:00Z',
+  label: 'Conference 2026', max_registrations: 350, plan_id: 'plan-1', revoked_at: null,
+  state: 'active', trial_days: 3, used_count: 127
 };
 
 function makeInvite(inviteId: string, state: AdminInviteSummary['state'], intendedEmail: string): AdminInviteSummary {
@@ -164,6 +170,7 @@ beforeEach(() => {
   vi.mocked(loginAdmin).mockResolvedValue();
   vi.mocked(logoutAdmin).mockResolvedValue();
   vi.mocked(loadPlans).mockResolvedValue([plan]);
+  vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([]);
   vi.mocked(loadInvites).mockResolvedValue([invite]);
   vi.mocked(loadRuntimeConnections).mockResolvedValue(runtimeSnapshot);
   vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
@@ -171,6 +178,8 @@ beforeEach(() => {
     email_sent: false, expires_at: null, intended_email: null, invite_id: 'invite-new',
     invite_token: 'secret-invite-token', wireguard_profile_limit: 2
   });
+  vi.mocked(createBulkInviteCampaign).mockResolvedValue({ campaign, campaign_token: 'campaign-secret' });
+  vi.mocked(revokeBulkInviteCampaign).mockResolvedValue({ ...campaign, revoked_at: '2026-09-02T00:00:00Z', state: 'revoked' });
   vi.mocked(resendAdminInvite).mockResolvedValue({ ...invite, state: 'awaiting_confirmation' });
   vi.mocked(reissueInviteShareLink).mockResolvedValue({ invite_id: '12345678-1234-1234-1234-123456789abc', invite_token: 'replacement-token' });
   vi.mocked(revokeInvite).mockResolvedValue({ ...invite, can_change_email: false, can_resend: false, can_revoke: false, state: 'revoked', revoked_at: '2026-01-02T00:00:00Z' });
@@ -490,6 +499,112 @@ describe('admin session and invites', () => {
     await screen.findByText('The invite is no longer mutable. Current invite state was refreshed.');
     expect(screen.queryByText('Recipient cleared. The invite is now transferable for manual sharing.')).toBeNull();
   });
+
+  test('filters invite origins with repeated typed combinations and makes all-unchecked network-safe', async () => {
+    await renderInvitesDashboard();
+    await waitFor(() => expect(loadInvites).toHaveBeenLastCalledWith(['user', 'admin'], expect.any(AbortSignal)));
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    await waitFor(() => expect(loadInvites).toHaveBeenLastCalledWith(['user', 'admin', 'campaign'], expect.any(AbortSignal)));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'User invites' }));
+    await waitFor(() => expect(loadInvites).toHaveBeenLastCalledWith(['admin', 'campaign'], expect.any(AbortSignal)));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Admin invites' }));
+    await waitFor(() => expect(loadInvites).toHaveBeenLastCalledWith(['campaign'], expect.any(AbortSignal)));
+
+    const callsBeforeEmpty = vi.mocked(loadInvites).mock.calls.length;
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    await screen.findByText('No invite origins selected.');
+    expect(loadInvites).toHaveBeenCalledTimes(callsBeforeEmpty);
+  });
+
+  test('renders campaign child provenance and suppresses every ordinary invite mutation action', async () => {
+    const child: AdminInviteSummary = {
+      ...invite,
+      bulk_campaign_id: 'campaign-parent', bulk_campaign_label: 'Conference Parent',
+      can_change_email: false, can_reissue_share_link: false, can_resend: false, can_revoke: false,
+      intended_email: 'participant@example.test', invite_id: 'campaign-child', origin: 'campaign'
+    };
+    vi.mocked(loadInvites).mockImplementation(async (origins) => origins.includes('campaign') ? [child] : []);
+    await renderInvitesDashboard();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    const email = await screen.findByText('participant@example.test');
+    const row = email.closest('article')!;
+    expect(within(row).getByText('Campaign')).not.toBeNull();
+    expect(within(row).getAllByText('Conference Parent').length).toBeGreaterThan(0);
+    expect(within(row).queryByRole('button', { name: 'Resend email' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Change recipient' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Change configuration limit' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Reissue share link' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: /Revoke invite/ })).toBeNull();
+  });
+
+  test('creates one-time campaign material locally, copies and downloads it, then forgets it on remount', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const fetchSpy = vi.fn();
+    const createObjectURL = vi.fn(() => 'blob:campaign-qr');
+    const revokeObjectURL = vi.fn();
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    vi.stubGlobal('fetch', fetchSpy);
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    window.history.replaceState(null, '', '/#/invites');
+    const first = renderAdmin();
+    const campaigns = await screen.findByRole('region', { name: 'Bulk Invite Campaigns' });
+    await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(true));
+    fireEvent.change(within(campaigns).getByLabelText('Label'), { target: { value: 'Conference 2026' } });
+    fireEvent.change(within(campaigns).getByLabelText('Maximum registrations'), { target: { value: '350' } });
+    fireEvent.change(within(campaigns).getByLabelText('Trial days'), { target: { value: '3' } });
+    fireEvent.change(within(campaigns).getByLabelText('Expires at'), { target: { value: '2026-10-01T12:00' } });
+    await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(campaigns).getByRole('button', { name: 'Create campaign' }));
+
+    const expectedUrl = 'https://access.secret-studio.ru/invite#campaign=campaign-secret';
+    await screen.findByText(expectedUrl);
+    expect(createBulkInviteCampaign).toHaveBeenCalledWith({
+      expires_at: new Date('2026-10-01T12:00').toISOString(), label: 'Conference 2026',
+      max_registrations: 350, plan_id: 'plan-1', trial_days: 3
+    });
+    expect(screen.getByRole('alert').textContent).toContain('IMPORTANT: Save this link or QR now.');
+    expect(screen.getByRole('alert').textContent).toContain('cannot be shown again');
+    const qr = document.querySelector(`[data-qr-value="${expectedUrl}"]`);
+    expect(qr?.querySelector('svg')).not.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    await screen.findByRole('button', { name: 'Copied' });
+    expect(writeText).toHaveBeenCalledWith(expectedUrl);
+    fireEvent.click(screen.getByRole('button', { name: 'Download QR' }));
+    expect(createObjectURL).toHaveBeenCalledWith(expect.objectContaining({ type: 'image/svg+xml;charset=utf-8' }));
+    expect(anchorClick).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:campaign-qr');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+
+    first.unmount();
+    vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([campaign]);
+    renderAdmin();
+    await screen.findByText('127 / 350 registrations');
+    expect(screen.queryByText(expectedUrl)).toBeNull();
+    expect(screen.queryByText('IMPORTANT: Save this link or QR now.')).toBeNull();
+  });
+
+  test('revokes only active campaigns after confirmation and offers no delete or terminal revoke actions', async () => {
+    vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([
+      campaign,
+      { ...campaign, campaign_id: 'campaign-full', label: 'Full campaign', state: 'full' },
+      { ...campaign, campaign_id: 'campaign-expired', label: 'Expired campaign', state: 'expired' },
+      { ...campaign, campaign_id: 'campaign-revoked', label: 'Revoked campaign', state: 'revoked' }
+    ]);
+    await renderInvitesDashboard();
+    expect(await screen.findAllByRole('button', { name: 'Revoke' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Delete campaign/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Revoke Conference 2026?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke campaign' }));
+    await waitFor(() => expect(revokeBulkInviteCampaign).toHaveBeenCalledWith('campaign-1'));
+  });
 });
 
 describe('admin area navigation', () => {
@@ -584,7 +699,7 @@ describe('admin area navigation', () => {
   test('polls invites only while Invites is active, cancels on leave, and resumes on return', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let secondSignal: AbortSignal | undefined;
-    vi.mocked(loadInvites).mockImplementation(async (signal) => {
+    vi.mocked(loadInvites).mockImplementation(async (_origins, signal) => {
       if (vi.mocked(loadInvites).mock.calls.length === 2) {
         secondSignal = signal;
         return new Promise(() => undefined);
@@ -840,13 +955,14 @@ describe('users, limits, and retirement', () => {
   test('debounces trimmed text search and removes the manual search controls', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await renderDashboard();
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
     const initialCalls = vi.mocked(loadUsers).mock.calls.length;
     const input = screen.getByLabelText('Email or display name contains');
 
     fireEvent.change(input, { target: { value: '  Mitya Studio  ' } });
-    await act(async () => { await vi.advanceTimersByTimeAsync(249); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
     expect(loadUsers).toHaveBeenCalledTimes(initialCalls);
-    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
     await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({
       query: 'Mitya Studio', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc'
     }, expect.any(AbortSignal)));

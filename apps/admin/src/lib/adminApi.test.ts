@@ -1,20 +1,23 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const sdk = vi.hoisted(() => ({
-  createInvite: vi.fn(), deleteUser: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
+  createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
-  runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
+  revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
+  adminCreateBulkInviteV2AdminBulkInvitesPost: sdk.createBulkInvite,
   adminCreateInviteV2AdminInvitesPost: sdk.createInvite,
   adminDeleteUserV2AdminUsersUserIdDelete: sdk.deleteUser,
+  adminListBulkInvitesV2AdminBulkInvitesGet: sdk.listBulkInvites,
   adminListInvitesV2AdminInvitesGet: sdk.listInvites,
   adminListPlansV2AdminPlansGet: sdk.listPlans,
   adminListUsersV2AdminUsersGet: sdk.listUsers,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet: sdk.runtimeConnections,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost: sdk.reissueInvite,
   adminResendInviteV2AdminInvitesInviteIdResendPost: sdk.resendInvite,
+  adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost: sdk.revokeBulkInvite,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost: sdk.revokeInvite,
   adminSessionLoginV2AdminSessionLoginPost: sdk.login,
   adminSessionLogoutV2AdminSessionLogoutPost: sdk.logout,
@@ -29,12 +32,15 @@ vi.mock('@wg-paid/api', () => ({
 import {
   adminProfileConfigUrl,
   AdminApiError,
+  createBulkInviteCampaign,
   getAdminCsrfHeaders,
+  loadBulkInviteCampaigns,
   loadRuntimeConnections,
   loadInvites,
   loadUsers,
   reissueInviteShareLink,
   resendAdminInvite,
+  revokeBulkInviteCampaign,
   updateAdminNote,
   updateReferralPolicy,
   updateInviteRecipient,
@@ -120,8 +126,32 @@ describe('admin CSRF cookie handling', () => {
   test('loads invites through the generated same-origin GET and preserves AbortSignal', async () => {
     const controller = new AbortController();
     sdk.listInvites.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
-    await expect(loadInvites(controller.signal)).resolves.toEqual([]);
-    expect(sdk.listInvites).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
+    await expect(loadInvites(['user', 'admin'], controller.signal)).resolves.toEqual([]);
+    expect(sdk.listInvites).toHaveBeenCalledWith({
+      credentials: 'same-origin', query: { origin: ['user', 'admin'] }, signal: controller.signal
+    });
+  });
+
+  test('maps bulk campaign list, exact create payload, and revoke through generated operations', async () => {
+    document.cookie = 'wg_admin_csrf=csrf-value; Path=/';
+    const campaign = { campaign_id: 'campaign-1', label: 'Conference', state: 'active' };
+    const body = {
+      expires_at: '2026-10-01T09:00:00.000Z', label: 'Conference', max_registrations: 350,
+      plan_id: 'plan-1', trial_days: 3
+    };
+    sdk.listBulkInvites.mockResolvedValue({ data: [campaign], response: new Response(null, { status: 200 }) });
+    sdk.createBulkInvite.mockResolvedValue({ data: { campaign, campaign_token: 'one-time' }, response: new Response(null, { status: 200 }) });
+    sdk.revokeBulkInvite.mockResolvedValue({ data: { ...campaign, state: 'revoked' }, response: new Response(null, { status: 200 }) });
+
+    await loadBulkInviteCampaigns();
+    await createBulkInviteCampaign(body);
+    await revokeBulkInviteCampaign('campaign-1');
+
+    expect(sdk.listBulkInvites).toHaveBeenCalledWith({ credentials: 'same-origin' });
+    expect(sdk.createBulkInvite).toHaveBeenCalledWith({ credentials: 'same-origin', headers: { 'x-admin-csrf-token': 'csrf-value' }, body });
+    expect(sdk.revokeBulkInvite).toHaveBeenCalledWith({
+      credentials: 'same-origin', headers: { 'x-admin-csrf-token': 'csrf-value' }, path: { campaign_id: 'campaign-1' }
+    });
   });
 
   test('converts runtime failures and builds encoded config navigation without fetching it', async () => {

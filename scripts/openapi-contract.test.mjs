@@ -47,7 +47,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 68, schemas: 72 });
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 73, schemas: 78 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
@@ -84,11 +84,20 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminInviteSummary.required).toContain('can_change_email');
     expect(schemas.AdminInviteSummary.required).toContain('can_reissue_share_link');
     expect(schemas.AdminInviteSummary.required).toContain('can_revoke');
+    expect(schemas.AdminInviteSummary.required).toContain('origin');
+    expect(schemas.AdminInviteSummary.properties.origin.enum).toEqual(['user', 'admin', 'campaign']);
+    expect(schemas.AdminInviteSummary.required).toContain('bulk_campaign_id');
+    expect(schemas.AdminInviteSummary.required).toContain('bulk_campaign_label');
     expect(schemas.AdminInviteRequest.properties.wireguard_profile_limit.anyOf[0].minimum).toBe(0);
     expect(schemas.AdminInviteLimitUpdateRequest.properties.profile_limit.minimum).toBe(0);
     expect(document.paths).toHaveProperty('/v2/auth/invites/inspect');
     expect(document.paths).toHaveProperty('/v2/auth/invites/resend');
     expect(document.paths).toHaveProperty('/v2/auth/invites/change-email');
+    expect(document.paths).toHaveProperty('/v2/auth/bulk-invites/inspect');
+    expect(document.paths).toHaveProperty('/v2/auth/bulk-invites/redeem');
+    expect(schemas.BulkInviteInspectResponse.properties.state.enum).toEqual(['active', 'full', 'expired', 'revoked']);
+    expect(schemas.BulkInviteInspectRequest.required).toEqual(['campaign_token']);
+    expect(schemas.BulkInviteRedeemRequest.required).toEqual(['campaign_token', 'email']);
     expect(document.paths['/v2/auth/magic-link/recovery'].post.operationId)
       .toBe('inspect_magic_link_recovery_route_v2_auth_magic_link_recovery_post');
     expect(document.paths['/v2/auth/magic-link/resend'].post.operationId)
@@ -101,6 +110,13 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/share-token/reissue');
+    expect(document.paths).toHaveProperty('/v2/admin/bulk-invites');
+    expect(document.paths).toHaveProperty('/v2/admin/bulk-invites/{campaign_id}/revoke');
+    expect(schemas.AdminBulkInviteCreateRequest.required).toEqual([
+      'label', 'plan_id', 'max_registrations', 'trial_days', 'expires_at'
+    ]);
+    expect(schemas.AdminBulkInviteCreateResponse.required).toEqual(['campaign', 'campaign_token']);
+    expect(schemas.AdminBulkInviteSummary.properties.state.enum).toEqual(['active', 'full', 'expired', 'revoked']);
     expect(document.paths['/v2/admin/invites/{invite_id}/share-token/reissue'].post.responses['200'].content['application/json'].schema)
       .toEqual({ $ref: '#/components/schemas/AdminInviteShareTokenResponse' });
     expect(schemas.AdminInviteShareTokenResponse.required).toEqual(['invite_id', 'invite_token']);

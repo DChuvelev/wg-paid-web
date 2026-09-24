@@ -65,6 +65,89 @@ export type AccountMetadataUpdateRequest = {
 };
 
 /**
+ * AdminBulkInviteCreateRequest
+ */
+export type AdminBulkInviteCreateRequest = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Max Registrations
+     */
+    max_registrations: number;
+    /**
+     * Trial Days
+     */
+    trial_days: number;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
+ * AdminBulkInviteCreateResponse
+ */
+export type AdminBulkInviteCreateResponse = {
+    campaign: AdminBulkInviteSummary;
+    /**
+     * Campaign Token
+     */
+    campaign_token: string;
+};
+
+/**
+ * AdminBulkInviteSummary
+ */
+export type AdminBulkInviteSummary = {
+    /**
+     * Campaign Id
+     */
+    campaign_id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Max Registrations
+     */
+    max_registrations: number;
+    /**
+     * Used Count
+     */
+    used_count: number;
+    /**
+     * Trial Days
+     */
+    trial_days: number;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * State
+     */
+    state: 'active' | 'full' | 'expired' | 'revoked';
+};
+
+/**
  * AdminConfigurationCreateRequest
  */
 export type AdminConfigurationCreateRequest = {
@@ -186,6 +269,18 @@ export type AdminInviteSummary = {
      * Invite Id
      */
     invite_id: string;
+    /**
+     * Origin
+     */
+    origin: 'user' | 'admin' | 'campaign';
+    /**
+     * Bulk Campaign Id
+     */
+    bulk_campaign_id: string | null;
+    /**
+     * Bulk Campaign Label
+     */
+    bulk_campaign_label: string | null;
     /**
      * Intended Email
      */
@@ -1002,6 +1097,40 @@ export type BillingPaymentSummary = {
      * Confirmation Url
      */
     confirmation_url?: string | null;
+};
+
+/**
+ * BulkInviteInspectRequest
+ */
+export type BulkInviteInspectRequest = {
+    /**
+     * Campaign Token
+     */
+    campaign_token: string;
+};
+
+/**
+ * BulkInviteInspectResponse
+ */
+export type BulkInviteInspectResponse = {
+    /**
+     * State
+     */
+    state: 'active' | 'full' | 'expired' | 'revoked';
+};
+
+/**
+ * BulkInviteRedeemRequest
+ */
+export type BulkInviteRedeemRequest = {
+    /**
+     * Campaign Token
+     */
+    campaign_token: string;
+    /**
+     * Email
+     */
+    email: string;
 };
 
 /**
@@ -2551,7 +2680,12 @@ export type AdminListInvitesV2AdminInvitesGetData = {
         'x-admin-token'?: string | null;
     };
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Origin
+         */
+        origin?: Array<'user' | 'admin' | 'campaign'> | null;
+    };
     url: '/v2/admin/invites';
 };
 
@@ -2653,6 +2787,54 @@ export type InspectInviteRouteV2AuthInvitesInspectPostResponses = {
 };
 
 export type InspectInviteRouteV2AuthInvitesInspectPostResponse = InspectInviteRouteV2AuthInvitesInspectPostResponses[keyof InspectInviteRouteV2AuthInvitesInspectPostResponses];
+
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostData = {
+    body: BulkInviteInspectRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/bulk-invites/inspect';
+};
+
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostError = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors];
+
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: BulkInviteInspectResponse;
+};
+
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponse = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses];
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostData = {
+    body: BulkInviteRedeemRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/bulk-invites/redeem';
+};
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostError = RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors[keyof RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors];
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
 
 export type ResendInviteRouteV2AuthInvitesResendPostData = {
     body: InviteResendRequest;
@@ -3397,6 +3579,106 @@ export type AdminListPlansV2AdminPlansGetResponses = {
 };
 
 export type AdminListPlansV2AdminPlansGetResponse = AdminListPlansV2AdminPlansGetResponses[keyof AdminListPlansV2AdminPlansGetResponses];
+
+export type AdminListBulkInvitesV2AdminBulkInvitesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/bulk-invites';
+};
+
+export type AdminListBulkInvitesV2AdminBulkInvitesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminListBulkInvitesV2AdminBulkInvitesGetError = AdminListBulkInvitesV2AdminBulkInvitesGetErrors[keyof AdminListBulkInvitesV2AdminBulkInvitesGetErrors];
+
+export type AdminListBulkInvitesV2AdminBulkInvitesGetResponses = {
+    /**
+     * Response Admin List Bulk Invites V2 Admin Bulk Invites Get
+     *
+     * Successful Response
+     */
+    200: Array<AdminBulkInviteSummary>;
+};
+
+export type AdminListBulkInvitesV2AdminBulkInvitesGetResponse = AdminListBulkInvitesV2AdminBulkInvitesGetResponses[keyof AdminListBulkInvitesV2AdminBulkInvitesGetResponses];
+
+export type AdminCreateBulkInviteV2AdminBulkInvitesPostData = {
+    body: AdminBulkInviteCreateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/bulk-invites';
+};
+
+export type AdminCreateBulkInviteV2AdminBulkInvitesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminCreateBulkInviteV2AdminBulkInvitesPostError = AdminCreateBulkInviteV2AdminBulkInvitesPostErrors[keyof AdminCreateBulkInviteV2AdminBulkInvitesPostErrors];
+
+export type AdminCreateBulkInviteV2AdminBulkInvitesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminBulkInviteCreateResponse;
+};
+
+export type AdminCreateBulkInviteV2AdminBulkInvitesPostResponse = AdminCreateBulkInviteV2AdminBulkInvitesPostResponses[keyof AdminCreateBulkInviteV2AdminBulkInvitesPostResponses];
+
+export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Campaign Id
+         */
+        campaign_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/bulk-invites/{campaign_id}/revoke';
+};
+
+export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostError = AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostErrors[keyof AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostErrors];
+
+export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminBulkInviteSummary;
+};
+
+export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponse = AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses[keyof AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses];
 
 export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchData = {
     body: AdminInviteRecipientUpdateRequest;

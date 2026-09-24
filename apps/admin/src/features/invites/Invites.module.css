@@ -1,0 +1,48 @@
+.originFilters { margin: 0.85rem 0; padding: 0.75rem; border: 1px solid #d7dfeb; border-radius: 0.65rem; background: #f8fafc; }
+.originFilters legend { padding: 0 0.25rem; color: #52627a; font-size: 0.7rem; font-weight: 750; text-transform: uppercase; }
+.originFilters > div { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; }
+.originFilters label { display: inline-flex; align-items: center; gap: 0.35rem; color: #40516c; font-size: 0.82rem; }
+.originFilters input { margin: 0; accent-color: #2857a4; }
+.originBadge { display: inline-flex; width: fit-content; margin-top: 0.25rem; padding: 0.15rem 0.4rem; border-radius: 999px; color: #40516c; background: #eef2f7; font-size: 0.68rem; font-weight: 800; text-transform: capitalize; }
+.campaignOrigin { color: #6b3fa0; background: #f2eafa; }
+.campaigns { margin-top: 1.75rem; padding-top: 1.4rem; border-top: 2px solid #d7dfeb; }
+.subsectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.subsectionHeading h3 { margin: 0; color: #101828; font-size: 1.25rem; }
+.campaignForm { display: grid; grid-template-columns: minmax(12rem, 1.4fr) minmax(10rem, 1fr) repeat(3, minmax(8rem, 0.8fr)) auto; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #d8e1ed; border-radius: 0.75rem; background: #f8fafc; }
+.createResult { display: grid; gap: 1rem; margin: 1rem 0; padding: 1rem; border: 2px solid #b42318; border-radius: 0.75rem; background: #fffafa; }
+.createResult h4 { margin: 0; color: #172033; font-size: 1.05rem; }
+.oneTimeWarning { display: grid; gap: 0.3rem; padding: 0.9rem; border-left: 6px solid #b42318; color: #7a2119; background: #fff1ef; }
+.oneTimeWarning strong { font-size: 1rem; }
+.campaignShareLayout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; align-items: start; }
+.campaignShareText { display: grid; gap: 0.65rem; min-width: 0; }
+.campaignShareText code { overflow-wrap: anywhere; padding: 0.75rem; border-radius: 0.45rem; color: #173e79; background: #eef3fb; }
+.campaignShareText button { justify-self: start; }
+.qrBlock { display: grid; justify-items: center; gap: 0.65rem; padding: 0.7rem; border: 1px solid #d7dfeb; border-radius: 0.55rem; background: #fff; }
+.campaignList { display: grid; gap: 0.7rem; }
+.campaignRow { display: grid; grid-template-columns: minmax(11rem, 1fr) minmax(18rem, 1.7fr) auto auto; align-items: center; gap: 0.8rem; padding: 0.75rem; border: 1px solid #e0e6ee; border-radius: 0.65rem; }
+.campaignIdentity { display: grid; gap: 0.12rem; min-width: 0; }
+.campaignIdentity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campaignIdentity span { color: #68778c; font-size: 0.78rem; }
+.campaignRow dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin: 0; }
+.campaignRow dt { color: #718096; font-size: 0.68rem; font-weight: 750; text-transform: uppercase; }
+.campaignRow dd { overflow-wrap: anywhere; margin: 0.08rem 0 0; color: #40516c; font-size: 0.78rem; }
+
+@media (max-width: 78rem) {
+  .campaignForm { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .campaignForm button { min-width: 0; }
+}
+
+@media (max-width: 48rem) {
+  .campaignForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .campaignForm > :first-child, .campaignForm button { grid-column: 1 / -1; }
+  .campaignShareLayout, .campaignRow { grid-template-columns: 1fr; }
+  .qrBlock { justify-self: start; }
+  .campaignRow dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .campaignRow button { justify-self: start; }
+}
+
+@media (max-width: 32rem) {
+  .campaignForm, .campaignRow dl { grid-template-columns: 1fr; }
+  .campaignForm > :first-child, .campaignForm button { grid-column: auto; }
+  .qrBlock { justify-self: stretch; }
+}

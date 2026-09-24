@@ -7,11 +7,13 @@ import { AppShell } from '../../app/AppShell';
 import {
   AccessApiError,
   changeInviteEmail,
+  inspectBulkInvite,
   inspectInvite,
+  redeemBulkInvite,
   redeemInvite,
   resendInvite
 } from '../../lib/accessApi';
-import { useFragmentToken } from '../../lib/fragmentToken';
+import { useInviteFragmentCredential } from '../../lib/fragmentToken';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
 import { linkDurationFromTimestamps } from './linkDuration';
@@ -23,7 +25,7 @@ interface InviteFormValues {
 
 interface EmailConfirmation {
   email: string;
-  kind: 'redeem' | 'change';
+  kind: 'redeem' | 'campaign' | 'change';
 }
 
 const terminalMessages: Partial<Record<InviteInspectResponse['state'], TranslationKey>> = {
@@ -39,11 +41,12 @@ function secondsUntil(value: string | null, additionalLimit: number) {
 
 export function InvitePage() {
   const { locale, t } = useLocale();
-  const fragment = useFragmentToken();
+  const credential = useInviteFragmentCredential();
   const queryClient = useQueryClient();
   const [confirmation, setConfirmation] = useState<EmailConfirmation | null>(null);
   const [changeVisible, setChangeVisible] = useState(false);
   const [requestAccepted, setRequestAccepted] = useState(false);
+  const [campaignAccepted, setCampaignAccepted] = useState(false);
   const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
   const [localResendLimit, setLocalResendLimit] = useState(0);
   const [, updateClock] = useState(0);
@@ -51,24 +54,31 @@ export function InvitePage() {
   const queryKey = ['access', 'invite'] as const;
   const form = useForm<InviteFormValues>();
   const changeForm = useForm<InviteFormValues>();
-  const invalid = fragment.ready && !fragment.token;
+  const invalid = credential.ready && (!credential.token || !credential.kind);
 
   const inspectQuery = useQuery({
-    enabled: fragment.ready && Boolean(fragment.token),
-    queryFn: () => inspectInvite(fragment.token!),
+    enabled: credential.ready && credential.kind === 'invite' && Boolean(credential.token),
+    queryFn: () => inspectInvite(credential.token!),
     queryKey,
     retry: false
   });
 
+  const campaignInspectQuery = useQuery({
+    enabled: credential.ready && credential.kind === 'campaign' && Boolean(credential.token),
+    queryFn: () => inspectBulkInvite(credential.token!),
+    queryKey: ['access', 'bulk-invite'],
+    retry: false
+  });
+
   const replaceInspectData = async () => {
-    const inspected = await inspectInvite(fragment.token!);
+    const inspected = await inspectInvite(credential.token!);
     queryClient.setQueryData(queryKey, inspected);
     return inspected;
   };
 
   const redeemMutation = useMutation({
     mutationFn: async (email: string) => {
-      const status = await redeemInvite(fragment.token!, email);
+      const status = await redeemInvite(credential.token!, email);
       if (status !== 202) throw new AccessApiError(status);
       setRequestAccepted(true);
       return replaceInspectData();
@@ -86,9 +96,21 @@ export function InvitePage() {
     }
   });
 
+  const campaignRedeemMutation = useMutation({
+    mutationFn: (email: string) => redeemBulkInvite(credential.token!, email),
+    onError: (error) => {
+      setMessageKey(error instanceof AccessApiError && error.status === 429 ? 'tryAgainLater' : 'registrationFailed');
+    },
+    onSuccess: () => {
+      setCampaignAccepted(true);
+      setMessageKey(null);
+      form.reset();
+    }
+  });
+
   const changeMutation = useMutation({
     mutationFn: async (email: string) => {
-      await changeInviteEmail(fragment.token!, email);
+      await changeInviteEmail(credential.token!, email);
       setRequestAccepted(true);
       return replaceInspectData();
     },
@@ -108,7 +130,7 @@ export function InvitePage() {
 
   const resendMutation = useMutation({
     mutationFn: async () => {
-      await resendInvite(fragment.token!);
+      await resendInvite(credential.token!);
       return replaceInspectData();
     },
     onError: (error) => {
@@ -123,6 +145,9 @@ export function InvitePage() {
 
   const invite = inspectQuery.data;
   const inspectInvalid = inspectQuery.error instanceof AccessApiError && inspectQuery.error.status === 404;
+  const campaign = campaignInspectQuery.data;
+  const campaignInspectInvalid = campaignInspectQuery.error instanceof AccessApiError && campaignInspectQuery.error.status === 404;
+  const campaignUnavailable = campaign !== undefined && campaign.state !== 'active';
   const resendSeconds = secondsUntil(invite?.resend_available_at ?? null, localResendLimit);
 
   useEffect(() => {
@@ -144,11 +169,17 @@ export function InvitePage() {
     setConfirmation(null);
     setMessageKey(null);
     if (selected.kind === 'redeem') redeemMutation.mutate(selected.email);
+    else if (selected.kind === 'campaign') campaignRedeemMutation.mutate(selected.email);
     else changeMutation.mutate(selected.email);
   };
 
   const retryInspect = async () => {
     setMessageKey(null);
+    if (credential.kind === 'campaign') {
+      const result = await campaignInspectQuery.refetch();
+      if (result.data?.state === 'active') setCampaignAccepted(false);
+      return;
+    }
     const result = await inspectQuery.refetch();
     if (result.data?.state === 'active') setRequestAccepted(false);
   };
@@ -156,7 +187,7 @@ export function InvitePage() {
   const pending = invite?.state === 'awaiting_confirmation';
   const livePending = pending && Boolean(invite.magic_link_expires_at);
   const terminalMessage = invite ? terminalMessages[invite.state] : null;
-  const mutationPending = redeemMutation.isPending || changeMutation.isPending || resendMutation.isPending;
+  const mutationPending = redeemMutation.isPending || campaignRedeemMutation.isPending || changeMutation.isPending || resendMutation.isPending;
   const resendAllowed = Boolean(invite?.can_resend) && resendSeconds === 0 && !mutationPending;
   const linkDuration = linkDurationFromTimestamps(
     invite?.magic_link_sent_at ?? null,
@@ -167,9 +198,16 @@ export function InvitePage() {
   return (
     <AppShell title={t('register')} description={t('registerDescription')}>
       {invalid ? <p className={styles.message} role="alert">{t('inviteInvalid')}</p> : null}
-      {!fragment.ready || (inspectQuery.isPending && !invite) ? <p className={styles.message} role="status">{t('inviteLoading')}</p> : null}
+      {!credential.ready || (credential.kind === 'invite' && inspectQuery.isPending && !invite) || (credential.kind === 'campaign' && campaignInspectQuery.isPending && !campaign) ? <p className={styles.message} role="status">{t('inviteLoading')}</p> : null}
       {inspectInvalid ? <p className={styles.message} role="alert">{t('inviteInvalid')}</p> : null}
+      {campaignInspectInvalid || campaignUnavailable ? <p className={styles.message} role="alert">{t('inviteInvalid')}</p> : null}
       {inspectQuery.isError && !invite && !inspectInvalid ? (
+        <div className={styles.message} role="alert">
+          <p>{t('inviteLoadFailed')}</p>
+          <button className={styles.secondaryButton} type="button" onClick={() => void retryInspect()}>{t('retry')}</button>
+        </div>
+      ) : null}
+      {campaignInspectQuery.isError && !campaign && !campaignInspectInvalid ? (
         <div className={styles.message} role="alert">
           <p>{t('inviteLoadFailed')}</p>
           <button className={styles.secondaryButton} type="button" onClick={() => void retryInspect()}>{t('retry')}</button>
@@ -178,8 +216,9 @@ export function InvitePage() {
 
       {terminalMessage ? <p className={styles.message} role="status">{t(terminalMessage)}</p> : null}
 
-      {invite?.state === 'active' && !requestAccepted ? (
-        <form className={styles.form} onSubmit={form.handleSubmit(({ email }) => setConfirmation({ email, kind: 'redeem' }))}>
+      {((credential.kind === 'invite' && invite?.state === 'active' && !requestAccepted)
+        || (credential.kind === 'campaign' && campaign?.state === 'active' && !campaignAccepted)) ? (
+        <form className={styles.form} onSubmit={form.handleSubmit(({ email }) => setConfirmation({ email, kind: credential.kind === 'campaign' ? 'campaign' : 'redeem' }))}>
           <label className={styles.field}>
             {t('email')}
             <input
@@ -193,6 +232,12 @@ export function InvitePage() {
           </label>
           <button className={styles.button} type="submit" disabled={mutationPending}>{t('continueRegistration')}</button>
         </form>
+      ) : null}
+
+      {campaignAccepted ? (
+        <div className={styles.message} role="status">
+          <p>{t('campaignInviteAccepted')}</p>
+        </div>
       ) : null}
 
       {requestAccepted && invite?.state === 'active' ? (

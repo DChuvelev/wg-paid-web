@@ -5,10 +5,12 @@ import {
   AccessApiError,
   changeInviteEmail,
   consumeMagicLink,
+  inspectBulkInvite,
   inspectInvite,
   inspectMagicLinkRecovery,
   loadAccount,
   loadConfigurations,
+  redeemBulkInvite,
   redeemInvite,
   requestLogin,
   resendInvite,
@@ -25,11 +27,13 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     changeInviteEmail: vi.fn(),
     consumeMagicLink: vi.fn(),
     createConfiguration: vi.fn(),
+    inspectBulkInvite: vi.fn(),
     inspectInvite: vi.fn(),
     inspectMagicLinkRecovery: vi.fn(),
     loadAccount: vi.fn(),
     loadConfigurations: vi.fn(),
     logout: vi.fn(),
+    redeemBulkInvite: vi.fn(),
     redeemInvite: vi.fn(),
     requestLogin: vi.fn(),
     resendInvite: vi.fn(),
@@ -81,14 +85,21 @@ function openInvite() {
   return renderApp('/invite');
 }
 
+function openCampaign() {
+  window.history.replaceState({}, '', '/invite#campaign=campaign-test-token');
+  return renderApp('/invite');
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(loadAccount).mockRejectedValue(new AccessApiError(401));
   vi.mocked(loadConfigurations).mockResolvedValue([]);
   vi.mocked(requestLogin).mockResolvedValue(202);
   vi.mocked(inspectInvite).mockResolvedValue(activeInvite);
+  vi.mocked(inspectBulkInvite).mockResolvedValue({ state: 'active' });
   vi.mocked(inspectMagicLinkRecovery).mockRejectedValue(new AccessApiError(404));
   vi.mocked(redeemInvite).mockResolvedValue(202);
+  vi.mocked(redeemBulkInvite).mockResolvedValue();
   vi.mocked(resendInvite).mockResolvedValue();
   vi.mocked(resendExpiredMagicLink).mockResolvedValue();
   vi.mocked(changeInviteEmail).mockResolvedValue();
@@ -143,6 +154,50 @@ test('inspect active shows email entry and the fragment token stays memory-only'
   await waitFor(() => expect(window.location.hash).toBe(''));
   expect(inspectInvite).toHaveBeenCalledWith('invite-test-token');
   expect(document.body.textContent).not.toContain('invite-test-token');
+});
+
+test('campaign fragment is inspected from memory, cleared, and never moved to the query string', async () => {
+  openCampaign();
+
+  await screen.findByRole('button', { name: 'Continue registration' });
+  await waitFor(() => expect(window.location.hash).toBe(''));
+  expect(window.location.search).toBe('');
+  expect(inspectBulkInvite).toHaveBeenCalledWith('campaign-test-token');
+  expect(inspectInvite).not.toHaveBeenCalled();
+  expect(document.body.textContent).not.toContain('campaign-test-token');
+});
+
+test('active campaign redeem submits email and shows only the generic check-email state', async () => {
+  openCampaign();
+  fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'participant@example.test' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Continue registration' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send email' }));
+
+  await screen.findByText('Check your email. If registration can continue, a sign-in link will be sent.');
+  expect(redeemBulkInvite).toHaveBeenCalledWith('campaign-test-token', 'participant@example.test');
+  expect(screen.queryByLabelText('Email')).toBeNull();
+  expect(document.body.textContent).not.toContain('campaign-test-token');
+});
+
+describe.each(['full', 'expired', 'revoked'] as const)('campaign state %s', (state) => {
+  test('uses the same safe unavailable presentation without participant details', async () => {
+    vi.mocked(inspectBulkInvite).mockResolvedValue({ state });
+    openCampaign();
+
+    await screen.findByText('This invitation link is invalid.');
+    expect(screen.queryByLabelText('Email')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/registration(s)? used|participant count/i);
+    expect(redeemBulkInvite).not.toHaveBeenCalled();
+  });
+});
+
+test('invalid campaign token uses the same safe unavailable presentation', async () => {
+  vi.mocked(inspectBulkInvite).mockRejectedValue(new AccessApiError(404));
+  openCampaign();
+
+  await screen.findByText('This invitation link is invalid.');
+  expect(screen.queryByLabelText('Email')).toBeNull();
+  expect(redeemBulkInvite).not.toHaveBeenCalled();
 });
 
 test('active invite email entry uses concise Russian registration copy', async () => {
