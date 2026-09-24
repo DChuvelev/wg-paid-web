@@ -29,6 +29,7 @@
 .primaryButton:hover:not(:disabled) { background: #1e477f; }
 .secondaryButton { border: 1px solid #b6c2d3; color: #263750; background: #fff; }
 .secondaryButton:hover:not(:disabled) { background: #f0f4f9; }
+.primaryButton:active:not(:disabled), .secondaryButton:active:not(:disabled), .dangerButton:active:not(:disabled), .dangerTextButton:active:not(:disabled) { transform: translateY(1px); filter: brightness(0.94); }
 .secondaryLink { display: inline-flex; align-items: center; justify-content: center; min-height: 2.35rem; padding: 0.42rem 0.7rem; border: 1px solid #b6c2d3; border-radius: 0.5rem; color: #263750; background: #fff; font-size: 0.78rem; font-weight: 750; text-decoration: none; }
 .secondaryLink:hover { background: #f0f4f9; }
 .dangerButton { border: 1px solid #b42318; color: #fff; background: #b42318; }
@@ -101,6 +102,7 @@
 .identifier { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.55rem; margin-top: 0.6rem; color: #617086; font-size: 0.78rem; }
 .identifier code { overflow-wrap: anywhere; color: #34435a; }
 .identifier button { padding: 0.3rem 0.45rem; border: 1px solid #c9d3e0; border-radius: 0.35rem; color: #2857a4; background: #fff; }
+.identifier button:active { transform: translateY(1px); background: #e7eef9; }
 .compactDetails { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin: 0.8rem 0 0; }
 .compactDetails div { min-width: 0; }
 .compactDetails dt { color: #718096; font-size: 0.72rem; font-weight: 750; text-transform: uppercase; }

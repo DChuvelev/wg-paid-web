@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminInviteRequest, AdminInviteSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
@@ -27,11 +27,14 @@ interface EphemeralInviteToken {
   token: string;
 }
 
+type CopyFeedback = 'copied' | 'error';
+
 interface InviteRowProps {
   invite: AdminInviteSummary;
   mutationPending: boolean;
   planName: (id: string | null) => string;
   shareToken?: string;
+  copyFeedback?: CopyFeedback;
   onChangeLimit?: (invite: AdminInviteSummary) => void;
   onChangeRecipient?: (invite: AdminInviteSummary) => void;
   onCopy?: (inviteId: string, token: string) => void;
@@ -76,6 +79,7 @@ function InviteRow({
   mutationPending,
   planName,
   shareToken,
+  copyFeedback,
   onChangeLimit,
   onChangeRecipient,
   onCopy,
@@ -126,7 +130,9 @@ function InviteRow({
       {url && onCopy ? (
         <div className={styles.inviteShareLink}>
           <code title={url}>{url}</code>
-          <button aria-label={`Copy invite ${inviteShortCode(invite.invite_id)}`} className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onCopy(invite.invite_id, shareToken!)}>Copy</button>
+          <button aria-label={`Copy invite ${inviteShortCode(invite.invite_id)}`} className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onCopy(invite.invite_id, shareToken!)}>
+            {copyFeedback === 'copied' ? 'Copied' : copyFeedback === 'error' ? 'Copy failed' : 'Copy'}
+          </button>
         </div>
       ) : null}
     </article>
@@ -139,6 +145,9 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const [profileLimit, setProfileLimit] = useState(0);
   const [email, setEmail] = useState('');
   const [ephemeralTokens, setEphemeralTokens] = useState<Map<string, EphemeralInviteToken>>(() => new Map());
+  const [copyFeedback, setCopyFeedback] = useState<Map<string, CopyFeedback>>(() => new Map());
+  const copyTimers = useRef(new Map<string, number>());
+  const copyEpochs = useRef(new Map<string, number>());
   const [status, setStatus] = useState('');
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [recipientTarget, setRecipientTarget] = useState<AdminInviteSummary | null>(null);
@@ -159,6 +168,12 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   useEffect(() => {
     if (!active) void queryClient.cancelQueries({ queryKey: invitesKey });
   }, [active, queryClient]);
+
+  useEffect(() => () => {
+    for (const timer of copyTimers.current.values()) window.clearTimeout(timer);
+    copyTimers.current.clear();
+    copyEpochs.current.clear();
+  }, []);
 
   const selectPlan = (nextPlanId: string) => {
     setPlanId(nextPlanId);
@@ -298,12 +313,29 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   };
 
   const copyUrl = async (inviteId: string, token: string) => {
+    const existing = copyTimers.current.get(inviteId);
+    if (existing) window.clearTimeout(existing);
+    const epoch = (copyEpochs.current.get(inviteId) ?? 0) + 1;
+    copyEpochs.current.set(inviteId, epoch);
+    let feedback: CopyFeedback = 'copied';
     try {
       await navigator.clipboard.writeText(shareUrl(inviteId, token));
       setStatus('Registration URL copied.');
     } catch {
+      feedback = 'error';
       setStatus('Copy failed; select the URL manually.');
     }
+    if (copyEpochs.current.get(inviteId) !== epoch) return;
+    setCopyFeedback((current) => new Map(current).set(inviteId, feedback));
+    const timer = window.setTimeout(() => {
+      setCopyFeedback((current) => {
+        const next = new Map(current);
+        next.delete(inviteId);
+        return next;
+      });
+      copyTimers.current.delete(inviteId);
+    }, 1800);
+    copyTimers.current.set(inviteId, timer);
   };
 
   const planName = (id: string | null) => {
@@ -371,6 +403,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
               mutationPending={mutationPending}
               planName={planName}
               shareToken={ephemeralTokens.get(item.invite_id)?.token}
+              copyFeedback={copyFeedback.get(item.invite_id)}
               onChangeLimit={(target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
               onChangeRecipient={(target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
               onCopy={(inviteId, token) => void copyUrl(inviteId, token)}

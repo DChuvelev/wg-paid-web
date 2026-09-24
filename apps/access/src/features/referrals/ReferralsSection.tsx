@@ -23,6 +23,7 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
   const [tokens, setTokens] = useState<Map<string, string>>(() => new Map());
   const [copyFeedback, setCopyFeedback] = useState<Map<string, CopyFeedback>>(() => new Map());
   const copyTimers = useRef(new Map<string, number>());
+  const copyEpochs = useRef(new Map<string, number>());
   const mutationEpochs = useRef(new Map<string, number>());
   const knownStates = useRef(new Map<string, ReferralInviteSummary['state']>());
 
@@ -73,6 +74,7 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
   useEffect(() => () => {
     for (const timer of copyTimers.current.values()) window.clearTimeout(timer);
     copyTimers.current.clear();
+    copyEpochs.current.clear();
   }, []);
 
   useEffect(() => {
@@ -121,8 +123,11 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
   const copyUrl = async (inviteId: string, url: string) => {
     const existing = copyTimers.current.get(inviteId);
     if (existing) window.clearTimeout(existing);
+    const epoch = (copyEpochs.current.get(inviteId) ?? 0) + 1;
+    copyEpochs.current.set(inviteId, epoch);
     let feedback: CopyFeedback = 'copied';
     try { await navigator.clipboard.writeText(url); } catch { feedback = 'error'; }
+    if (copyEpochs.current.get(inviteId) !== epoch) return;
     setCopyFeedback((current) => new Map(current).set(inviteId, feedback));
     const timer = window.setTimeout(() => {
       setCopyFeedback((current) => {
@@ -131,7 +136,7 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
         return next;
       });
       copyTimers.current.delete(inviteId);
-    }, 1500);
+    }, 1800);
     copyTimers.current.set(inviteId, timer);
   };
   const actionable = query.data?.filter(isActionable) ?? [];
@@ -150,7 +155,7 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
         return <li key={invite.invite_id}>
           <div className={styles.cardHeading}><strong>{t(`referralStatus_${invite.state}`)}</strong><time>{new Date(invite.created_at).toLocaleDateString()}</time></div>
           {invite.expires_at ? <p>{t('referralExpires', { date: new Date(invite.expires_at).toLocaleDateString() })}</p> : null}
-          {url ? <div className={styles.token}><strong>{t('oneTimeReferral')}</strong><input readOnly value={url} aria-label={`${t('referralShareUrl')} ${invite.invite_id}`} /><button type="button" onClick={() => void copyUrl(invite.invite_id, url)}>{t('copy')}</button>
+          {url ? <div className={styles.token}><strong>{t('oneTimeReferral')}</strong><input readOnly value={url} aria-label={`${t('referralShareUrl')} ${invite.invite_id}`} /><button type="button" onClick={() => void copyUrl(invite.invite_id, url)}>{t(feedback === 'copied' ? 'copied' : feedback === 'error' ? 'copyFailedButton' : 'copy')}</button>
             {feedback ? <span className={feedback === 'error' ? styles.error : undefined} role="status">{t(feedback === 'copied' ? 'copied' : 'copyFailed')}</span> : null}
           </div> : null}
           <div className={styles.actions}>

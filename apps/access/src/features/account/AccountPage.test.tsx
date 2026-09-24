@@ -267,11 +267,15 @@ test('copy feedback is per invite and reports success and clipboard failure', as
   fireEvent.click(screen.getByRole('button', { name: /previous link stops working/ }));
   await screen.findByLabelText('One-time invitation URL copy-one');
   fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
-  expect(await screen.findByText('Copied')).toBeTruthy();
-  await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
-  expect(screen.queryByText('Copied')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+  expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  fireEvent.click(screen.getByRole('button', { name: 'Copied' }));
+  expect(await screen.findByRole('button', { name: 'Copy failed' })).toBeTruthy();
   expect(await screen.findByText('Copy failed. Select and copy the URL manually.')).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(screen.getByRole('button', { name: 'Copy failed' })).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+  expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy();
 });
 
 test('remounting an active referral cannot recover its ephemeral URL', async () => {

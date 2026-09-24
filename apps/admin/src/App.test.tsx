@@ -189,6 +189,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('admin session and invites', () => {
@@ -238,6 +239,35 @@ describe('admin session and invites', () => {
     expect(within(active).getByText('Invite 12345678')).not.toBeNull();
     expect(within(active).getByText('https://access.secret-studio.ru/invite#token=secret%20token%2F%2B&invite=12345678-1234-1234-1234-123456789abc')).not.toBeNull();
     expect(screen.queryByText(/Recently created/i)).toBeNull();
+  });
+
+  test('transferable invite copy button shows success, failure, and resets its timer', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('denied'));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    const inviteId = '12345678-1234-1234-1234-123456789abc';
+    const transferable = {
+      ...makeInvite(inviteId, 'active', ''),
+      can_change_email: true, can_reissue_share_link: true, can_resend: false, intended_email: null
+    };
+    vi.mocked(loadInvites).mockResolvedValue([transferable]);
+    vi.mocked(createInvite).mockResolvedValue({
+      email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
+      invite_token: 'copy-token', wireguard_profile_limit: 2
+    });
+    await renderInvitesDashboard();
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    const copy = await screen.findByRole('button', { name: 'Copy invite 12345678' });
+
+    fireEvent.click(copy);
+    await waitFor(() => expect(copy.textContent).toBe('Copied'));
+    fireEvent.click(copy);
+    await waitFor(() => expect(copy.textContent).toBe('Copy failed'));
+    expect(writeText).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+    expect(copy.textContent).toBe('Copy failed');
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    expect(copy.textContent).toBe('Copy');
   });
 
   test('reissue atomically replaces the ephemeral share URL and remounting forgets it', async () => {

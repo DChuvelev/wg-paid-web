@@ -3,6 +3,7 @@
 .heading h2, .heading p { margin: 0; }
 .heading p { margin-top: 0.35rem; color: #52627a; }
 .heading button, .token button, .list button { padding: 0.5rem 0.75rem; border: 1px solid #2857a4; border-radius: 0.5rem; color: #2857a4; background: white; cursor: pointer; }
+.heading button:active:not(:disabled), .token button:active:not(:disabled), .list button:active:not(:disabled) { transform: translateY(1px); background: #e7eef9; }
 .heading button:disabled, .list button:disabled { opacity: 0.55; cursor: not-allowed; }
 .token { display: grid; gap: 0.5rem; padding: 0.85rem; border-radius: 0.6rem; background: #eef3fb; }
 .token input { min-width: 0; padding: 0.55rem; }
