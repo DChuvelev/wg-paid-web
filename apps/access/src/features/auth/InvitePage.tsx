@@ -14,6 +14,7 @@ import {
 import { useFragmentToken } from '../../lib/fragmentToken';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
+import { linkDurationFromTimestamps } from './linkDuration';
 import styles from './Auth.module.css';
 
 interface InviteFormValues {
@@ -157,6 +158,11 @@ export function InvitePage() {
   const terminalMessage = invite ? terminalMessages[invite.state] : null;
   const mutationPending = redeemMutation.isPending || changeMutation.isPending || resendMutation.isPending;
   const resendAllowed = Boolean(invite?.can_resend) && resendSeconds === 0 && !mutationPending;
+  const linkDuration = linkDurationFromTimestamps(
+    invite?.magic_link_sent_at ?? null,
+    invite?.magic_link_expires_at ?? null,
+    locale
+  );
 
   return (
     <AppShell title={t('register')} description={t('registerDescription')}>
@@ -201,6 +207,7 @@ export function InvitePage() {
           <h2 id="invite-pending-title">{t(livePending ? 'inviteMailSent' : 'inviteLinkUnavailable')}</h2>
           <p>{t(livePending ? 'inviteMailSentTo' : 'inviteLinkUnavailableDescription', { email: invite.pending_email_masked ?? t('yourEmail') })}</p>
           {livePending ? <p>{t('checkInboxSpam')}</p> : null}
+          {livePending && linkDuration ? <p>{t('linkValidFor', { duration: linkDuration })}</p> : null}
           {invite.magic_link_expires_at ? <p className={styles.muted}>{t('linkExpiresAt', { date: new Date(invite.magic_link_expires_at).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-US') })}</p> : null}
           <div className={styles.pendingActions}>
             <button className={styles.secondaryButton} disabled={!resendAllowed} type="button" onClick={() => resendMutation.mutate()}>

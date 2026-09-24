@@ -14,14 +14,17 @@ import {
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   inspectInviteRouteV2AuthInvitesInspectPost,
+  inspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPost,
   loginRequestV2AuthLoginRequestPost,
   logoutV2AuthLogoutPost,
   redeemInviteRouteV2AuthInvitesRedeemPost,
   resendInviteRouteV2AuthInvitesResendPost,
+  resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost,
   type AccountMeResponse,
   type BillingPaymentSummary,
   type ConfigurationSummary,
   type InviteInspectResponse,
+  type MagicLinkRecoveryResponse,
   type ProfileConfigDownloadResponse,
   type ReferralInviteCreateResponse,
   type ReferralInviteSummary
@@ -43,7 +46,13 @@ export class AccessApiError extends Error {
 
 function accessApiError(response?: Response) {
   const header = response?.headers.get('Retry-After');
-  const retryAfterSeconds = header && /^\d+$/.test(header) ? Number(header) : undefined;
+  let retryAfterSeconds: number | undefined;
+  if (header && /^\d+$/.test(header)) {
+    retryAfterSeconds = Number(header);
+  } else if (header) {
+    const retryAt = Date.parse(header);
+    if (Number.isFinite(retryAt)) retryAfterSeconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+  }
   return new AccessApiError(response?.status, retryAfterSeconds);
 }
 
@@ -138,6 +147,24 @@ export async function loadConfigurations(): Promise<Array<ConfigurationSummary>>
   if (result.data) {
     return result.data;
   }
+  throw accessApiError(result.response);
+}
+
+export async function inspectMagicLinkRecovery(token: string): Promise<MagicLinkRecoveryResponse> {
+  const result = await inspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPost({
+    ...mutationOptions(),
+    body: { token }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function resendExpiredMagicLink(token: string): Promise<void> {
+  const result = await resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost({
+    ...mutationOptions(),
+    body: { token }
+  });
+  if (result.response?.status === 202) return;
   throw accessApiError(result.response);
 }
 

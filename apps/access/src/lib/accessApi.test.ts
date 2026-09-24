@@ -10,12 +10,14 @@ const sdk = vi.hoisted(() => ({
   consumeMagic: vi.fn(),
   createConfiguration: vi.fn(),
   inspectInvite: vi.fn(),
+  inspectMagicRecovery: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   configurations: vi.fn(),
   configurationUpdate: vi.fn(),
   redeemInvite: vi.fn(),
   resendInvite: vi.fn()
+  , resendMagicRecovery: vi.fn()
   , referralCreate: vi.fn(), referralList: vi.fn(), referralReissue: vi.fn(), referralRevoke: vi.fn()
 }));
 
@@ -31,10 +33,12 @@ vi.mock('@wg-paid/api', () => ({
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost: sdk.changeInviteEmail,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
   inspectInviteRouteV2AuthInvitesInspectPost: sdk.inspectInvite,
+  inspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPost: sdk.inspectMagicRecovery,
   loginRequestV2AuthLoginRequestPost: sdk.login,
   logoutV2AuthLogoutPost: sdk.logout,
   redeemInviteRouteV2AuthInvitesRedeemPost: sdk.redeemInvite,
   resendInviteRouteV2AuthInvitesResendPost: sdk.resendInvite
+  , resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost: sdk.resendMagicRecovery
   , accountReferralCreateV2AccountReferralsPost: sdk.referralCreate,
   accountReferralsV2AccountReferralsGet: sdk.referralList,
   accountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePost: sdk.referralReissue,
@@ -48,9 +52,11 @@ import {
   createConfiguration,
   createProfileConfigDownload,
   inspectInvite,
+  inspectMagicLinkRecovery,
   loadConfigurations,
   loadReferrals,
   resendInvite,
+  resendExpiredMagicLink,
   updateDisplayName,
   updateConfigurationLabel
 } from './accessApi';
@@ -252,6 +258,44 @@ test('preserves Retry-After from an invite resend cooldown response', async () =
       retryAfterSeconds: 37,
       status: 429
     })
+  );
+});
+
+test('uses generated expired-registration recovery operations without persisting the token', async () => {
+  document.cookie = 'wg_access_csrf=csrf-value; Path=/';
+  const recovery = {
+    can_resend: true,
+    magic_link_ttl_seconds: 900,
+    pending_email_masked: 'p***@example.test',
+    resend_available_at: null,
+    state: 'expired_registration' as const
+  };
+  sdk.inspectMagicRecovery.mockResolvedValue({ data: recovery, response: new Response(null, { status: 200 }) });
+  sdk.resendMagicRecovery.mockResolvedValue({ response: new Response(null, { status: 202 }) });
+
+  await expect(inspectMagicLinkRecovery('old-magic-token')).resolves.toEqual(recovery);
+  await expect(resendExpiredMagicLink('old-magic-token')).resolves.toBeUndefined();
+
+  expect(sdk.inspectMagicRecovery).toHaveBeenCalledWith({
+    body: { token: 'old-magic-token' },
+    credentials: 'same-origin',
+    headers: { 'x-csrf-token': 'csrf-value' }
+  });
+  expect(sdk.resendMagicRecovery).toHaveBeenCalledWith({
+    body: { token: 'old-magic-token' },
+    credentials: 'same-origin',
+    headers: { 'x-csrf-token': 'csrf-value' }
+  });
+  expect(localStorage.length).toBe(0);
+  expect(sessionStorage.length).toBe(0);
+});
+
+test('preserves Retry-After from expired-registration resend', async () => {
+  sdk.resendMagicRecovery.mockResolvedValue({
+    response: new Response(null, { headers: { 'Retry-After': '37' }, status: 429 })
+  });
+  await expect(resendExpiredMagicLink('old-magic-token')).rejects.toEqual(
+    expect.objectContaining<Partial<AccessApiError>>({ retryAfterSeconds: 37, status: 429 })
   );
 });
 

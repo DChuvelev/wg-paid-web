@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { InviteInspectResponse } from '@wg-paid/api';
+import type { InviteInspectResponse, MagicLinkRecoveryResponse } from '@wg-paid/api';
 import {
   AccessApiError,
   changeInviteEmail,
   consumeMagicLink,
   inspectInvite,
+  inspectMagicLinkRecovery,
   loadAccount,
   loadConfigurations,
   redeemInvite,
   requestLogin,
   resendInvite,
+  resendExpiredMagicLink,
   updateDisplayName,
   updateConfigurationLabel
 } from '../../lib/accessApi';
@@ -24,12 +26,14 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     consumeMagicLink: vi.fn(),
     createConfiguration: vi.fn(),
     inspectInvite: vi.fn(),
+    inspectMagicLinkRecovery: vi.fn(),
     loadAccount: vi.fn(),
     loadConfigurations: vi.fn(),
     logout: vi.fn(),
     redeemInvite: vi.fn(),
     requestLogin: vi.fn(),
     resendInvite: vi.fn(),
+    resendExpiredMagicLink: vi.fn(),
     updateDisplayName: vi.fn(),
     updateConfigurationLabel: vi.fn()
   };
@@ -64,6 +68,13 @@ const pendingInvite: InviteInspectResponse = {
   resend_available_at: '2099-01-01T00:01:00Z',
   state: 'awaiting_confirmation'
 };
+const magicRecovery: MagicLinkRecoveryResponse = {
+  can_resend: true,
+  magic_link_ttl_seconds: 900,
+  pending_email_masked: 'd***@g***.com',
+  resend_available_at: null,
+  state: 'expired_registration'
+};
 
 function openInvite() {
   window.history.replaceState({}, '', '/invite#token=invite-test-token');
@@ -76,8 +87,10 @@ beforeEach(() => {
   vi.mocked(loadConfigurations).mockResolvedValue([]);
   vi.mocked(requestLogin).mockResolvedValue(202);
   vi.mocked(inspectInvite).mockResolvedValue(activeInvite);
+  vi.mocked(inspectMagicLinkRecovery).mockRejectedValue(new AccessApiError(404));
   vi.mocked(redeemInvite).mockResolvedValue(202);
   vi.mocked(resendInvite).mockResolvedValue();
+  vi.mocked(resendExpiredMagicLink).mockResolvedValue();
   vi.mocked(changeInviteEmail).mockResolvedValue();
   vi.mocked(consumeMagicLink).mockResolvedValue(200);
   vi.mocked(updateDisplayName).mockResolvedValue(account);
@@ -162,6 +175,7 @@ test('confirmed first send calls redeem once, re-inspects, and replaces the ordi
 
   await screen.findByRole('heading', { name: 'Email sent ✓' });
   expect(screen.getByText('The registration link was sent to n***@example.test.')).not.toBeNull();
+  expect(screen.getByText('The link will remain valid for 15 minutes.')).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Continue registration' })).toBeNull();
   expect(redeemInvite).toHaveBeenCalledTimes(1);
   expect(redeemInvite).toHaveBeenCalledWith('invite-test-token', 'new@example.test');
@@ -208,6 +222,7 @@ test('explicit resend calls only the resend endpoint when allowed and then re-in
 
   fireEvent.click(await screen.findByRole('button', { name: 'Send the email again' }));
   await screen.findByText('A new registration email was requested.');
+  expect(screen.getByText('The link will remain valid for 15 minutes.')).not.toBeNull();
   expect(resendInvite).toHaveBeenCalledWith('invite-test-token');
   expect(redeemInvite).not.toHaveBeenCalled();
   expect(inspectInvite).toHaveBeenCalledTimes(2);
@@ -290,6 +305,56 @@ test('an old or expired magic link advises opening the latest email', async () =
   renderApp('/auth/magic');
 
   expect(await screen.findByText(/open the latest email from Secret Studio/i)).not.toBeNull();
+  expect(inspectMagicLinkRecovery).toHaveBeenCalledWith('old-token');
+  expect(resendExpiredMagicLink).not.toHaveBeenCalled();
+});
+
+test('expired registration magic link shows backend-authoritative recovery without resending automatically', async () => {
+  window.history.replaceState({}, '', '/auth/magic#token=expired-registration-token');
+  vi.mocked(consumeMagicLink).mockResolvedValue(400);
+  vi.mocked(inspectMagicLinkRecovery).mockResolvedValue(magicRecovery);
+  renderApp('/auth/magic');
+
+  await screen.findByRole('heading', { name: 'This link has expired.' });
+  expect(screen.getByText('We can send a new link to d***@g***.com.')).not.toBeNull();
+  expect(screen.getByText('For security, confirmation links remain valid for 15 minutes.')).not.toBeNull();
+  expect(screen.queryByRole('button', { name: 'Wrong address?' })).toBeNull();
+  expect(screen.queryByLabelText('New email address')).toBeNull();
+  expect(inspectMagicLinkRecovery).toHaveBeenCalledWith('expired-registration-token');
+  expect(resendExpiredMagicLink).not.toHaveBeenCalled();
+  expect(document.body.textContent).not.toContain('expired-registration-token');
+});
+
+test('expired registration resend is explicit and shows the masked recipient and server TTL', async () => {
+  window.history.replaceState({}, '', '/auth/magic#token=expired-registration-token');
+  vi.mocked(consumeMagicLink).mockResolvedValue(400);
+  vi.mocked(inspectMagicLinkRecovery).mockResolvedValue(magicRecovery);
+  renderApp('/auth/magic');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Send a new link' }));
+  await screen.findByRole('heading', { name: 'New link sent' });
+  expect(screen.getByText('A new link was sent to d***@g***.com.')).not.toBeNull();
+  expect(screen.getByText('The link will remain valid for 15 minutes.')).not.toBeNull();
+  expect(screen.getByText('Check your inbox and Spam folder.')).not.toBeNull();
+  expect(resendExpiredMagicLink).toHaveBeenCalledTimes(1);
+  expect(resendExpiredMagicLink).toHaveBeenCalledWith('expired-registration-token');
+});
+
+test('expired registration resend honors Retry-After and blocks repeated submission', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  window.history.replaceState({}, '', '/auth/magic#token=rate-limited-token');
+  vi.mocked(consumeMagicLink).mockResolvedValue(400);
+  vi.mocked(inspectMagicLinkRecovery).mockResolvedValue(magicRecovery);
+  vi.mocked(resendExpiredMagicLink).mockRejectedValue(new AccessApiError(429, 37));
+  renderApp('/auth/magic');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Send a new link' }));
+  await screen.findByText('Please try again later.');
+  const blocked = screen.getByRole('button', { name: /Try again in 3[67] sec\./ });
+  expect((blocked as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(blocked);
+  expect(resendExpiredMagicLink).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('heading', { name: 'New link sent' })).toBeNull();
 });
 
 test('authenticated root replace-navigates to account', async () => {
