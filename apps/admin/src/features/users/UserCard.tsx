@@ -7,6 +7,20 @@ import { configurationsForGrant, consumesQuota, formatDate, wireGuardLimit } fro
 import { adminProfileConfigUrl, AdminApiError, updateAdminNote, updateReferralPolicy } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
 
+function invitedBy(user: AdminUserSummary) {
+  const label = user.invited_by_label?.trim();
+  switch (user.invited_by_origin) {
+    case 'admin':
+      return label && label.toLocaleLowerCase() !== 'admin' ? `Admin · ${label}` : 'Admin';
+    case 'user':
+      return `User · ${label || 'Unknown'}`;
+    case 'campaign':
+      return `Campaign · ${label || 'Unknown'}`;
+    default:
+      return '—';
+  }
+}
+
 interface GrantCardProps {
   deleting: boolean;
   grant: GrantSummary;
@@ -250,7 +264,7 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
           <span className={styles.userListCell}>{formatDate(user.created_at)}</span>
           <span className={styles.userListCell}>{formatDate(user.invite_issued_at)}</span>
           <span className={styles.userListCell}>{formatDate(user.invite_redeemed_at)}</span>
-          <span className={styles.userListCell}>{user.invited_by_label || '—'}</span>
+          <span className={styles.userListCell}>{invitedBy(user)}</span>
           <span className={styles.disclosureChevron} aria-hidden="true" />
         </summary>
 
@@ -305,7 +319,7 @@ export function UserCard({ deletingActive, limitPending, retirementGrants, user,
               <div><dt>User since</dt><dd>{formatDate(user.created_at)}</dd></div>
               <div><dt>Invite issued</dt><dd>{formatDate(user.invite_issued_at)}</dd></div>
               <div><dt>Joined</dt><dd>{formatDate(user.invite_redeemed_at)}</dd></div>
-              <div><dt>Invited by</dt><dd>{user.invited_by_label || '—'}</dd></div>
+              <div><dt>Invited by</dt><dd>{invitedBy(user)}</dd></div>
               <div><dt>Email verified</dt><dd>{formatDate(user.email_verified_at)}</dd></div>
               <div><dt>Deletion requested</dt><dd>{formatDate(user.deletion_requested_at)}</dd></div>
             </dl>

@@ -25,6 +25,9 @@ const plan = {
   active: true, code: 'standard', default_amneziawg_limit: 0, default_wireguard_limit: 2,
   display_name: 'Standard', id: 'plan-1'
 };
+const commercialPlan = {
+  ...plan, code: 'commercial-rub-v1', display_name: 'Commercial', id: 'commercial-plan-id'
+};
 const invite: AdminInviteSummary = {
   can_change_email: true, can_reissue_share_link: false, can_resend: true, can_revoke: true,
   bulk_campaign_id: null, bulk_campaign_label: null, origin: 'admin',
@@ -32,6 +35,7 @@ const invite: AdminInviteSummary = {
   created_at: '2026-01-01T00:00:00Z', expires_at: '2026-02-01T00:00:00Z',
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
   magic_link_expires_at: null, magic_link_sent_at: null, pending_email: null,
+  recipient_referral_limit: 3, recipient_referrals_enabled: true,
   resend_available_at: null, revoked_at: null, state: 'active', used_count: 0, wireguard_profile_limit: 2
 };
 const runtimeSnapshot: AdminRuntimeConnectionsResponse = {
@@ -41,7 +45,8 @@ const runtimeSnapshot: AdminRuntimeConnectionsResponse = {
 };
 const campaign: AdminBulkInviteSummary = {
   campaign_id: 'campaign-1', created_at: '2026-09-01T00:00:00Z', expires_at: '2026-10-01T00:00:00Z',
-  label: 'Conference 2026', max_registrations: 350, plan_id: 'plan-1', revoked_at: null,
+  label: 'Conference 2026', max_registrations: 350, plan_id: commercialPlan.id,
+  recipient_referral_limit: 3, recipient_referrals_enabled: true, revoked_at: null,
   state: 'active', trial_days: 3, used_count: 127
 };
 
@@ -105,7 +110,8 @@ function makeUser(
       status: 'active', valid_until: null
     }],
     invite_issued_at: '2025-12-30T00:00:00Z', invite_redeemed_at: '2026-01-01T01:00:00Z',
-    invited_by_kind: 'admin_secret', invited_by_label: 'Admin', invited_by_user_id: null,
+    invited_by_campaign_id: null, invited_by_kind: 'admin_secret', invited_by_label: 'Admin',
+    invited_by_origin: 'admin', invited_by_user_id: null,
     configurations: profiles.filter((item) => item.protocol === 'wireguard' && item.status !== 'disabled')
       .map((item, index) => configuration(item, index + 1)),
     profiles, registration_invite_id: 'invite-1',
@@ -169,14 +175,15 @@ beforeEach(() => {
   vi.mocked(checkAdminSession).mockResolvedValue(true);
   vi.mocked(loginAdmin).mockResolvedValue();
   vi.mocked(logoutAdmin).mockResolvedValue();
-  vi.mocked(loadPlans).mockResolvedValue([plan]);
+  vi.mocked(loadPlans).mockResolvedValue([plan, commercialPlan]);
   vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([]);
   vi.mocked(loadInvites).mockResolvedValue([invite]);
   vi.mocked(loadRuntimeConnections).mockResolvedValue(runtimeSnapshot);
   vi.mocked(loadUsers).mockResolvedValue([makeUser()]);
   vi.mocked(createInvite).mockResolvedValue({
     email_sent: false, expires_at: null, intended_email: null, invite_id: 'invite-new',
-    invite_token: 'secret-invite-token', wireguard_profile_limit: 2
+    invite_token: 'secret-invite-token', recipient_referral_limit: 3,
+    recipient_referrals_enabled: true, wireguard_profile_limit: 2
   });
   vi.mocked(createBulkInviteCampaign).mockResolvedValue({ campaign, campaign_token: 'campaign-secret' });
   vi.mocked(revokeBulkInviteCampaign).mockResolvedValue({ ...campaign, revoked_at: '2026-09-02T00:00:00Z', state: 'revoked' });
@@ -234,20 +241,57 @@ describe('admin session and invites', () => {
     vi.mocked(loadInvites).mockResolvedValue([transferable]);
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: transferable.invite_id,
-      invite_token: 'secret token/+', wireguard_profile_limit: 2
+      invite_token: 'secret token/+', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     const createButton = screen.getByRole('button', { name: 'Create invite' });
     await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false));
     expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('2');
+    expect((screen.getByRole('checkbox', { name: 'Allow invitations' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Active invitation limit') as HTMLInputElement).value).toBe('3');
     expect(screen.getByPlaceholderText('Leave blank to create a transferable URL for manual sharing')).not.toBeNull();
     fireEvent.click(createButton);
     await screen.findByText('Transferable invite created. Copy its registration URL from Active Invites.');
-    expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: 'plan-1', wireguard_profile_limit: 2 });
+    expect(createInvite).toHaveBeenCalledWith({
+      intended_email: null, plan_id: 'plan-1', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+    });
     const active = screen.getByRole('region', { name: 'Active Invites' });
     expect(within(active).getByText('Invite 12345678')).not.toBeNull();
     expect(within(active).getByText('https://access.secret-studio.ru/invite#token=secret%20token%2F%2B&invite=12345678-1234-1234-1234-123456789abc')).not.toBeNull();
     expect(screen.queryByText(/Recently created/i)).toBeNull();
+  });
+
+  test.each([
+    { enabled: true, limit: '7' },
+    { enabled: false, limit: '5' },
+    { enabled: true, limit: '0' }
+  ])('submits ordinary invite recipient policy enabled=$enabled limit=$limit exactly', async ({ enabled, limit }) => {
+    await renderInvitesDashboard();
+    const allow = screen.getByRole('checkbox', { name: 'Allow invitations' }) as HTMLInputElement;
+    if (allow.checked !== enabled) fireEvent.click(allow);
+    fireEvent.change(screen.getByLabelText('Active invitation limit'), { target: { value: limit } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await waitFor(() => expect(createInvite).toHaveBeenCalledWith({
+      intended_email: null,
+      plan_id: plan.id,
+      recipient_referral_limit: Number(limit),
+      recipient_referrals_enabled: enabled,
+      wireguard_profile_limit: plan.default_wireguard_limit
+    }));
+  });
+
+  test('keeps the recipient limit editable while disabled and blocks negative or non-integer values', async () => {
+    await renderInvitesDashboard();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow invitations' }));
+    const limit = screen.getByLabelText('Active invitation limit') as HTMLInputElement;
+    expect(limit.disabled).toBe(false);
+    fireEvent.change(limit, { target: { value: '-1' } });
+    expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(limit, { target: { value: '2.5' } });
+    expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(createInvite).not.toHaveBeenCalled();
   });
 
   test('transferable invite copy button shows success, failure, and resets its timer', async () => {
@@ -262,7 +306,8 @@ describe('admin session and invites', () => {
     vi.mocked(loadInvites).mockResolvedValue([transferable]);
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
-      invite_token: 'copy-token', wireguard_profile_limit: 2
+      invite_token: 'copy-token', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
@@ -288,7 +333,8 @@ describe('admin session and invites', () => {
     vi.mocked(loadInvites).mockResolvedValue([transferable]);
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
-      invite_token: 'first-token', wireguard_profile_limit: 2
+      invite_token: 'first-token', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     vi.mocked(reissueInviteShareLink).mockResolvedValue({ invite_id: inviteId, invite_token: 'replacement-token' });
     window.history.replaceState(null, '', '/#/invites');
@@ -320,7 +366,8 @@ describe('admin session and invites', () => {
     vi.mocked(loadInvites).mockResolvedValue([transferable]);
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
-      invite_token: 'ephemeral-admin-token', wireguard_profile_limit: 2
+      invite_token: 'ephemeral-admin-token', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     window.history.replaceState(null, '', '/#/invites');
     renderAdmin();
@@ -384,20 +431,27 @@ describe('admin session and invites', () => {
     fireEvent.change(selector, { target: { value: commercial.id } });
     expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('4');
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
-    await waitFor(() => expect(createInvite).toHaveBeenCalledWith({ intended_email: null, plan_id: commercial.id, wireguard_profile_limit: 4 }));
+    await waitFor(() => expect(createInvite).toHaveBeenCalledWith({
+      intended_email: null, plan_id: commercial.id, recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 4
+    }));
   });
 
   test('email mode reports confirmed delivery and never exposes its raw invite URL', async () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: true, expires_at: null, intended_email: 'direct@example.test', invite_id: 'invite-direct',
-      invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
+      invite_token: 'must-not-be-visible', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'direct@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
 
     expect((await screen.findAllByText('Invite created; registration email sent to direct@example.test.')).length).toBeGreaterThan(0);
-    expect(createInvite).toHaveBeenCalledWith({ intended_email: 'direct@example.test', plan_id: 'plan-1', wireguard_profile_limit: 2 });
+    expect(createInvite).toHaveBeenCalledWith({
+      intended_email: 'direct@example.test', plan_id: 'plan-1', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+    });
     expect(document.body.textContent).not.toContain('must-not-be-visible');
     expect(screen.queryByRole('button', { name: 'Copy invite invite-direct' })).toBeNull();
   });
@@ -405,7 +459,8 @@ describe('admin session and invites', () => {
   test('email mode keeps an undelivered invite visible and actionable without claiming success', async () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: 'retry@example.test', invite_id: 'invite-retry',
-      invite_token: 'must-not-be-visible', wireguard_profile_limit: 2
+      invite_token: 'must-not-be-visible', recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'retry@example.test' } });
@@ -529,8 +584,11 @@ describe('admin session and invites', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
     const email = await screen.findByText('participant@example.test');
     const row = email.closest('article')!;
-    expect(within(row).getByText('Campaign')).not.toBeNull();
-    expect(within(row).getAllByText('Conference Parent').length).toBeGreaterThan(0);
+    expect(within(row).getAllByText('Campaign').length).toBeGreaterThanOrEqual(2);
+    expect(within(row).getByText('Origin')).not.toBeNull();
+    expect(within(row).getAllByText('Conference Parent')).toHaveLength(1);
+    expect(within(row).queryByText('Created by')).toBeNull();
+    expect(within(row).queryByText('Parent campaign')).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Resend email' })).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Change recipient' })).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Change configuration limit' })).toBeNull();
@@ -539,6 +597,8 @@ describe('admin session and invites', () => {
   });
 
   test('creates one-time campaign material locally, copies and downloads it, then forgets it on remount', async () => {
+    const trustedPilot = { ...plan, code: 'trusted-pilot', display_name: 'Trusted Pilot', id: 'trusted-plan-id' };
+    vi.mocked(loadPlans).mockResolvedValue([trustedPilot, commercialPlan]);
     const writeText = vi.fn().mockResolvedValue(undefined);
     const fetchSpy = vi.fn();
     const createObjectURL = vi.fn(() => 'blob:campaign-qr');
@@ -551,6 +611,8 @@ describe('admin session and invites', () => {
     window.history.replaceState(null, '', '/#/invites');
     const first = renderAdmin();
     const campaigns = await screen.findByRole('region', { name: 'Bulk Invite Campaigns' });
+    expect(within(campaigns).queryByRole('combobox', { name: 'Campaign plan' })).toBeNull();
+    expect(await within(campaigns).findByText('Commercial')).not.toBeNull();
     await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(true));
     fireEvent.change(within(campaigns).getByLabelText('Label'), { target: { value: 'Conference 2026' } });
     fireEvent.change(within(campaigns).getByLabelText('Maximum registrations'), { target: { value: '350' } });
@@ -563,8 +625,10 @@ describe('admin session and invites', () => {
     await screen.findByText(expectedUrl);
     expect(createBulkInviteCampaign).toHaveBeenCalledWith({
       expires_at: new Date('2026-10-01T12:00').toISOString(), label: 'Conference 2026',
-      max_registrations: 350, plan_id: 'plan-1', trial_days: 3
+      max_registrations: 350, plan_id: commercialPlan.id, recipient_referral_limit: 3,
+      recipient_referrals_enabled: true, trial_days: 3
     });
+    expect(createBulkInviteCampaign).not.toHaveBeenCalledWith(expect.objectContaining({ plan_id: trustedPilot.id }));
     expect(screen.getByRole('alert').textContent).toContain('IMPORTANT: Save this link or QR now.');
     expect(screen.getByRole('alert').textContent).toContain('cannot be shown again');
     const qr = document.querySelector(`[data-qr-value="${expectedUrl}"]`);
@@ -586,8 +650,56 @@ describe('admin session and invites', () => {
     vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([campaign]);
     renderAdmin();
     await screen.findByText('127 / 350 registrations');
+    expect(screen.getByText('Allowed · limit 3')).not.toBeNull();
     expect(screen.queryByText(expectedUrl)).toBeNull();
     expect(screen.queryByText('IMPORTANT: Save this link or QR now.')).toBeNull();
+  });
+
+  test('submits a custom attendee referral policy with the exact Commercial UUID', async () => {
+    await renderInvitesDashboard();
+    const campaigns = screen.getByRole('region', { name: 'Bulk Invite Campaigns' });
+    fireEvent.change(within(campaigns).getByLabelText('Label'), { target: { value: 'Custom policy' } });
+    fireEvent.change(within(campaigns).getByLabelText('Maximum registrations'), { target: { value: '20' } });
+    fireEvent.change(within(campaigns).getByLabelText('Trial days'), { target: { value: '4' } });
+    fireEvent.change(within(campaigns).getByLabelText('Expires at'), { target: { value: '2026-11-01T12:00' } });
+    fireEvent.click(within(campaigns).getByRole('checkbox', { name: 'Allow invitations for attendees' }));
+    const limit = within(campaigns).getByLabelText('Active invitation limit per attendee') as HTMLInputElement;
+    expect(limit.disabled).toBe(false);
+    fireEvent.change(limit, { target: { value: '8' } });
+    fireEvent.click(within(campaigns).getByRole('button', { name: 'Create campaign' }));
+    await waitFor(() => expect(createBulkInviteCampaign).toHaveBeenCalledWith({
+      expires_at: new Date('2026-11-01T12:00').toISOString(),
+      label: 'Custom policy',
+      max_registrations: 20,
+      plan_id: commercialPlan.id,
+      recipient_referral_limit: 8,
+      recipient_referrals_enabled: false,
+      trial_days: 4
+    }));
+  });
+
+  test.each([
+    ['missing', [plan]],
+    ['inactive', [plan, { ...commercialPlan, active: false }]]
+  ])('disables campaign creation when the Commercial plan is %s', async (_case, availablePlans) => {
+    vi.mocked(loadPlans).mockResolvedValue(availablePlans);
+    await renderInvitesDashboard();
+    const campaigns = screen.getByRole('region', { name: 'Bulk Invite Campaigns' });
+    expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(campaigns).getByRole('alert').textContent).toContain('No eligible plan is available');
+    expect(within(campaigns).queryByRole('combobox', { name: 'Campaign plan' })).toBeNull();
+    expect(createBulkInviteCampaign).not.toHaveBeenCalled();
+  });
+
+  test('renders returned attendee referral policy truthfully', async () => {
+    vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([
+      campaign,
+      { ...campaign, campaign_id: 'campaign-disabled', label: 'No referrals', recipient_referrals_enabled: false }
+    ]);
+    await renderInvitesDashboard();
+    expect(screen.getByText('Allowed · limit 3')).not.toBeNull();
+    const disabled = screen.getByText('No referrals').closest('article')!;
+    expect(within(disabled).getByText('Disabled')).not.toBeNull();
   });
 
   test('revokes only active campaigns after confirmation and offers no delete or terminal revoke actions', async () => {
@@ -853,8 +965,10 @@ describe('users, limits, and retirement', () => {
       email: 'no-provenance@example.test',
       invite_issued_at: null,
       invite_redeemed_at: null,
+      invited_by_campaign_id: null,
       invited_by_kind: null,
       invited_by_label: null,
+      invited_by_origin: null,
       invited_by_user_id: null,
       registration_invite_id: null,
       user_id: 'user-no-provenance'
@@ -871,6 +985,34 @@ describe('users, limits, and retirement', () => {
 
     const emptySummary = (await screen.findByText(empty.email)).closest('summary')!;
     expect(within(emptySummary).getAllByText('—')).toHaveLength(4);
+  });
+
+  test('renders admin, user, and campaign provenance distinctly from invited_by_origin in rows and details', async () => {
+    const adminOrigin = makeUser();
+    const userOrigin: AdminUserSummary = {
+      ...makeUser(), email: 'user-origin@example.test', invited_by_kind: 'user_referral',
+      invited_by_label: 'Alice', invited_by_origin: 'user', invited_by_user_id: 'referrer-user', user_id: 'user-origin'
+    };
+    const campaignOrigin: AdminUserSummary = {
+      ...makeUser(), email: 'campaign-origin@example.test', invited_by_campaign_id: 'campaign-uuid',
+      invited_by_kind: 'system', invited_by_label: 'Test 1', invited_by_origin: 'campaign',
+      invited_by_user_id: null, user_id: 'campaign-origin'
+    };
+    vi.mocked(loadUsers).mockResolvedValue([adminOrigin, userOrigin, campaignOrigin]);
+    renderAdmin();
+
+    const adminSummary = (await screen.findByText(adminOrigin.email)).closest('summary')!;
+    const userSummary = (await screen.findByText(userOrigin.email)).closest('summary')!;
+    const campaignSummary = (await screen.findByText(campaignOrigin.email)).closest('summary')!;
+    expect(within(adminSummary).getByText('Admin')).not.toBeNull();
+    expect(within(userSummary).getByText('User · Alice')).not.toBeNull();
+    expect(within(campaignSummary).getByText('Campaign · Test 1')).not.toBeNull();
+    expect(within(campaignSummary).queryByText('Test 1')).toBeNull();
+
+    fireEvent.click(within(campaignSummary).getByText(campaignOrigin.email));
+    const campaignCard = campaignSummary.closest('article')!;
+    expect(within(campaignCard).getAllByText('Campaign · Test 1').length).toBeGreaterThanOrEqual(2);
+    expect(within(campaignCard).queryByText('User · Test 1')).toBeNull();
   });
 
   test('loads, edits, saves, and clears a private admin note only in expanded details', async () => {

@@ -28,9 +28,10 @@ function formatDate(value: string) {
 export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInviteCampaignsProps) {
   const queryClient = useQueryClient();
   const [label, setLabel] = useState('');
-  const [planId, setPlanId] = useState('');
   const [maxRegistrations, setMaxRegistrations] = useState(1);
   const [trialDays, setTrialDays] = useState(1);
+  const [recipientReferralsEnabled, setRecipientReferralsEnabled] = useState(true);
+  const [recipientReferralLimit, setRecipientReferralLimit] = useState('3');
   const [expiresAt, setExpiresAt] = useState('');
   const [createResult, setCreateResult] = useState<AdminBulkInviteCreateResponse | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<AdminBulkInviteSummary | null>(null);
@@ -43,9 +44,7 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
     retry: false
   });
 
-  useEffect(() => {
-    if (!planId && plans?.[0]) setPlanId(plans[0].id);
-  }, [planId, plans]);
+  const commercialPlan = plans?.find((plan) => plan.code === 'commercial-rub-v1' && plan.active);
 
   useEffect(() => {
     if (isUnauthorized(campaignsQuery.error)) onSessionExpired();
@@ -63,6 +62,8 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
     onSuccess: async (result) => {
       setCreateResult(result);
       setLabel('');
+      setRecipientReferralsEnabled(true);
+      setRecipientReferralLimit('3');
       setStatus('Bulk invite campaign created. Save its one-time link now.');
       await refresh();
     }
@@ -83,12 +84,16 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!planId || !expiresAt || createMutation.isPending) return;
+    const referralLimit = Number(recipientReferralLimit);
+    if (!commercialPlan || !expiresAt || createMutation.isPending
+      || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(referralLimit)) return;
     const body: AdminBulkInviteCreateRequest = {
       expires_at: new Date(expiresAt).toISOString(),
       label: label.trim(),
       max_registrations: maxRegistrations,
-      plan_id: planId,
+      plan_id: commercialPlan.id,
+      recipient_referral_limit: referralLimit,
+      recipient_referrals_enabled: recipientReferralsEnabled,
       trial_days: trialDays
     };
     setStatus('Creating bulk invite campaign…');
@@ -103,7 +108,8 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
   const valid = label.trim().length >= 1 && label.trim().length <= 160
     && Number.isInteger(maxRegistrations) && maxRegistrations >= 1 && maxRegistrations <= 10000
     && Number.isInteger(trialDays) && trialDays >= 1 && trialDays <= 30
-    && Boolean(planId && expiresAt);
+    && /^\d+$/.test(recipientReferralLimit) && Number.isInteger(Number(recipientReferralLimit))
+    && Boolean(commercialPlan && expiresAt);
 
   return (
     <section className={styles.campaigns} aria-labelledby="bulk-invite-campaigns-title">
@@ -120,12 +126,10 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
           <span>Label</span>
           <input maxLength={160} required value={label} onChange={(event) => setLabel(event.target.value)} />
         </label>
-        <label className={adminStyles.field}>
-          <span>Campaign plan</span>
-          <select aria-label="Campaign plan" required value={planId} onChange={(event) => setPlanId(event.target.value)}>
-            {plans?.map((plan) => <option key={plan.id} value={plan.id}>{plan.display_name} ({plan.code})</option>)}
-          </select>
-        </label>
+        <div className={adminStyles.field}>
+          <span>Plan</span>
+          <strong>{commercialPlan?.display_name ?? 'Commercial unavailable'}</strong>
+        </div>
         <label className={adminStyles.field}>
           <span>Maximum registrations</span>
           <input max="10000" min="1" required type="number" value={maxRegistrations} onChange={(event) => setMaxRegistrations(event.target.valueAsNumber)} />
@@ -138,10 +142,37 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
           <span>Expires at</span>
           <input required type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
         </label>
+        <label>
+          <input
+            checked={recipientReferralsEnabled}
+            type="checkbox"
+            onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
+          /> Allow invitations for attendees
+        </label>
+        <label className={adminStyles.field}>
+          <span>Active invitation limit per attendee</span>
+          <input
+            aria-label="Active invitation limit per attendee"
+            inputMode="numeric"
+            min="0"
+            required
+            step="1"
+            type="number"
+            value={recipientReferralLimit}
+            onChange={(event) => setRecipientReferralLimit(event.target.value)}
+          />
+          <small>0 = unlimited. The limit remains editable when attendee invitations are disabled.</small>
+        </label>
         <button className={adminStyles.primaryButton} disabled={!valid || createMutation.isPending} type="submit">
           {createMutation.isPending ? 'Creating…' : 'Create campaign'}
         </button>
       </form>
+
+      {plans && !commercialPlan ? (
+        <p className={adminStyles.fieldError} role="alert">
+          Campaign creation requires the active Commercial plan (commercial-rub-v1). No eligible plan is available.
+        </p>
+      ) : null}
 
       <p className={adminStyles.statusLine} role="status" aria-live="polite">
         {status || (campaignsQuery.isPending ? 'Loading campaigns…' : campaignsQuery.isError ? 'Unable to load campaigns.' : '')}
@@ -160,6 +191,10 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
               <div><dt>Trial</dt><dd>{campaign.trial_days} days</dd></div>
               <div><dt>Expires</dt><dd>{formatDate(campaign.expires_at)}</dd></div>
               <div><dt>Plan</dt><dd>{planName(campaign.plan_id)}</dd></div>
+              <div>
+                <dt>Attendee invitations</dt>
+                <dd>{campaign.recipient_referrals_enabled ? `Allowed · limit ${campaign.recipient_referral_limit}` : 'Disabled'}</dd>
+              </div>
             </dl>
             <StatusBadge status={campaign.state} />
             {campaign.state === 'active' ? (

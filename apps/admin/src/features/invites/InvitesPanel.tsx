@@ -64,7 +64,6 @@ function shareUrl(inviteId: string, token: string) {
 }
 
 function createdBy(invite: AdminInviteSummary) {
-  if (invite.origin === 'campaign') return invite.bulk_campaign_label || 'Campaign';
   if (invite.created_by_kind === 'admin_secret' || invite.created_by_kind === 'admin_user' || invite.created_by_kind === 'admin') {
     return 'Admin';
   }
@@ -111,8 +110,12 @@ function InviteRow({
       <dl className={styles.inviteMetadata}>
         {invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? <div><dt>Bound email</dt><dd>{invite.intended_email}</dd></div> : null}
         <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
-        <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>
-        {campaignChild ? <div><dt>Parent campaign</dt><dd>{invite.bulk_campaign_label || 'Campaign'}</dd></div> : null}
+        {campaignChild ? (
+          <>
+            <div><dt>Origin</dt><dd>Campaign</dd></div>
+            <div><dt>Campaign</dt><dd>{invite.bulk_campaign_label || 'Unknown campaign'}</dd></div>
+          </>
+        ) : <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>}
         <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
         <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
         {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
@@ -153,6 +156,8 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const [planId, setPlanId] = useState('');
   const [profileLimit, setProfileLimit] = useState(0);
   const [email, setEmail] = useState('');
+  const [recipientReferralsEnabled, setRecipientReferralsEnabled] = useState(true);
+  const [recipientReferralLimit, setRecipientReferralLimit] = useState('3');
   const [origins, setOrigins] = useState<Array<InviteOrigin>>(defaultOrigins);
   const [ephemeralTokens, setEphemeralTokens] = useState<Map<string, EphemeralInviteToken>>(() => new Map());
   const [copyFeedback, setCopyFeedback] = useState<Map<string, CopyFeedback>>(() => new Map());
@@ -313,11 +318,15 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!planId || createMutation.isPending) return;
+    const referralLimit = Number(recipientReferralLimit);
+    if (!planId || createMutation.isPending
+      || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(referralLimit)) return;
     setStatus('Creating invite…');
     createMutation.mutate({
       intended_email: email.trim() || null,
       plan_id: planId,
+      recipient_referral_limit: referralLimit,
+      recipient_referrals_enabled: recipientReferralsEnabled,
       wireguard_profile_limit: profileLimit
     });
   };
@@ -395,7 +404,33 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
           />
           {email.trim() ? <small>The backend sends a registration email directly.</small> : null}
         </label>
-        <button className={styles.primaryButton} disabled={!planId || createMutation.isPending || !Number.isInteger(profileLimit) || profileLimit < 0} type="submit">
+        <label>
+          <input
+            checked={recipientReferralsEnabled}
+            type="checkbox"
+            onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
+          /> Allow invitations
+        </label>
+        <label className={styles.field}>
+          <span>Active invitation limit</span>
+          <input
+            aria-label="Active invitation limit"
+            inputMode="numeric"
+            min="0"
+            required
+            step="1"
+            type="number"
+            value={recipientReferralLimit}
+            onChange={(event) => setRecipientReferralLimit(event.target.value)}
+          />
+          <small>0 = unlimited. This policy applies to the future recipient and remains editable when invitations are disabled.</small>
+        </label>
+        <button
+          className={styles.primaryButton}
+          disabled={!planId || createMutation.isPending || !Number.isInteger(profileLimit) || profileLimit < 0
+            || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit))}
+          type="submit"
+        >
           {createMutation.isPending ? 'Creating…' : 'Create invite'}
         </button>
       </form>

@@ -85,6 +85,14 @@ export type AdminBulkInviteCreateRequest = {
      */
     trial_days: number;
     /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled?: boolean;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit?: number;
+    /**
      * Expires At
      */
     expires_at: string;
@@ -129,6 +137,14 @@ export type AdminBulkInviteSummary = {
      * Trial Days
      */
     trial_days: number;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit: number;
     /**
      * Expires At
      */
@@ -215,6 +231,14 @@ export type AdminInviteRequest = {
      * Wireguard Profile Limit
      */
     wireguard_profile_limit?: number | null;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled?: boolean;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit?: number;
 };
 
 /**
@@ -241,6 +265,14 @@ export type AdminInviteResponse = {
      * Wireguard Profile Limit
      */
     wireguard_profile_limit: number;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit: number;
     /**
      * Email Sent
      */
@@ -297,6 +329,14 @@ export type AdminInviteSummary = {
      * Wireguard Profile Limit
      */
     wireguard_profile_limit: number;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit: number;
     /**
      * Max Uses
      */
@@ -870,6 +910,10 @@ export type AdminUserSummary = {
      */
     invited_by_kind: string | null;
     /**
+     * Invited By Origin
+     */
+    invited_by_origin: 'admin' | 'user' | 'campaign' | null;
+    /**
      * Invited By User Id
      */
     invited_by_user_id: string | null;
@@ -877,6 +921,10 @@ export type AdminUserSummary = {
      * Invited By Label
      */
     invited_by_label: string | null;
+    /**
+     * Invited By Campaign Id
+     */
+    invited_by_campaign_id: string | null;
     /**
      * Grants
      */

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
   assertPinnedOpenApi,
@@ -47,6 +48,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
   test('pins the accepted account, invite, admin, and runtime telemetry boundaries', async () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
+    expect(createHash('sha256').update(source, 'utf8').digest('hex'))
+      .toBe('4d914e9768e5b57fc288d4977a527285a5ddaaaf8f2b43ed9d739a3db0089831');
     expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 73, schemas: 78 });
 
     const schemas = document.components.schemas;
@@ -75,6 +78,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminUserSummary.required).toContain('configurations');
     expect(schemas.AdminUserSummary.required).toContain('referrals_enabled');
     expect(schemas.AdminUserSummary.required).toContain('referral_limit');
+    expect(schemas.AdminUserSummary.required).toContain('invited_by_origin');
+    expect(schemas.AdminUserSummary.required).toContain('invited_by_campaign_id');
+    expect(schemas.AdminUserSummary.properties.invited_by_origin.anyOf[0].enum)
+      .toEqual(['admin', 'user', 'campaign']);
     expect(schemas.AdminUserMetadataUpdateRequest.properties.admin_note.anyOf[0].maxLength).toBe(4000);
     expect(schemas.InviteInspectResponse.properties.state.enum).toEqual([
       'active', 'awaiting_confirmation', 'used', 'revoked', 'expired'
@@ -89,6 +96,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminInviteSummary.required).toContain('bulk_campaign_id');
     expect(schemas.AdminInviteSummary.required).toContain('bulk_campaign_label');
     expect(schemas.AdminInviteRequest.properties.wireguard_profile_limit.anyOf[0].minimum).toBe(0);
+    expect(schemas.AdminInviteRequest.properties.recipient_referrals_enabled.default).toBe(true);
+    expect(schemas.AdminInviteRequest.properties.recipient_referral_limit).toMatchObject({ default: 3, minimum: 0 });
+    expect(schemas.AdminInviteSummary.required).toContain('recipient_referrals_enabled');
+    expect(schemas.AdminInviteSummary.required).toContain('recipient_referral_limit');
     expect(schemas.AdminInviteLimitUpdateRequest.properties.profile_limit.minimum).toBe(0);
     expect(document.paths).toHaveProperty('/v2/auth/invites/inspect');
     expect(document.paths).toHaveProperty('/v2/auth/invites/resend');
@@ -115,8 +126,13 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminBulkInviteCreateRequest.required).toEqual([
       'label', 'plan_id', 'max_registrations', 'trial_days', 'expires_at'
     ]);
+    expect(schemas.AdminBulkInviteCreateRequest.properties.recipient_referrals_enabled.default).toBe(true);
+    expect(schemas.AdminBulkInviteCreateRequest.properties.recipient_referral_limit)
+      .toMatchObject({ default: 3, minimum: 0 });
     expect(schemas.AdminBulkInviteCreateResponse.required).toEqual(['campaign', 'campaign_token']);
     expect(schemas.AdminBulkInviteSummary.properties.state.enum).toEqual(['active', 'full', 'expired', 'revoked']);
+    expect(schemas.AdminBulkInviteSummary.required).toContain('recipient_referrals_enabled');
+    expect(schemas.AdminBulkInviteSummary.required).toContain('recipient_referral_limit');
     expect(document.paths['/v2/admin/invites/{invite_id}/share-token/reissue'].post.responses['200'].content['application/json'].schema)
       .toEqual({ $ref: '#/components/schemas/AdminInviteShareTokenResponse' });
     expect(schemas.AdminInviteShareTokenResponse.required).toEqual(['invite_id', 'invite_token']);

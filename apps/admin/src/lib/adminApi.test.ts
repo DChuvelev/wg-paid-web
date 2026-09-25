@@ -137,7 +137,8 @@ describe('admin CSRF cookie handling', () => {
     const campaign = { campaign_id: 'campaign-1', label: 'Conference', state: 'active' };
     const body = {
       expires_at: '2026-10-01T09:00:00.000Z', label: 'Conference', max_registrations: 350,
-      plan_id: 'plan-1', trial_days: 3
+      plan_id: 'commercial-plan-id', recipient_referral_limit: 8,
+      recipient_referrals_enabled: false, trial_days: 3
     };
     sdk.listBulkInvites.mockResolvedValue({ data: [campaign], response: new Response(null, { status: 200 }) });
     sdk.createBulkInvite.mockResolvedValue({ data: { campaign, campaign_token: 'one-time' }, response: new Response(null, { status: 200 }) });
