@@ -5,10 +5,31 @@
 .originFilters input { margin: 0; accent-color: #2857a4; }
 .originBadge { display: inline-flex; width: fit-content; margin-top: 0.25rem; padding: 0.15rem 0.4rem; border-radius: 999px; color: #40516c; background: #eef2f7; font-size: 0.68rem; font-weight: 800; text-transform: capitalize; }
 .campaignOrigin { color: #6b3fa0; background: #f2eafa; }
+.ordinaryInviteForm { align-items: end; }
+.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email referrals referralLimit action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(6.5rem, 7.5rem) minmax(15rem, 1fr) max-content minmax(8rem, 9rem) auto; }
+.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email referrals referralLimit action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(15rem, 1fr) max-content minmax(8rem, 9rem) auto; }
+.invitePlanField { grid-area: plan; }
+.inviteConfigurationsField { grid-area: configurations; }
+.inviteTrialField { grid-area: trial; }
+.inviteEmailField { grid-area: email; }
+.inviteReferralToggle { display: inline-flex; grid-area: referrals; align-items: center; align-self: end; gap: 0.4rem; min-height: 2.75rem; color: #34435a; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
+.inviteReferralToggle input, .campaignReferralToggle input { margin: 0; accent-color: #2857a4; }
+.inviteReferralLimitField { grid-area: referralLimit; }
+.inviteCreateAction { grid-area: action; align-self: end; justify-self: start; white-space: nowrap; }
 .campaigns { margin-top: 1.75rem; padding-top: 1.4rem; border-top: 2px solid #d7dfeb; }
 .subsectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .subsectionHeading h3 { margin: 0; color: #101828; font-size: 1.25rem; }
-.campaignForm { display: grid; grid-template-columns: minmax(12rem, 1.4fr) minmax(10rem, 1fr) repeat(3, minmax(8rem, 0.8fr)) auto; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #d8e1ed; border-radius: 0.75rem; background: #f8fafc; }
+.campaignForm { display: grid; gap: 0.9rem; padding: 1rem; border: 1px solid #d8e1ed; border-radius: 0.75rem; background: #f8fafc; }
+.campaignIdentityRow { display: grid; grid-template-areas: "label plan maximum trial expires"; grid-template-columns: minmax(16rem, 1fr) minmax(8rem, max-content) minmax(9rem, 11rem) minmax(6.5rem, 7.5rem) minmax(13rem, 0.8fr); align-items: end; gap: 0.7rem; }
+.campaignLabelField { grid-area: label; }
+.campaignPlanField { grid-area: plan; }
+.campaignPlanField strong { display: inline-flex; align-items: center; min-height: 2.75rem; white-space: nowrap; }
+.campaignMaximumField { grid-area: maximum; }
+.campaignTrialField { grid-area: trial; }
+.campaignExpiresField { grid-area: expires; }
+.campaignPolicyRow { display: grid; grid-template-columns: max-content minmax(12rem, 15rem) auto; align-items: end; justify-content: start; gap: 0.7rem; }
+.campaignReferralToggle { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.75rem; color: #34435a; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
+.campaignCreateAction { white-space: nowrap; }
 .createResult { display: grid; gap: 1rem; margin: 1rem 0; padding: 1rem; border: 2px solid #b42318; border-radius: 0.75rem; background: #fffafa; }
 .createResult h4 { margin: 0; color: #172033; font-size: 1.05rem; }
 .oneTimeWarning { display: grid; gap: 0.3rem; padding: 0.9rem; border-left: 6px solid #b42318; color: #7a2119; background: #fff1ef; }
@@ -28,13 +49,17 @@
 .campaignRow dd { overflow-wrap: anywhere; margin: 0.08rem 0 0; color: #40516c; font-size: 0.78rem; }
 
 @media (max-width: 78rem) {
-  .campaignForm { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .campaignForm button { min-width: 0; }
+  .ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email" "referrals referralLimit . action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(6.5rem, 7.5rem) minmax(12rem, 1fr); }
+  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email email" "referrals referralLimit . action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(8rem, 9rem) minmax(12rem, 1fr); }
+  .campaignIdentityRow { grid-template-areas: "label label plan" "maximum trial expires"; grid-template-columns: minmax(12rem, 1fr) minmax(7rem, 9rem) minmax(13rem, 15rem); }
 }
 
 @media (max-width: 48rem) {
-  .campaignForm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .campaignForm > :first-child, .campaignForm button { grid-column: 1 / -1; }
+  .ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations" "trial email" "referrals referralLimit" "action action"; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations" "email email" "referrals referralLimit" "action action"; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .campaignIdentityRow { grid-template-areas: "label label" "plan maximum" "trial expires"; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .campaignPolicyRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .campaignCreateAction { justify-self: start; }
   .campaignShareLayout, .campaignRow { grid-template-columns: 1fr; }
   .qrBlock { justify-self: start; }
   .campaignRow dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -42,7 +67,9 @@
 }
 
 @media (max-width: 32rem) {
-  .campaignForm, .campaignRow dl { grid-template-columns: 1fr; }
-  .campaignForm > :first-child, .campaignForm button { grid-column: auto; }
+  .ordinaryInviteFormWithTrial, .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan" "configurations" "trial" "email" "referrals" "referralLimit" "action"; grid-template-columns: minmax(0, 1fr); }
+  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan" "configurations" "email" "referrals" "referralLimit" "action"; }
+  .campaignIdentityRow { grid-template-areas: "label" "plan" "maximum" "trial" "expires"; grid-template-columns: minmax(0, 1fr); }
+  .campaignPolicyRow, .campaignRow dl { grid-template-columns: minmax(0, 1fr); }
   .qrBlock { justify-self: stretch; }
 }

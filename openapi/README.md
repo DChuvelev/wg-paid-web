@@ -2,15 +2,15 @@
 
 The canonical `openapi.json` is committed from the deliberately imported and independently verified VM121 contract. Do not regenerate it from a live backend during ordinary builds and do not hand-write schema contents.
 
-The deliberate P30E owner-provided import must verify all of the following before generation:
+The deliberate P30H owner-provided import must verify all of the following before generation:
 
 - OpenAPI version: `3.1.0`
 - operations: `73`
 - schemas: `78`
-- observed raw SHA-256: `4d914e9768e5b57fc288d4977a527285a5ddaaaf8f2b43ed9d739a3db0089831`
-- canonical SHA-256: `3ed2ade149f90636d2475436a05ebf581878571537cffbc4122d18e16df8e997`
+- observed raw SHA-256: `d0cbb00608866a114e6b7871d9334b3f5f168ee1c935f0dffef747fe7c7bcf11`
+- canonical SHA-256: `47e046a42bb8371618d65c32d45747134e5953c859fc38f9cb8b9c350b298b82`
 
-The accepted read-only export was supplied directly by the owner. It adds recipient referral policy fields to administrator and bulk campaign invites, plus explicit campaign provenance on admin user summaries.
+The accepted read-only export was supplied directly by the owner. It adds the backend-authoritative ordinary admin invite trial-day default and override fields while preserving the accepted P30 invite campaign and referral-policy contract.
 
 The raw hash documents the previously observed file only; it is not the identity check because harmless JSON formatting or object-key order may change the raw bytes. The guard parses JSON, recursively sorts object keys while preserving array order, serializes compact JSON, and hashes those UTF-8 canonical bytes. It also checks the OpenAPI version, operation count, and schema count.
 

@@ -23,10 +23,10 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
 
 const plan = {
   active: true, code: 'standard', default_amneziawg_limit: 0, default_wireguard_limit: 2,
-  display_name: 'Standard', id: 'plan-1'
+  display_name: 'Standard', id: 'plan-1', trial_days: null
 };
 const commercialPlan = {
-  ...plan, code: 'commercial-rub-v1', display_name: 'Commercial', id: 'commercial-plan-id'
+  ...plan, code: 'commercial-rub-v1', display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7
 };
 const invite: AdminInviteSummary = {
   can_change_email: true, can_reissue_share_link: false, can_resend: true, can_revoke: true,
@@ -36,7 +36,7 @@ const invite: AdminInviteSummary = {
   intended_email: 'invitee@example.test', invite_id: 'invite-1', max_uses: 1, plan_id: 'plan-1',
   magic_link_expires_at: null, magic_link_sent_at: null, pending_email: null,
   recipient_referral_limit: 3, recipient_referrals_enabled: true,
-  resend_available_at: null, revoked_at: null, state: 'active', used_count: 0, wireguard_profile_limit: 2
+  resend_available_at: null, revoked_at: null, state: 'active', trial_days: null, used_count: 0, wireguard_profile_limit: 2
 };
 const runtimeSnapshot: AdminRuntimeConnectionsResponse = {
   generated_at: '2026-09-12T10:00:00Z', received_at: '2026-09-12T10:00:01Z',
@@ -183,7 +183,7 @@ beforeEach(() => {
   vi.mocked(createInvite).mockResolvedValue({
     email_sent: false, expires_at: null, intended_email: null, invite_id: 'invite-new',
     invite_token: 'secret-invite-token', recipient_referral_limit: 3,
-    recipient_referrals_enabled: true, wireguard_profile_limit: 2
+    recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
   });
   vi.mocked(createBulkInviteCampaign).mockResolvedValue({ campaign, campaign_token: 'campaign-secret' });
   vi.mocked(revokeBulkInviteCampaign).mockResolvedValue({ ...campaign, revoked_at: '2026-09-02T00:00:00Z', state: 'revoked' });
@@ -242,7 +242,7 @@ describe('admin session and invites', () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: transferable.invite_id,
       invite_token: 'secret token/+', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     const createButton = screen.getByRole('button', { name: 'Create invite' });
@@ -255,7 +255,7 @@ describe('admin session and invites', () => {
     await screen.findByText('Transferable invite created. Copy its registration URL from Active Invites.');
     expect(createInvite).toHaveBeenCalledWith({
       intended_email: null, plan_id: 'plan-1', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     const active = screen.getByRole('region', { name: 'Active Invites' });
     expect(within(active).getByText('Invite 12345678')).not.toBeNull();
@@ -278,6 +278,7 @@ describe('admin session and invites', () => {
       plan_id: plan.id,
       recipient_referral_limit: Number(limit),
       recipient_referrals_enabled: enabled,
+      trial_days: null,
       wireguard_profile_limit: plan.default_wireguard_limit
     }));
   });
@@ -307,7 +308,7 @@ describe('admin session and invites', () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
       invite_token: 'copy-token', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
@@ -334,7 +335,7 @@ describe('admin session and invites', () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
       invite_token: 'first-token', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     vi.mocked(reissueInviteShareLink).mockResolvedValue({ invite_id: inviteId, invite_token: 'replacement-token' });
     window.history.replaceState(null, '', '/#/invites');
@@ -367,7 +368,7 @@ describe('admin session and invites', () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: null, invite_id: inviteId,
       invite_token: 'ephemeral-admin-token', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     window.history.replaceState(null, '', '/#/invites');
     renderAdmin();
@@ -413,6 +414,18 @@ describe('admin session and invites', () => {
     expect(document.body.textContent).not.toContain('secret-invite-token');
   });
 
+  test('renders backend-provided invite trial days and invents no value when null', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([
+      { ...invite, intended_email: 'trial@example.test', invite_id: 'trial-invite', trial_days: 12 },
+      { ...invite, intended_email: 'no-trial@example.test', invite_id: 'no-trial-invite', trial_days: null }
+    ]);
+    await renderInvitesDashboard();
+    const trialRow = (await screen.findByText('trial@example.test')).closest('article')!;
+    const noTrialRow = screen.getByText('no-trial@example.test').closest('article')!;
+    expect(within(trialRow).getByText('Trial: 12 days')).not.toBeNull();
+    expect(within(noTrialRow).queryByText(/^Trial:/)).toBeNull();
+  });
+
   test('resets the pending configuration snapshot to a newly selected plan default', async () => {
     vi.mocked(loadPlans).mockResolvedValue([plan, { ...plan, code: 'zero', default_wireguard_limit: 0, display_name: 'Zero', id: 'plan-2' }]);
     await renderInvitesDashboard();
@@ -422,7 +435,7 @@ describe('admin session and invites', () => {
   });
 
   test('offers both backend-returned account plans and submits the selected plan id and default limit', async () => {
-    const commercial = { ...plan, code: 'commercial', default_wireguard_limit: 4, display_name: 'Commercial', id: 'commercial-plan-id' };
+    const commercial = { ...plan, code: 'commercial', default_wireguard_limit: 4, display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7 };
     vi.mocked(loadPlans).mockResolvedValue([plan, commercial]);
     await renderInvitesDashboard();
     const selector = screen.getByLabelText('Plan');
@@ -430,18 +443,56 @@ describe('admin session and invites', () => {
     expect(within(selector).getByRole('option', { name: 'Commercial (commercial)' })).toBeTruthy();
     fireEvent.change(selector, { target: { value: commercial.id } });
     expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('4');
+    const ordinaryForm = screen.getByRole('button', { name: 'Create invite' }).closest('form')!;
+    expect((within(ordinaryForm).getByLabelText('Trial days') as HTMLInputElement).value).toBe('7');
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
     await waitFor(() => expect(createInvite).toHaveBeenCalledWith({
       intended_email: null, plan_id: commercial.id, recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 4
+      recipient_referrals_enabled: true, trial_days: 7, wireguard_profile_limit: 4
     }));
+  });
+
+  test('submits an explicit custom Commercial trial override', async () => {
+    await renderInvitesDashboard();
+    fireEvent.change(screen.getByLabelText('Plan'), { target: { value: commercialPlan.id } });
+    const ordinaryForm = screen.getByRole('button', { name: 'Create invite' }).closest('form')!;
+    const trial = within(ordinaryForm).getByLabelText('Trial days') as HTMLInputElement;
+    expect(trial.value).toBe('7');
+    fireEvent.change(trial, { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await waitFor(() => expect(createInvite).toHaveBeenCalledWith(expect.objectContaining({
+      plan_id: commercialPlan.id,
+      trial_days: 30
+    })));
+  });
+
+  test('clears a Commercial trial override on a non-trial plan and restores the plan default when switched back', async () => {
+    await renderInvitesDashboard();
+    const selector = screen.getByLabelText('Plan');
+    const ordinaryForm = screen.getByRole('button', { name: 'Create invite' }).closest('form')!;
+    fireEvent.change(selector, { target: { value: commercialPlan.id } });
+    fireEvent.change(within(ordinaryForm).getByLabelText('Trial days'), { target: { value: '30' } });
+    fireEvent.change(selector, { target: { value: plan.id } });
+    expect(within(ordinaryForm).queryByLabelText('Trial days')).toBeNull();
+    fireEvent.change(selector, { target: { value: commercialPlan.id } });
+    expect((within(ordinaryForm).getByLabelText('Trial days') as HTMLInputElement).value).toBe('7');
+  });
+
+  test.each(['0', '-1', '31', '1.5'])('rejects invalid ordinary invite trial days %s', async (value) => {
+    await renderInvitesDashboard();
+    fireEvent.change(screen.getByLabelText('Plan'), { target: { value: commercialPlan.id } });
+    const ordinaryForm = screen.getByRole('button', { name: 'Create invite' }).closest('form')!;
+    fireEvent.change(within(ordinaryForm).getByLabelText('Trial days'), { target: { value } });
+    expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    expect(createInvite).not.toHaveBeenCalled();
   });
 
   test('email mode reports confirmed delivery and never exposes its raw invite URL', async () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: true, expires_at: null, intended_email: 'direct@example.test', invite_id: 'invite-direct',
       invite_token: 'must-not-be-visible', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'direct@example.test' } });
@@ -450,7 +501,7 @@ describe('admin session and invites', () => {
     expect((await screen.findAllByText('Invite created; registration email sent to direct@example.test.')).length).toBeGreaterThan(0);
     expect(createInvite).toHaveBeenCalledWith({
       intended_email: 'direct@example.test', plan_id: 'plan-1', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     expect(document.body.textContent).not.toContain('must-not-be-visible');
     expect(screen.queryByRole('button', { name: 'Copy invite invite-direct' })).toBeNull();
@@ -460,7 +511,7 @@ describe('admin session and invites', () => {
     vi.mocked(createInvite).mockResolvedValue({
       email_sent: false, expires_at: null, intended_email: 'retry@example.test', invite_id: 'invite-retry',
       invite_token: 'must-not-be-visible', recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, wireguard_profile_limit: 2
+      recipient_referrals_enabled: true, trial_days: null, wireguard_profile_limit: 2
     });
     await renderInvitesDashboard();
     fireEvent.change(within(screen.getByRole('region', { name: 'Invites' })).getByLabelText(/Email/), { target: { value: 'retry@example.test' } });

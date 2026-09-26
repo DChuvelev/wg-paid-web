@@ -117,6 +117,7 @@ function InviteRow({
           </>
         ) : <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>}
         <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
+        {invite.trial_days !== null ? <div><dt className={styles.visuallyHidden}>Trial</dt><dd>Trial: {invite.trial_days} days</dd></div> : null}
         <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
         {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
         {invite.magic_link_expires_at ? <div><dt>Current link expires</dt><dd>{formatDate(invite.magic_link_expires_at)}</dd></div> : null}
@@ -155,6 +156,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const queryClient = useQueryClient();
   const [planId, setPlanId] = useState('');
   const [profileLimit, setProfileLimit] = useState(0);
+  const [trialDays, setTrialDays] = useState('');
   const [email, setEmail] = useState('');
   const [recipientReferralsEnabled, setRecipientReferralsEnabled] = useState(true);
   const [recipientReferralLimit, setRecipientReferralLimit] = useState('3');
@@ -193,13 +195,19 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const selectPlan = (nextPlanId: string) => {
     setPlanId(nextPlanId);
     const selected = plansQuery.data?.find((plan) => plan.id === nextPlanId);
-    if (selected) setProfileLimit(selected.default_wireguard_limit);
+    if (selected) {
+      setProfileLimit(selected.default_wireguard_limit);
+      setTrialDays(selected.trial_days === null ? '' : String(selected.trial_days));
+    } else {
+      setTrialDays('');
+    }
   };
 
   useEffect(() => {
     if (planId || !plansQuery.data?.[0]) return;
     setPlanId(plansQuery.data[0].id);
     setProfileLimit(plansQuery.data[0].default_wireguard_limit);
+    setTrialDays(plansQuery.data[0].trial_days === null ? '' : String(plansQuery.data[0].trial_days));
   }, [planId, plansQuery.data]);
 
   useEffect(() => {
@@ -319,14 +327,20 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const referralLimit = Number(recipientReferralLimit);
+    const selectedPlan = plansQuery.data?.find((plan) => plan.id === planId);
+    const trialApplicable = selectedPlan?.trial_days !== null && selectedPlan?.trial_days !== undefined;
+    const numericTrialDays = Number(trialDays);
     if (!planId || createMutation.isPending
-      || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(referralLimit)) return;
+      || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(referralLimit)
+      || (trialApplicable && (!/^\d+$/.test(trialDays) || !Number.isInteger(numericTrialDays)
+        || numericTrialDays < 1 || numericTrialDays > 30))) return;
     setStatus('Creating invite…');
     createMutation.mutate({
       intended_email: email.trim() || null,
       plan_id: planId,
       recipient_referral_limit: referralLimit,
       recipient_referrals_enabled: recipientReferralsEnabled,
+      trial_days: trialApplicable ? numericTrialDays : null,
       wireguard_profile_limit: profileLimit
     });
   };
@@ -363,6 +377,10 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   };
 
   const visibleInvites = origins.length > 0 ? (invitesQuery.data ?? []) : [];
+  const selectedPlan = plansQuery.data?.find((plan) => plan.id === planId);
+  const trialApplicable = selectedPlan?.trial_days !== null && selectedPlan?.trial_days !== undefined;
+  const trialValid = !trialApplicable || (/^\d+$/.test(trialDays)
+    && Number.isInteger(Number(trialDays)) && Number(trialDays) >= 1 && Number(trialDays) <= 30);
   const activeInvites = visibleInvites
     .filter((item) => item.state === 'active' || item.state === 'awaiting_confirmation')
     .sort((first, second) => (
@@ -381,18 +399,35 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
       </div>
 
-      <form className={styles.inviteForm} onSubmit={submit}>
-        <label className={styles.field}>
+      <form className={`${styles.inviteForm} ${inviteStyles.ordinaryInviteForm} ${trialApplicable ? inviteStyles.ordinaryInviteFormWithTrial : inviteStyles.ordinaryInviteFormWithoutTrial}`} onSubmit={submit}>
+        <label className={`${styles.field} ${inviteStyles.invitePlanField}`}>
           <span>Plan</span>
           <select required value={planId} disabled={plansQuery.isPending || createMutation.isPending} onChange={(event) => selectPlan(event.target.value)}>
             {plansQuery.data?.map((plan) => <option key={plan.id} value={plan.id}>{plan.display_name} ({plan.code})</option>)}
           </select>
         </label>
-        <label className={styles.field}>
+        <label className={`${styles.field} ${inviteStyles.inviteConfigurationsField}`}>
           <span>Number of configurations</span>
           <input min="0" required type="number" value={profileLimit} disabled={createMutation.isPending} onChange={(event) => setProfileLimit(event.target.valueAsNumber)} />
         </label>
-        <label className={styles.field}>
+        {trialApplicable ? (
+          <label className={`${styles.field} ${inviteStyles.inviteTrialField}`}>
+            <span>Trial days</span>
+            <input
+              aria-label="Trial days"
+              inputMode="numeric"
+              max="30"
+              min="1"
+              required
+              step="1"
+              type="number"
+              value={trialDays}
+              disabled={createMutation.isPending}
+              onChange={(event) => setTrialDays(event.target.value)}
+            />
+          </label>
+        ) : null}
+        <label className={`${styles.field} ${inviteStyles.inviteEmailField}`}>
           <span>Email (optional)</span>
           <input
             autoComplete="off"
@@ -404,14 +439,14 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
           />
           {email.trim() ? <small>The backend sends a registration email directly.</small> : null}
         </label>
-        <label>
+        <label className={inviteStyles.inviteReferralToggle}>
           <input
             checked={recipientReferralsEnabled}
             type="checkbox"
             onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
           /> Allow invitations
         </label>
-        <label className={styles.field}>
+        <label className={`${styles.field} ${inviteStyles.inviteReferralLimitField}`}>
           <span>Active invitation limit</span>
           <input
             aria-label="Active invitation limit"
@@ -423,12 +458,12 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
             value={recipientReferralLimit}
             onChange={(event) => setRecipientReferralLimit(event.target.value)}
           />
-          <small>0 = unlimited. This policy applies to the future recipient and remains editable when invitations are disabled.</small>
+          <small>0 = unlimited.</small>
         </label>
         <button
-          className={styles.primaryButton}
+          className={`${styles.primaryButton} ${inviteStyles.inviteCreateAction}`}
           disabled={!planId || createMutation.isPending || !Number.isInteger(profileLimit) || profileLimit < 0
-            || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit))}
+            || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit)) || !trialValid}
           type="submit"
         >
           {createMutation.isPending ? 'Creating…' : 'Create invite'}

@@ -49,7 +49,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('4d914e9768e5b57fc288d4977a527285a5ddaaaf8f2b43ed9d739a3db0089831');
+      .toBe('d0cbb00608866a114e6b7871d9334b3f5f168ee1c935f0dffef747fe7c7bcf11');
     expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 73, schemas: 78 });
 
     const schemas = document.components.schemas;
@@ -98,6 +98,15 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminInviteRequest.properties.wireguard_profile_limit.anyOf[0].minimum).toBe(0);
     expect(schemas.AdminInviteRequest.properties.recipient_referrals_enabled.default).toBe(true);
     expect(schemas.AdminInviteRequest.properties.recipient_referral_limit).toMatchObject({ default: 3, minimum: 0 });
+    expect(schemas.AdminPlanSummary.required).toContain('trial_days');
+    expect(schemas.AdminPlanSummary.properties.trial_days.anyOf).toEqual([
+      { type: 'integer' }, { type: 'null' }
+    ]);
+    expect(schemas.AdminInviteRequest.properties.trial_days.anyOf).toEqual([
+      { type: 'integer', maximum: 30, minimum: 1 }, { type: 'null' }
+    ]);
+    expect(schemas.AdminInviteResponse.required).toContain('trial_days');
+    expect(schemas.AdminInviteSummary.required).toContain('trial_days');
     expect(schemas.AdminInviteSummary.required).toContain('recipient_referrals_enabled');
     expect(schemas.AdminInviteSummary.required).toContain('recipient_referral_limit');
     expect(schemas.AdminInviteLimitUpdateRequest.properties.profile_limit.minimum).toBe(0);

@@ -239,6 +239,10 @@ export type AdminInviteRequest = {
      * Recipient Referral Limit
      */
     recipient_referral_limit?: number;
+    /**
+     * Trial Days
+     */
+    trial_days?: number | null;
 };
 
 /**
@@ -273,6 +277,10 @@ export type AdminInviteResponse = {
      * Recipient Referral Limit
      */
     recipient_referral_limit: number;
+    /**
+     * Trial Days
+     */
+    trial_days: number | null;
     /**
      * Email Sent
      */
@@ -337,6 +345,10 @@ export type AdminInviteSummary = {
      * Recipient Referral Limit
      */
     recipient_referral_limit: number;
+    /**
+     * Trial Days
+     */
+    trial_days: number | null;
     /**
      * Max Uses
      */
@@ -431,6 +443,10 @@ export type AdminPlanSummary = {
      * Default Amneziawg Limit
      */
     default_amneziawg_limit: number;
+    /**
+     * Trial Days
+     */
+    trial_days: number | null;
 };
 
 /**

@@ -122,50 +122,54 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
       </div>
 
       <form className={styles.campaignForm} onSubmit={submit}>
-        <label className={adminStyles.field}>
-          <span>Label</span>
-          <input maxLength={160} required value={label} onChange={(event) => setLabel(event.target.value)} />
-        </label>
-        <div className={adminStyles.field}>
-          <span>Plan</span>
-          <strong>{commercialPlan?.display_name ?? 'Commercial unavailable'}</strong>
+        <div className={styles.campaignIdentityRow}>
+          <label className={`${adminStyles.field} ${styles.campaignLabelField}`}>
+            <span>Label</span>
+            <input maxLength={160} required value={label} onChange={(event) => setLabel(event.target.value)} />
+          </label>
+          <div className={`${adminStyles.field} ${styles.campaignPlanField}`}>
+            <span>Plan</span>
+            <strong>{commercialPlan?.display_name ?? 'Commercial unavailable'}</strong>
+          </div>
+          <label className={`${adminStyles.field} ${styles.campaignMaximumField}`}>
+            <span>Maximum registrations</span>
+            <input max="10000" min="1" required type="number" value={maxRegistrations} onChange={(event) => setMaxRegistrations(event.target.valueAsNumber)} />
+          </label>
+          <label className={`${adminStyles.field} ${styles.campaignTrialField}`}>
+            <span>Trial days</span>
+            <input max="30" min="1" required type="number" value={trialDays} onChange={(event) => setTrialDays(event.target.valueAsNumber)} />
+          </label>
+          <label className={`${adminStyles.field} ${styles.campaignExpiresField}`}>
+            <span>Expires at</span>
+            <input required type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+          </label>
         </div>
-        <label className={adminStyles.field}>
-          <span>Maximum registrations</span>
-          <input max="10000" min="1" required type="number" value={maxRegistrations} onChange={(event) => setMaxRegistrations(event.target.valueAsNumber)} />
-        </label>
-        <label className={adminStyles.field}>
-          <span>Trial days</span>
-          <input max="30" min="1" required type="number" value={trialDays} onChange={(event) => setTrialDays(event.target.valueAsNumber)} />
-        </label>
-        <label className={adminStyles.field}>
-          <span>Expires at</span>
-          <input required type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
-        </label>
-        <label>
-          <input
-            checked={recipientReferralsEnabled}
-            type="checkbox"
-            onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
-          /> Allow invitations for attendees
-        </label>
-        <label className={adminStyles.field}>
-          <span>Active invitation limit per attendee</span>
-          <input
-            aria-label="Active invitation limit per attendee"
-            inputMode="numeric"
-            min="0"
-            required
-            step="1"
-            type="number"
-            value={recipientReferralLimit}
-            onChange={(event) => setRecipientReferralLimit(event.target.value)}
-          />
-          <small>0 = unlimited. The limit remains editable when attendee invitations are disabled.</small>
-        </label>
-        <button className={adminStyles.primaryButton} disabled={!valid || createMutation.isPending} type="submit">
-          {createMutation.isPending ? 'Creating…' : 'Create campaign'}
-        </button>
+        <div className={styles.campaignPolicyRow}>
+          <label className={styles.campaignReferralToggle}>
+            <input
+              checked={recipientReferralsEnabled}
+              type="checkbox"
+              onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
+            /> Allow invitations for attendees
+          </label>
+          <label className={`${adminStyles.field} ${styles.campaignReferralLimitField}`}>
+            <span>Active invitation limit per attendee</span>
+            <input
+              aria-label="Active invitation limit per attendee"
+              inputMode="numeric"
+              min="0"
+              required
+              step="1"
+              type="number"
+              value={recipientReferralLimit}
+              onChange={(event) => setRecipientReferralLimit(event.target.value)}
+            />
+            <small>0 = unlimited.</small>
+          </label>
+          <button className={`${adminStyles.primaryButton} ${styles.campaignCreateAction}`} disabled={!valid || createMutation.isPending} type="submit">
+            {createMutation.isPending ? 'Creating…' : 'Create campaign'}
+          </button>
+        </div>
       </form>
 
       {plans && !commercialPlan ? (

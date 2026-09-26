@@ -20,7 +20,6 @@
 .searchForm, .inviteForm { display: grid; align-items: end; gap: 0.7rem; padding: 1rem; border: 1px solid #e1e7f0; border-radius: 0.75rem; background: #f8fafc; }
 .searchForm { grid-template-columns: minmax(15rem, 1fr); }
 .inviteForm { grid-template-columns: minmax(15rem, 1fr) auto auto; }
-.inviteForm { grid-template-columns: minmax(10rem, 0.7fr) minmax(12rem, 0.8fr) minmax(15rem, 1fr) auto; }
 .field, .limitControl label { display: grid; gap: 0.35rem; min-width: 0; color: #34435a; font-size: 0.875rem; font-weight: 700; }
 .field small { color: #718096; font-weight: 500; }
 .field input, .field select, .limitControl input { width: 100%; min-height: 2.75rem; padding: 0.62rem 0.72rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #172033; background: #fff; }
@@ -177,8 +176,6 @@
   .headerActions { align-items: flex-end; flex-direction: column-reverse; gap: 0.5rem; }
   .searchForm { grid-template-columns: minmax(0, 1fr); }
   .inviteForm { grid-template-columns: minmax(0, 1fr) auto; }
-  .searchForm .field, .inviteForm .field { grid-column: 1 / -1; }
-  .inviteForm .primaryButton { grid-column: 1 / -1; }
   .inviteRow { grid-template-columns: minmax(0, 1fr) auto; }
   .inviteMetadata { grid-column: 1 / -1; grid-row: 2; }
   .inviteActions { grid-column: 2; grid-row: 1; }
@@ -191,7 +188,6 @@
   .sectionCard { padding: 0.8rem; }
   .searchForm { grid-template-columns: 1fr; padding: 0.8rem; }
   .inviteForm { grid-template-columns: 1fr; padding: 0.8rem; }
-  .inviteForm .field, .inviteForm .primaryButton { grid-column: auto; }
   .userSummaryRow { gap: 0.55rem; padding-inline: 0.75rem; }
   .userQuota { font-size: 0.78rem; }
   .userHeader { padding: 0.8rem 1rem; }
