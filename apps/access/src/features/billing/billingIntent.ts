@@ -41,7 +41,8 @@ export function billingProjectionIsCoherent(
   const configurationIds = configurations.map((configuration) => configuration.configuration_id);
   const allowedIds = new Set(configurationIds);
   const pendingQuantity = billing.pending_slot_quantity;
-  const expectedRetirements = pendingQuantity === null ? 0 : Math.max(0, billing.slot_quantity - pendingQuantity);
+  const expired = billing.status === 'expired';
+  const expectedRetirements = expired || pendingQuantity === null ? 0 : Math.max(0, billing.slot_quantity - pendingQuantity);
   return Boolean(billing.access_grant_id)
     && Number.isInteger(billing.min_slot_quantity)
     && Number.isInteger(billing.max_slot_quantity)
@@ -54,7 +55,7 @@ export function billingProjectionIsCoherent(
     && (pendingQuantity === null || (Number.isInteger(pendingQuantity)
       && pendingQuantity >= billing.min_slot_quantity
       && pendingQuantity <= billing.max_slot_quantity))
-    && configurations.length === billing.slot_quantity
+    && configurations.length === (expired ? 0 : billing.slot_quantity)
     && unique(configurationIds)
     && configurations.every((configuration) => configuration.access_grant_id === billing.access_grant_id)
     && unique(billing.retirement_configuration_ids)
@@ -104,6 +105,12 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
 
   if (input.action === 'renew') {
     if (!billing.can_renew || billing.pending_slot_quantity !== null) return { ok: false, reason: 'action_unavailable' };
+    if (billing.status === 'expired') {
+      if (input.applyNow || input.retireConfigurationIds.length || input.retireNewConfigurationOrdinals.length) {
+        return { ok: false, reason: 'invalid_retirement_selection' };
+      }
+      return { ok: true, body: normalizedBody({ ...input, applyNow: false, futureChoice: null }) };
+    }
     if (input.applyNow && (targetQuantity <= billing.slot_quantity || !billing.can_add_devices_now || billing.status !== 'active_paid')) {
       return { ok: false, reason: 'action_unavailable' };
     }
@@ -135,10 +142,11 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
     return { ok: true, body: normalizedBody({ ...input, applyNow: false }) };
   }
 
-  if (billing.status !== 'active_paid'
-    || billing.pending_slot_quantity === null
+  if (billing.pending_slot_quantity === null
     || billing.pending_slot_quantity >= billing.slot_quantity
     || targetQuantity !== billing.slot_quantity
+    || input.applyNow
+    || input.futureChoice !== null
     || input.retireConfigurationIds.length
     || input.retireNewConfigurationOrdinals.length) {
     return { ok: false, reason: 'action_unavailable' };

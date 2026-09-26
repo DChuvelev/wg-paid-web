@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { BillingAccountSummary, ConfigurationSummary } from '@wg-paid/api';
-import { buildBillingPaymentRequest, selectBillingConfigurations } from './billingIntent';
+import { billingProjectionIsCoherent, buildBillingPaymentRequest, selectBillingConfigurations } from './billingIntent';
 
 const billing = (overrides: Partial<BillingAccountSummary> = {}): BillingAccountSummary => ({
   access_grant_id: 'grant-billing', status: 'active_paid',
@@ -60,6 +60,32 @@ describe('billing intent', () => {
   test('builds the bounded top-up-next preservation case', () => {
     const pending = billing({ pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z', pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900, retirement_configuration_ids: ['configuration-1'], can_renew: false });
     expect(request({ action: 'top_up_next', billing: pending })).toMatchObject({ ok: true, body: { action: 'top_up_next', target_quantity: 2 } });
+  });
+
+  test('allows trial top-up-next to preserve all current configurations', () => {
+    const trialConfigurations = [...configurations, configuration('configuration-3')];
+    const pending = billing({
+      status: 'trial', slot_quantity: 3, monthly_amount_kopeks: 49900,
+      pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z',
+      pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900,
+      retirement_configuration_ids: ['configuration-1', 'configuration-2'],
+      can_renew: false, can_add_devices_now: false
+    });
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: trialConfigurations, targetQuantity: 3 }))
+      .toEqual({ ok: true, body: {
+        action: 'top_up_next', target_quantity: 3, apply_now: false, future_choice: null,
+        retire_configuration_ids: [], retire_new_configuration_ordinals: []
+      } });
+  });
+
+  test.each([1, 3])('reactivates expired historical quantity at target %i without retirements', (targetQuantity) => {
+    const expired = billing({ status: 'expired', slot_quantity: 3, monthly_amount_kopeks: 49900, can_add_devices_now: false });
+    expect(billingProjectionIsCoherent(expired, [])).toBe(true);
+    expect(request({ billing: expired, billingConfigurations: [], targetQuantity }))
+      .toEqual({ ok: true, body: {
+        action: 'renew', target_quantity: targetQuantity, apply_now: false, future_choice: null,
+        retire_configuration_ids: [], retire_new_configuration_ordinals: []
+      } });
   });
 
   test('enforces bounds, coherent pending data, and authoritative billing ownership', () => {

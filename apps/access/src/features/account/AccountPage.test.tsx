@@ -341,6 +341,7 @@ test.each([
   ['expired', 'Access expired']
 ] as const)('renders backend commercial %s terms and permitted action', async (status, label) => {
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount(status));
+  if (status === 'expired') vi.mocked(loadConfigurations).mockResolvedValue([]);
   renderApp('/account');
   expect(await screen.findByText(label)).toBeTruthy();
   expect(screen.getByText(/2 devices/)).toBeTruthy();

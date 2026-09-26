@@ -64,7 +64,9 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
   const pendingNeedsChoice = action === 'add_now'
     && billing.pending_slot_quantity !== null
     && billing.pending_slot_quantity < targetQuantity;
-  const existingRetirementCount = action === 'renew' ? Math.max(0, billing.slot_quantity - targetQuantity) : 0;
+  const existingRetirementCount = action === 'renew' && billing.status !== 'expired'
+    ? Math.max(0, billing.slot_quantity - targetQuantity)
+    : 0;
   const mixedRetirementCount = action === 'add_now' && pendingNeedsChoice && futureChoice === 'keep_paid'
     ? targetQuantity - billing.pending_slot_quantity!
     : 0;

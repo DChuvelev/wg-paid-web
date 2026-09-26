@@ -701,6 +701,22 @@ describe('admin session and invites', () => {
     expect(within(row).queryByRole('button', { name: /Revoke invite/ })).toBeNull();
   });
 
+  test('does not allow configuration-limit changes for user referral invites', async () => {
+    const referralInvite: AdminInviteSummary = {
+      ...invite,
+      created_by_kind: 'user',
+      created_by_label: 'Referrer',
+      created_by_user_id: 'user-referrer',
+      invite_id: 'user-referral',
+      origin: 'user'
+    };
+    vi.mocked(loadInvites).mockResolvedValue([referralInvite]);
+    await renderInvitesDashboard();
+    const row = (await screen.findByText('Referrer')).closest('article')!;
+    expect(within(row).queryByRole('button', { name: 'Change configuration limit' })).toBeNull();
+    expect(updateInviteWireGuardLimit).not.toHaveBeenCalled();
+  });
+
   test('creates one-time campaign material locally, copies and downloads it, then forgets it on remount', async () => {
     const trustedPilot = { ...plan, code: 'trusted-pilot', display_name: 'Trusted Pilot', id: 'trusted-plan-id' };
     vi.mocked(loadPlans).mockResolvedValue([trustedPilot, commercialPlan]);

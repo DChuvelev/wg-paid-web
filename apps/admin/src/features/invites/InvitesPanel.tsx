@@ -533,7 +533,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
               planName={planName}
               shareToken={ephemeralTokens.get(item.invite_id)?.token}
               copyFeedback={copyFeedback.get(item.invite_id)}
-              onChangeLimit={campaignChild ? undefined : (target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); }}
+              onChangeLimit={item.origin === 'admin' ? (target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); } : undefined}
               onChangeRecipient={campaignChild ? undefined : (target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
               onCopy={(inviteId, token) => void copyUrl(inviteId, token)}
               onReissue={campaignChild ? undefined : (inviteId) => reissueMutation.mutate(inviteId)}
