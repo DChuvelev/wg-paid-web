@@ -7,6 +7,7 @@ function grant(overrides: Partial<GrantSummary>): GrantSummary {
     can_create_configuration: true,
     configuration_count: 1,
     configuration_limit: 2,
+    configuration_limit_management: 'admin',
     id: 'grant-default',
     plan_id: null,
     protocol_limits: [],

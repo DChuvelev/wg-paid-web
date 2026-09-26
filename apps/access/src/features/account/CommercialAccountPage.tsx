@@ -21,7 +21,7 @@ export function CommercialAccountPage(props: AccountSurfaceProps) {
       {props.logoutError ? <p className={styles.error} role="alert">{t('logoutFailed')}</p> : null}
       <div className={commercial.sections}>
         <section><h2>{t('profile')}</h2><DisplayNameForm account={account} onError={props.onError} /></section>
-        <BillingSection account={account} onUnauthorized={props.onError} />
+        <BillingSection account={account} configurations={props.configurations} onUnauthorized={props.onError} />
         <ConfigurationsSection account={account} configurations={props.configurations} onChanged={props.onChanged} onError={props.onError} />
         {account.referrals.enabled ? <ReferralsSection capability={account.referrals} onUnauthorized={props.onError} /> : null}
       </div>

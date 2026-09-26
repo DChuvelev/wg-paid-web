@@ -1,5 +1,6 @@
 import {
   accountBillingPaymentCreateV2AccountBillingPaymentsPost,
+  accountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPut,
   accountBillingPaymentsV2AccountBillingPaymentsGet,
   accountBillingPaymentV2AccountBillingPaymentsPaymentIdGet,
   accountMeUpdateV2AccountMePatch,
@@ -24,6 +25,8 @@ import {
   resendExpiredMagicLinkRouteV2AuthMagicLinkResendPost,
   type AccountMeResponse,
   type BillingPaymentSummary,
+  type BillingPaymentCreateRequest,
+  type BillingRetirementSelectionResponse,
   type ConfigurationSummary,
   type InviteInspectResponse,
   type BulkInviteInspectResponse,
@@ -204,10 +207,20 @@ export async function loadBillingPayment(paymentId: string): Promise<BillingPaym
   throw accessApiError(result.response);
 }
 
-export async function createBillingPayment(idempotencyKey: string): Promise<BillingPaymentSummary> {
+export async function createBillingPayment(idempotencyKey: string, body?: BillingPaymentCreateRequest): Promise<BillingPaymentSummary> {
   const result = await accountBillingPaymentCreateV2AccountBillingPaymentsPost({
     ...requestOptions(),
-    headers: { ...getCsrfHeaders(), 'Idempotency-Key': idempotencyKey }
+    headers: { ...getCsrfHeaders(), 'Idempotency-Key': idempotencyKey },
+    ...(body ? { body } : {})
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
+}
+
+export async function updateBillingPendingRetirements(configurationIds: Array<string>): Promise<BillingRetirementSelectionResponse> {
+  const result = await accountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPut({
+    ...mutationOptions(),
+    body: { configuration_ids: configurationIds }
   });
   if (result.data) return result.data;
   throw accessApiError(result.response);

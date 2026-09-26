@@ -447,6 +447,14 @@ export type AdminPlanSummary = {
      * Trial Days
      */
     trial_days: number | null;
+    /**
+     * Commercial Min Quantity
+     */
+    commercial_min_quantity: number | null;
+    /**
+     * Commercial Max Quantity
+     */
+    commercial_max_quantity: number | null;
 };
 
 /**
@@ -1084,6 +1092,10 @@ export type AgentPeerResponse = {
  */
 export type BillingAccountSummary = {
     /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
+    /**
      * Status
      */
     status: 'trial' | 'active_paid' | 'past_due' | 'expired';
@@ -1096,6 +1108,14 @@ export type BillingAccountSummary = {
      */
     current_period_end: string;
     /**
+     * Quantity Period Start
+     */
+    quantity_period_start: string;
+    /**
+     * Quantity Period End
+     */
+    quantity_period_end: string;
+    /**
      * Slot Quantity
      */
     slot_quantity: number;
@@ -1104,9 +1124,79 @@ export type BillingAccountSummary = {
      */
     monthly_amount_kopeks: number;
     /**
+     * Min Slot Quantity
+     */
+    min_slot_quantity: number;
+    /**
+     * Max Slot Quantity
+     */
+    max_slot_quantity: number;
+    /**
+     * Extra Slot Monthly Kopeks
+     */
+    extra_slot_monthly_kopeks: number;
+    /**
+     * Pending Slot Quantity
+     */
+    pending_slot_quantity: number | null;
+    /**
+     * Pending Period Start
+     */
+    pending_period_start: string | null;
+    /**
+     * Pending Period End
+     */
+    pending_period_end: string | null;
+    /**
+     * Pending Monthly Amount Kopeks
+     */
+    pending_monthly_amount_kopeks: number | null;
+    /**
+     * Retirement Configuration Ids
+     */
+    retirement_configuration_ids: Array<string>;
+    /**
+     * Can Renew
+     */
+    can_renew: boolean;
+    /**
+     * Can Add Devices Now
+     */
+    can_add_devices_now: boolean;
+    /**
      * Currency
      */
     currency: string;
+};
+
+/**
+ * BillingPaymentCreateRequest
+ */
+export type BillingPaymentCreateRequest = {
+    /**
+     * Action
+     */
+    action?: 'renew' | 'add_now' | 'top_up_next';
+    /**
+     * Target Quantity
+     */
+    target_quantity?: number | null;
+    /**
+     * Apply Now
+     */
+    apply_now?: boolean;
+    /**
+     * Future Choice
+     */
+    future_choice?: 'preserve' | 'keep_paid' | null;
+    /**
+     * Retire Configuration Ids
+     */
+    retire_configuration_ids?: Array<string>;
+    /**
+     * Retire New Configuration Ordinals
+     */
+    retire_new_configuration_ordinals?: Array<number>;
 };
 
 /**
@@ -1138,6 +1228,14 @@ export type BillingPaymentSummary = {
      */
     currency: string;
     /**
+     * Quantity Before
+     */
+    quantity_before: number;
+    /**
+     * Quantity After
+     */
+    quantity_after: number;
+    /**
      * Target Period Start
      */
     target_period_start: string | null;
@@ -1145,6 +1243,12 @@ export type BillingPaymentSummary = {
      * Target Period End
      */
     target_period_end: string | null;
+    /**
+     * Calculation
+     */
+    calculation: {
+        [key: string]: unknown;
+    } | null;
     /**
      * Created At
      */
@@ -1161,6 +1265,30 @@ export type BillingPaymentSummary = {
      * Confirmation Url
      */
     confirmation_url?: string | null;
+};
+
+/**
+ * BillingRetirementSelectionRequest
+ */
+export type BillingRetirementSelectionRequest = {
+    /**
+     * Configuration Ids
+     */
+    configuration_ids: Array<string>;
+};
+
+/**
+ * BillingRetirementSelectionResponse
+ */
+export type BillingRetirementSelectionResponse = {
+    /**
+     * Configuration Ids
+     */
+    configuration_ids: Array<string>;
+    /**
+     * Effective At
+     */
+    effective_at: string;
 };
 
 /**
@@ -1432,6 +1560,10 @@ export type GrantSummary = {
      * Valid Until
      */
     valid_until: string | null;
+    /**
+     * Configuration Limit Management
+     */
+    configuration_limit_management: 'admin' | 'billing';
     /**
      * Configuration Limit
      */
@@ -3118,7 +3250,10 @@ export type AccountBillingPaymentsV2AccountBillingPaymentsGetResponses = {
 export type AccountBillingPaymentsV2AccountBillingPaymentsGetResponse = AccountBillingPaymentsV2AccountBillingPaymentsGetResponses[keyof AccountBillingPaymentsV2AccountBillingPaymentsGetResponses];
 
 export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostData = {
-    body?: never;
+    /**
+     * Payload
+     */
+    body?: BillingPaymentCreateRequest | null;
     headers: {
         /**
          * Idempotency-Key
@@ -3147,6 +3282,31 @@ export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses = {
 };
 
 export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponse = AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses[keyof AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses];
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutData = {
+    body: BillingRetirementSelectionRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/account/billing/pending-retirements';
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutError = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors];
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: BillingRetirementSelectionResponse;
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponse = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses];
 
 export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetData = {
     body?: never;

@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountMeResponse, BillingPaymentSummary } from '@wg-paid/api';
+import type { AccountMeResponse, BillingPaymentCreateRequest, BillingPaymentSummary, ConfigurationSummary } from '@wg-paid/api';
 import { deviceQuantity } from '../../i18n/deviceQuantity';
 import { useLocale } from '../../i18n/localeContext';
-import { AccessApiError, createBillingPayment, loadBillingPayment, loadBillingPayments } from '../../lib/accessApi';
+import {
+  AccessApiError,
+  createBillingPayment,
+  loadBillingPayment,
+  loadBillingPayments,
+  updateBillingPendingRetirements
+} from '../../lib/accessApi';
 import { accountKey, billingPaymentKey, billingPaymentsKey, configurationsKey } from '../account/queryKeys';
+import { BillingControls } from './BillingControls';
+import { billingProjectionIsCoherent, selectBillingConfigurations } from './billingIntent';
 import { clearPaymentAttemptForUser, readPaymentAttemptForUser, type PaymentAttempt, writePaymentAttempt } from './paymentAttempt';
 import { isPendingPayment, paymentPollingInterval, paymentPollWindowMs, resolvePendingPayments } from './paymentState';
+import { RetirementPicker } from './RetirementPicker';
 import styles from './Billing.module.css';
 
-interface Props { account: AccountMeResponse; onUnauthorized: (error: unknown) => void; }
+interface Props {
+  account: AccountMeResponse;
+  configurations: Array<ConfigurationSummary>;
+  onUnauthorized: (error: unknown) => void;
+}
 type RefreshState = 'idle' | 'checking' | 'unchanged' | 'changed' | 'error';
 
 function paymentStartedAt(payment: BillingPaymentSummary) {
@@ -22,7 +35,7 @@ function paymentSnapshot(payments: Array<BillingPaymentSummary> | undefined, ite
   return `${list}#${item ? `${item.payment_id}:${item.status}:${item.updated_at}` : ''}`;
 }
 
-export function BillingSection({ account, onUnauthorized }: Props) {
+export function BillingSection({ account, configurations, onUnauthorized }: Props) {
   const { locale, t } = useLocale();
   const queryClient = useQueryClient();
   const singleFlight = useRef(false);
@@ -34,6 +47,9 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   const [message, setMessage] = useState(() => initialAttempt?.state === 'definite_failure' ? t('paymentCreateDefiniteFailure') : '');
   const [definiteCreateFailure, setDefiniteCreateFailure] = useState(initialAttempt?.state === 'definite_failure');
   const [refreshState, setRefreshState] = useState<RefreshState>('idle');
+  const [editingRetirements, setEditingRetirements] = useState(false);
+  const [retirementIds, setRetirementIds] = useState<Array<string>>([]);
+  const [retirementMessage, setRetirementMessage] = useState('');
   const history = useQuery({ queryKey: billingPaymentsKey, queryFn: loadBillingPayments, enabled: Boolean(account.billing), retry: false, refetchOnWindowFocus: true });
   const pendingResolution = resolvePendingPayments(history.data ?? []);
 
@@ -84,11 +100,11 @@ export function BillingSection({ account, onUnauthorized }: Props) {
   }, [history.error, onUnauthorized, payment.error]);
 
   const create = useMutation({
-    mutationFn: createBillingPayment,
+    mutationFn: ({ idempotencyKey, request }: { idempotencyKey: string; request?: BillingPaymentCreateRequest }) => createBillingPayment(idempotencyKey, request),
     onError: (error) => {
       singleFlight.current = false;
       if (error instanceof AccessApiError && error.status === 401) { onUnauthorized(error); return; }
-      if (error instanceof AccessApiError && (error.status === 409 || error.status === 502)) {
+      if (error instanceof AccessApiError && (error.status === 409 || error.status === 422 || error.status === 502)) {
         const current = readPaymentAttemptForUser(account.user_id) ?? attempt;
         if (current) {
           const failed = { ...current, state: 'definite_failure' as const };
@@ -117,18 +133,25 @@ export function BillingSection({ account, onUnauthorized }: Props) {
     }
   });
 
-  const submit = (existing?: PaymentAttempt) => {
+  const submit = (request?: BillingPaymentCreateRequest, existing?: PaymentAttempt) => {
     if (singleFlight.current || create.isPending || definiteCreateFailure) return;
     const sameUncertainAttempt = Boolean(existing && !existing.payment_id && existing.state === 'active');
     if (pendingResolution.kind !== 'none' || paymentId) { setMessage(t('paymentAlreadyPending')); return; }
     if (!sameUncertainAttempt && !history.isSuccess) return;
-    const current = existing ?? { version: 2 as const, state: 'active' as const, user_id: account.user_id, idempotency_key: crypto.randomUUID(), started_at: Date.now() };
+    const current = existing ?? {
+      version: 3 as const,
+      state: 'active' as const,
+      user_id: account.user_id,
+      idempotency_key: crypto.randomUUID(),
+      started_at: Date.now(),
+      request
+    };
     writePaymentAttempt(current);
     setAttempt(current);
     setStartedAt(current.started_at);
     setMessage(t('paymentCreating'));
     singleFlight.current = true;
-    create.mutate(current.idempotency_key);
+    create.mutate({ idempotencyKey: current.idempotency_key, request: current.request });
   };
 
   const abandonFailedAttempt = async () => {
@@ -154,10 +177,8 @@ export function BillingSection({ account, onUnauthorized }: Props) {
       setMessage(t('paymentChecking'));
       return;
     }
-    if (history.isSuccess && pendingResolution.kind === 'ambiguous') {
-      return;
-    }
-    if (initialAttempt) submit(initialAttempt);
+    if (history.isSuccess && pendingResolution.kind === 'ambiguous') return;
+    if (initialAttempt) submit(undefined, initialAttempt);
   // Recovery must execute once for the initial browser state.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history.isPending]);
@@ -177,40 +198,117 @@ export function BillingSection({ account, onUnauthorized }: Props) {
     setRefreshState(before === after ? 'unchanged' : 'changed');
   };
 
+  const retirementMutation = useMutation({
+    mutationFn: updateBillingPendingRetirements,
+    onError: (error) => {
+      if (error instanceof AccessApiError && error.status === 401) onUnauthorized(error);
+      setRetirementMessage(t('billingRetirementsFailed'));
+    },
+    onSuccess: async (result) => {
+      setEditingRetirements(false);
+      setRetirementMessage(t('billingRetirementsSaved', { date: formatDateTime(result.effective_at) }));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: accountKey }),
+        queryClient.invalidateQueries({ queryKey: configurationsKey })
+      ]);
+    }
+  });
+
+  const formatDate = (value: string) => new Date(value).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US');
+  const formatDateTime = (value: string) => new Date(value).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-US');
+  const money = (kopeks: number, currency: string) => new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency }).format(kopeks / 100);
+
   if (!account.billing) return <section className={styles.section}><h2>{t('billing')}</h2><p>{t('billingUnavailable')}</p></section>;
   const billing = account.billing;
-  const canPay = billing.status !== 'past_due';
+  const billingConfigurations = selectBillingConfigurations(billing, configurations);
+  const coherent = billingProjectionIsCoherent(billing, billingConfigurations);
   const statusKey = `billingStatus_${billing.status}` as const;
-  const money = new Intl.NumberFormat(undefined, { style: 'currency', currency: billing.currency }).format(billing.monthly_amount_kopeks / 100);
   const retryUncertain = Boolean(attempt?.state === 'active' && !attempt.payment_id && pendingResolution.kind === 'none' && !paymentId);
-  const canOfferPayment = canPay && pendingResolution.kind === 'none' && !paymentId && (history.isSuccess || retryUncertain);
+  const controlsAvailable = history.isSuccess && pendingResolution.kind === 'none' && !paymentId;
   const refreshMessage = refreshState === 'checking' ? t('refreshChecking')
     : refreshState === 'unchanged' ? t('refreshChecked')
       : refreshState === 'changed' ? t('refreshChanged')
         : refreshState === 'error' ? t('refreshFailed') : '';
-  const paymentStatus = (status: BillingPaymentSummary['status']) => {
-    if (status === 'created') return t('paymentStatus_created');
-    if (status === 'pending') return t('paymentStatus_pending');
-    if (status === 'succeeded') return t('paymentStatus_succeeded');
-    return t('paymentStatus_canceled');
-  };
+  const paymentStatus = (status: BillingPaymentSummary['status']) => status === 'created' ? t('paymentStatus_created')
+    : status === 'pending' ? t('paymentStatus_pending')
+      : status === 'succeeded' ? t('paymentStatus_succeeded') : t('paymentStatus_canceled');
+  const pendingExists = billing.pending_slot_quantity !== null
+    && billing.pending_period_start !== null
+    && billing.pending_period_end !== null
+    && billing.pending_monthly_amount_kopeks !== null;
+  const retirementRequired = pendingExists ? Math.max(0, billing.slot_quantity - billing.pending_slot_quantity!) : 0;
+  const retirementConfigurations = billing.retirement_configuration_ids.map((id) => billingConfigurations.find((item) => item.configuration_id === id)).filter((item): item is ConfigurationSummary => Boolean(item));
 
   return (
     <section className={styles.section} aria-labelledby="billing-title">
       <h2 id="billing-title">{t('billing')}</h2>
-      <div className={styles.card}><strong>{t(statusKey)}</strong><p>{t('billingPeriodEnd', { date: new Date(billing.current_period_end).toLocaleDateString() })}</p><p>{t('billingTerms', { amount: money, devices: deviceQuantity(billing.slot_quantity, locale) })}</p>
-        {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : null}
-        {canOfferPayment ? <button type="button" disabled={create.isPending || singleFlight.current || definiteCreateFailure} onClick={() => submit(attempt ?? undefined)}>{billing.status === 'active_paid' ? t('renewPayment') : t('payForMonth')}</button> : null}
-        {history.isPending && !retryUncertain ? <p>{t('paymentHistoryLoading')}</p> : null}
-        {history.isError && !retryUncertain ? <p className={styles.warning}>{t('paymentHistoryUnavailable')}</p> : null}
-        {pendingResolution.kind === 'ambiguous' ? <p className={styles.warning}>{t('paymentRecoveryAmbiguous')}</p> : null}
-        {paymentId && payment.isPending ? <p>{t('paymentChecking')}</p> : null}
-        {payment.data && isPendingPayment(payment.data) && payment.data.confirmation_url ? <a className={styles.continueLink} href={payment.data.confirmation_url}>{t('continuePayment')}</a> : null}
+      <div className={styles.projectionGrid}>
+        <article className={styles.card}>
+          <h3>{t('billingCurrentTitle')}</h3>
+          <strong>{t(statusKey)}</strong>
+          <p>{t('billingTerms', { amount: money(billing.monthly_amount_kopeks, billing.currency), devices: deviceQuantity(billing.slot_quantity, locale) })}</p>
+          <p>{t('billingCurrentQuantityPeriod', { start: formatDate(billing.quantity_period_start), end: formatDate(billing.quantity_period_end) })}</p>
+          <p>{t('billingPaidThrough', { date: formatDateTime(billing.current_period_end) })}</p>
+          {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : null}
+        </article>
+        {pendingExists ? (
+          <article className={styles.card}>
+            <h3>{t('billingNextTitle')}</h3>
+            <p>{t('billingNextTerms', {
+              amount: money(billing.pending_monthly_amount_kopeks!, billing.currency),
+              devices: deviceQuantity(billing.pending_slot_quantity!, locale),
+              start: formatDate(billing.pending_period_start!), end: formatDate(billing.pending_period_end!)
+            })}</p>
+            {!billing.can_renew ? <p className={styles.notice}>{t('billingNextAlreadyPaid')}</p> : null}
+            {coherent && retirementConfigurations.length ? (
+              <div className={styles.scheduledRetirements}>
+                <strong>{t('billingScheduledRetirements', { date: formatDateTime(billing.pending_period_start!) })}</strong>
+                <ul>{retirementConfigurations.map((configuration) => <li key={configuration.configuration_id}>{configuration.label?.trim() || t('billingConfiguration', { number: configuration.ordinal })}{configuration.label?.trim() ? ` · ${t('billingConfiguration', { number: configuration.ordinal })}` : ''}</li>)}</ul>
+                <button className={styles.refresh} type="button" onClick={() => { setRetirementIds(billing.retirement_configuration_ids); setEditingRetirements(true); setRetirementMessage(''); }}>{t('billingEditRetirements')}</button>
+              </div>
+            ) : coherent ? <p>{t('billingNoScheduledRetirements')}</p> : null}
+          </article>
+        ) : null}
       </div>
+
+      {!coherent ? <p className={styles.error} role="alert">{t('billingProjectionInvalid')}</p> : null}
+      {coherent && controlsAvailable ? (
+        <BillingControls
+          billing={billing}
+          configurations={billingConfigurations}
+          disabled={create.isPending || singleFlight.current || Boolean(attempt)}
+          onSubmit={(body) => submit(body)}
+        />
+      ) : null}
+      {retryUncertain ? <button className={styles.primaryAction} type="button" disabled={create.isPending || singleFlight.current} onClick={() => submit(undefined, attempt!)}>{t('paymentRetryButton')}</button> : null}
+      {history.isPending && !retryUncertain ? <p>{t('paymentHistoryLoading')}</p> : null}
+      {history.isError && !retryUncertain ? <p className={styles.warning}>{t('paymentHistoryUnavailable')}</p> : null}
+      {pendingResolution.kind === 'ambiguous' ? <p className={styles.warning}>{t('paymentRecoveryAmbiguous')}</p> : null}
+      {paymentId && payment.isPending ? <p>{t('paymentChecking')}</p> : null}
+      {payment.data && isPendingPayment(payment.data) && payment.data.confirmation_url ? <a className={styles.continueLink} href={payment.data.confirmation_url}>{t('continuePayment')}</a> : null}
       {message ? <p role="status">{message}</p> : null}
       {definiteCreateFailure ? <button className={styles.refresh} type="button" onClick={() => void abandonFailedAttempt()}>{t('abandonPaymentAttempt')}</button> : null}
       {payment.isError || history.isError ? <p className={styles.error} role="alert">{t('billingLoadFailed')}</p> : null}
-      <details><summary>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{new Date(item.created_at).toLocaleDateString()} · {paymentStatus(item.status)} · {new Intl.NumberFormat(undefined, { style: 'currency', currency: item.currency }).format(item.amount_kopeks / 100)}</li>)}</ul></details>
+
+      {editingRetirements ? (
+        <div className={styles.retirementEditor}>
+          <RetirementPicker
+            configurations={billingConfigurations}
+            disabled={retirementMutation.isPending}
+            required={retirementRequired}
+            selectedConfigurationIds={retirementIds}
+            selectedNewOrdinals={[]}
+            onChange={(ids) => { setRetirementIds(ids); setRetirementMessage(''); }}
+          />
+          <div className={styles.editorActions}>
+            <button type="button" disabled={retirementMutation.isPending || retirementIds.length !== retirementRequired} onClick={() => retirementMutation.mutate(retirementIds)}>{t('billingSaveRetirements')}</button>
+            <button className={styles.refresh} type="button" disabled={retirementMutation.isPending} onClick={() => setEditingRetirements(false)}>{t('cancel')}</button>
+          </div>
+        </div>
+      ) : null}
+      {retirementMessage ? <p className={retirementMutation.isError ? styles.error : styles.selectionValid} role={retirementMutation.isError ? 'alert' : 'status'}>{retirementMessage}</p> : null}
+
+      <details><summary>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{formatDate(item.created_at)} · {paymentStatus(item.status)} · {money(item.amount_kopeks, item.currency)} · {t('billingPaymentQuantity', { before: item.quantity_before, after: item.quantity_after })}</li>)}</ul></details>
       <button className={styles.refresh} disabled={refreshState === 'checking'} type="button" onClick={() => void refresh()}>{t('refresh')}</button>
       {refreshMessage ? <p className={refreshState === 'error' ? styles.error : undefined} role="status">{refreshMessage}</p> : null}
     </section>

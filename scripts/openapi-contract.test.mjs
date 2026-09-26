@@ -49,8 +49,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('d0cbb00608866a114e6b7871d9334b3f5f168ee1c935f0dffef747fe7c7bcf11');
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 73, schemas: 78 });
+      .toBe('e03385d8f003b75e254eb51c204d8bddf4c37b560af96fd02f499019ed921b51');
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 74, schemas: 81 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
@@ -66,9 +66,10 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AccountMetadataUpdateRequest.properties.display_name.anyOf[1]).toEqual({ type: 'null' });
     expect(schemas.ProfileLabelUpdateRequest.properties.label.anyOf[0].maxLength).toBe(160);
     expect(schemas.GrantSummary.required).toEqual([
-      'id', 'status', 'plan_id', 'valid_until', 'configuration_limit',
+      'id', 'status', 'plan_id', 'valid_until', 'configuration_limit_management', 'configuration_limit',
       'configuration_count', 'can_create_configuration', 'protocol_limits'
     ]);
+    expect(schemas.GrantSummary.properties.configuration_limit_management.enum).toEqual(['admin', 'billing']);
     expect(schemas.ConfigurationSummary.required).toEqual([
       'configuration_id', 'ordinal', 'access_grant_id', 'label',
       'created_at', 'updated_at', 'variants'
@@ -99,6 +100,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminInviteRequest.properties.recipient_referrals_enabled.default).toBe(true);
     expect(schemas.AdminInviteRequest.properties.recipient_referral_limit).toMatchObject({ default: 3, minimum: 0 });
     expect(schemas.AdminPlanSummary.required).toContain('trial_days');
+    expect(schemas.AdminPlanSummary.required).toContain('commercial_min_quantity');
+    expect(schemas.AdminPlanSummary.required).toContain('commercial_max_quantity');
     expect(schemas.AdminPlanSummary.properties.trial_days.anyOf).toEqual([
       { type: 'integer' }, { type: 'null' }
     ]);
@@ -149,11 +152,27 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}');
     expect(document.paths).toHaveProperty('/v2/account/billing/payments');
+    expect(document.paths).toHaveProperty('/v2/account/billing/pending-retirements');
     expect(document.paths).toHaveProperty('/v2/account/billing/payments/{payment_id}');
     expect(document.paths['/v2/account/billing/payments'].post.operationId)
       .toBe('account_billing_payment_create_v2_account_billing_payments_post');
     expect(document.paths['/v2/account/billing/payments'].post.parameters)
       .toContainEqual(expect.objectContaining({ in: 'header', name: 'Idempotency-Key', required: true }));
+    expect(document.paths['/v2/account/billing/pending-retirements'].put.operationId)
+      .toBe('account_billing_pending_retirements_update_v2_account_billing_pending_retirements_put');
+    expect(schemas.BillingAccountSummary.required).toEqual([
+      'access_grant_id', 'status', 'current_period_start', 'current_period_end',
+      'quantity_period_start', 'quantity_period_end', 'slot_quantity', 'monthly_amount_kopeks',
+      'min_slot_quantity', 'max_slot_quantity', 'extra_slot_monthly_kopeks',
+      'pending_slot_quantity', 'pending_period_start', 'pending_period_end',
+      'pending_monthly_amount_kopeks', 'retirement_configuration_ids',
+      'can_renew', 'can_add_devices_now', 'currency'
+    ]);
+    expect(schemas.BillingPaymentCreateRequest.properties.action.enum)
+      .toEqual(['renew', 'add_now', 'top_up_next']);
+    expect(schemas.BillingPaymentSummary.required).toContain('quantity_before');
+    expect(schemas.BillingPaymentSummary.required).toContain('quantity_after');
+    expect(schemas.BillingPaymentSummary.required).toContain('calculation');
     expect(document.paths['/v2/account/billing/payments/{payment_id}'].get.operationId)
       .toBe('account_billing_payment_v2_account_billing_payments__payment_id__get');
     expect(document.paths).toHaveProperty('/v2/account/referrals');

@@ -1,10 +1,36 @@
 .section { display: grid; gap: 0.85rem; }
 .section h2, .section p { margin: 0; }
+.section h3 { margin: 0; font-size: 1rem; }
+.projectionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
 .card { display: grid; gap: 0.5rem; padding: 1rem; border-radius: 0.75rem; background: #eef3fb; }
-.card button, .refresh, .continueLink { justify-self: start; padding: 0.55rem 0.8rem; border: 1px solid #2857a4; border-radius: 0.5rem; color: white; background: #2857a4; cursor: pointer; font-weight: 650; }
+.card button, .refresh, .continueLink, .primaryAction, .controls button, .editorActions button { justify-self: start; min-height: 2.75rem; padding: 0.55rem 0.8rem; border: 1px solid #2857a4; border-radius: 0.5rem; color: white; background: #2857a4; cursor: pointer; font-weight: 650; }
 .card button:disabled { opacity: 0.55; cursor: not-allowed; }
 .warning { color: #8a4a00; }
 .error { color: #9e2d2d; }
+.notice { padding: 0.65rem; border-left: 0.25rem solid #2857a4; background: #fff; }
 .section ul { display: grid; gap: 0.5rem; padding-left: 1.25rem; }
 .refresh { color: #2857a4; background: white; }
 .continueLink { text-decoration: none; }
+.controls, .retirementEditor { display: grid; gap: 0.85rem; padding: 1rem; border: 1px solid #d9e0ec; border-radius: 0.75rem; }
+.controls fieldset, .retirementPicker { display: grid; gap: 0.65rem; margin: 0; padding: 0; border: 0; }
+.controls legend, .retirementPicker legend { margin-bottom: 0.5rem; color: #172033; font-weight: 750; }
+.actionChoices, .retirementChoices { display: grid; gap: 0.55rem; }
+.actionChoices label, .checkChoice, .retirementChoices label { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.65rem; border: 1px solid #d9e0ec; border-radius: 0.55rem; background: #fff; }
+.actionChoices input, .checkChoice input, .retirementChoices input { flex: none; width: 1.1rem; height: 1.1rem; margin: 0.1rem 0 0; accent-color: #2857a4; }
+.quantityField { display: grid; max-width: 20rem; gap: 0.35rem; color: #34435a; font-weight: 700; }
+.quantityField input { min-height: 2.75rem; padding: 0.55rem 0.7rem; border: 1px solid #aebbd0; border-radius: 0.5rem; font: inherit; }
+.quantityField small, .retirementChoices small { display: block; color: #52627a; font-weight: 400; }
+.retirementChoices strong, .retirementChoices small { overflow-wrap: anywhere; }
+.selectionValid { color: #1e6437; }
+.scheduledRetirements { display: grid; gap: 0.55rem; }
+.scheduledRetirements ul { margin: 0; }
+.editorActions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.controls button:disabled, .editorActions button:disabled, .primaryAction:disabled { opacity: 0.55; cursor: not-allowed; }
+
+@media (max-width: 30rem) {
+  .projectionGrid { grid-template-columns: minmax(0, 1fr); }
+  .controls, .retirementEditor, .card { padding: 0.75rem; }
+  .quantityField { max-width: none; }
+  .controls button, .editorActions button, .primaryAction, .refresh, .continueLink { width: 100%; justify-self: stretch; text-align: center; }
+  .editorActions { display: grid; grid-template-columns: minmax(0, 1fr); }
+}

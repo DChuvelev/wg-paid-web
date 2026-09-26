@@ -83,7 +83,15 @@ function GrantCard({ configurations, deleting, grant, historicalProfiles, limitP
         {retirementActive ? <StatusBadge status="retirement_in_progress" /> : null}
       </div>
 
-      {limit ? (
+      {grant.configuration_limit_management === 'billing' ? (
+        <div className={styles.limitPanel}>
+          <div className={styles.limitSummary}>
+            <span>Configurations</span>
+            <strong>{grant.configuration_count} / {grant.configuration_limit}</strong>
+            <small>Configuration quantity is managed by billing.</small>
+          </div>
+        </div>
+      ) : limit ? (
         <div className={styles.limitPanel}>
           <div className={styles.limitSummary}>
             <span>Configurations</span>

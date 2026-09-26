@@ -4,6 +4,7 @@ const sdk = vi.hoisted(() => ({
   accountMe: vi.fn(),
   accountMeUpdate: vi.fn(),
   billingCreate: vi.fn(),
+  billingRetirements: vi.fn(),
   billingItem: vi.fn(),
   billingList: vi.fn(),
   changeInviteEmail: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('@wg-paid/api', () => ({
   accountMeV2AccountMeGet: sdk.accountMe,
   accountMeUpdateV2AccountMePatch: sdk.accountMeUpdate,
   accountBillingPaymentCreateV2AccountBillingPaymentsPost: sdk.billingCreate,
+  accountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPut: sdk.billingRetirements,
   accountBillingPaymentV2AccountBillingPaymentsPaymentIdGet: sdk.billingItem,
   accountBillingPaymentsV2AccountBillingPaymentsGet: sdk.billingList,
   accountConfigurationCreateV2AccountProfilesConfigurationsPost: sdk.createConfiguration,
@@ -64,6 +66,7 @@ import {
   resendInvite,
   resendExpiredMagicLink,
   updateDisplayName,
+  updateBillingPendingRetirements,
   updateConfigurationLabel
 } from './accessApi';
 
@@ -327,9 +330,35 @@ test('preserves Retry-After from expired-registration resend', async () => {
 test('creates a payment with CSRF and the caller-owned idempotency key only in headers', async () => {
   document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
   sdk.billingCreate.mockResolvedValue({ data: { payment_id: 'payment-1' }, response: new Response(null, { status: 201 }) });
-  await createBillingPayment('logical-key');
-  expect(sdk.billingCreate).toHaveBeenCalledWith({ credentials: 'same-origin', headers: { 'Idempotency-Key': 'logical-key', 'x-csrf-token': 'csrf value' } });
+  const body = { action: 'renew' as const, target_quantity: 2, apply_now: false, future_choice: null, retire_configuration_ids: [], retire_new_configuration_ordinals: [] };
+  await createBillingPayment('logical-key', body);
+  expect(sdk.billingCreate).toHaveBeenCalledWith({ body, credentials: 'same-origin', headers: { 'Idempotency-Key': 'logical-key', 'x-csrf-token': 'csrf value' } });
   expect(JSON.stringify(sdk.billingCreate.mock.calls[0]?.[0])).not.toContain('confirmation_url');
+});
+
+test('preserves an omitted body for legacy payment-attempt recovery', async () => {
+  sdk.billingCreate.mockResolvedValue({ data: { payment_id: 'payment-legacy' }, response: new Response(null, { status: 201 }) });
+  await createBillingPayment('legacy-key');
+  expect(sdk.billingCreate).toHaveBeenCalledWith({ credentials: 'same-origin', headers: { 'Idempotency-Key': 'legacy-key' } });
+});
+
+test('propagates payment request validation errors without changing the caller body', async () => {
+  const body = { action: 'add_now' as const, target_quantity: 3, apply_now: false, future_choice: 'preserve' as const, retire_configuration_ids: [], retire_new_configuration_ordinals: [] };
+  sdk.billingCreate.mockResolvedValue({ response: new Response(null, { status: 422 }) });
+  await expect(createBillingPayment('validation-key', body)).rejects.toEqual(expect.objectContaining({ status: 422 }));
+  expect(sdk.billingCreate).toHaveBeenCalledWith(expect.objectContaining({ body }));
+});
+
+test('updates pending retirement selection with CSRF and propagates errors', async () => {
+  document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
+  const response = { configuration_ids: ['configuration-2'], effective_at: '2026-10-01T00:00:00Z' };
+  sdk.billingRetirements.mockResolvedValueOnce({ data: response, response: new Response(null, { status: 200 }) });
+  await expect(updateBillingPendingRetirements(['configuration-2'])).resolves.toEqual(response);
+  expect(sdk.billingRetirements).toHaveBeenCalledWith({
+    body: { configuration_ids: ['configuration-2'] }, credentials: 'same-origin', headers: { 'x-csrf-token': 'csrf value' }
+  });
+  sdk.billingRetirements.mockResolvedValueOnce({ response: new Response(null, { status: 422 }) });
+  await expect(updateBillingPendingRetirements([])).rejects.toEqual(expect.objectContaining({ status: 422 }));
 });
 
 test('loads typed logical configurations through the generated GET operation', async () => {

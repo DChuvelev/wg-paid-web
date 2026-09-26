@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdminInviteRequest, AdminInviteSummary } from '@wg-paid/api';
+import type { AdminInviteRequest, AdminInviteSummary, AdminPlanSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
 import { StatusBadge } from '../../components/StatusBadge';
 import {
@@ -50,6 +50,34 @@ interface InviteRowProps {
 const plansKey = ['admin', 'plans'] as const;
 const invitesKey = ['admin', 'invites'] as const;
 const defaultOrigins: Array<InviteOrigin> = ['user', 'admin'];
+
+type QuantityBounds =
+  | { kind: 'commercial'; min: number; max: number }
+  | { kind: 'noncommercial'; min: 0; max?: undefined }
+  | { kind: 'invalid'; message: string };
+
+function quantityBounds(plan: AdminPlanSummary | undefined): QuantityBounds {
+  if (!plan) return { kind: 'invalid', message: 'Plan quantity rules are unavailable.' };
+  const min = plan.commercial_min_quantity;
+  const max = plan.commercial_max_quantity;
+  if (min === null && max === null) return { kind: 'noncommercial', min: 0 };
+  if (!Number.isInteger(min) || !Number.isInteger(max) || min! < 1 || max! < min!) {
+    return { kind: 'invalid', message: 'This plan has invalid Commercial quantity bounds.' };
+  }
+  return { kind: 'commercial', min: min!, max: max! };
+}
+
+function defaultQuantity(plan: AdminPlanSummary) {
+  const bounds = quantityBounds(plan);
+  return bounds.kind === 'commercial'
+    ? Math.min(bounds.max, Math.max(bounds.min, plan.default_wireguard_limit))
+    : plan.default_wireguard_limit;
+}
+
+function quantityIsValid(value: number, bounds: QuantityBounds) {
+  return bounds.kind !== 'invalid' && Number.isInteger(value) && value >= bounds.min
+    && (bounds.kind !== 'commercial' || value <= bounds.max);
+}
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : 'No expiration';
@@ -196,7 +224,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     setPlanId(nextPlanId);
     const selected = plansQuery.data?.find((plan) => plan.id === nextPlanId);
     if (selected) {
-      setProfileLimit(selected.default_wireguard_limit);
+      setProfileLimit(defaultQuantity(selected));
       setTrialDays(selected.trial_days === null ? '' : String(selected.trial_days));
     } else {
       setTrialDays('');
@@ -206,7 +234,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
   useEffect(() => {
     if (planId || !plansQuery.data?.[0]) return;
     setPlanId(plansQuery.data[0].id);
-    setProfileLimit(plansQuery.data[0].default_wireguard_limit);
+    setProfileLimit(defaultQuantity(plansQuery.data[0]));
     setTrialDays(plansQuery.data[0].trial_days === null ? '' : String(plansQuery.data[0].trial_days));
   }, [planId, plansQuery.data]);
 
@@ -328,9 +356,10 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     event.preventDefault();
     const referralLimit = Number(recipientReferralLimit);
     const selectedPlan = plansQuery.data?.find((plan) => plan.id === planId);
+    const bounds = quantityBounds(selectedPlan);
     const trialApplicable = selectedPlan?.trial_days !== null && selectedPlan?.trial_days !== undefined;
     const numericTrialDays = Number(trialDays);
-    if (!planId || createMutation.isPending
+    if (!planId || createMutation.isPending || !quantityIsValid(profileLimit, bounds)
       || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(referralLimit)
       || (trialApplicable && (!/^\d+$/.test(trialDays) || !Number.isInteger(numericTrialDays)
         || numericTrialDays < 1 || numericTrialDays > 30))) return;
@@ -378,6 +407,11 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
 
   const visibleInvites = origins.length > 0 ? (invitesQuery.data ?? []) : [];
   const selectedPlan = plansQuery.data?.find((plan) => plan.id === planId);
+  const selectedBounds = quantityBounds(selectedPlan);
+  const limitPlan = limitTarget?.plan_id ? plansQuery.data?.find((plan) => plan.id === limitTarget.plan_id) : undefined;
+  const limitBounds: QuantityBounds = limitTarget?.plan_id === null
+    ? { kind: 'noncommercial', min: 0 }
+    : quantityBounds(limitPlan);
   const trialApplicable = selectedPlan?.trial_days !== null && selectedPlan?.trial_days !== undefined;
   const trialValid = !trialApplicable || (/^\d+$/.test(trialDays)
     && Number.isInteger(Number(trialDays)) && Number(trialDays) >= 1 && Number(trialDays) <= 30);
@@ -408,7 +442,17 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         </label>
         <label className={`${styles.field} ${inviteStyles.inviteConfigurationsField}`}>
           <span>Number of configurations</span>
-          <input min="0" required type="number" value={profileLimit} disabled={createMutation.isPending} onChange={(event) => setProfileLimit(event.target.valueAsNumber)} />
+          <input
+            min={selectedBounds.kind === 'invalid' ? undefined : selectedBounds.min}
+            max={selectedBounds.kind === 'commercial' ? selectedBounds.max : undefined}
+            required
+            step="1"
+            type="number"
+            value={profileLimit}
+            disabled={createMutation.isPending || selectedBounds.kind === 'invalid'}
+            onChange={(event) => setProfileLimit(event.target.valueAsNumber)}
+          />
+          {selectedBounds.kind === 'invalid' ? <small className={styles.fieldError}>{selectedBounds.message}</small> : null}
         </label>
         {trialApplicable ? (
           <label className={`${styles.field} ${inviteStyles.inviteTrialField}`}>
@@ -462,7 +506,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         </label>
         <button
           className={`${styles.primaryButton} ${inviteStyles.inviteCreateAction}`}
-          disabled={!planId || createMutation.isPending || !Number.isInteger(profileLimit) || profileLimit < 0
+          disabled={!planId || createMutation.isPending || !quantityIsValid(profileLimit, selectedBounds)
             || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit)) || !trialValid}
           type="submit"
         >
@@ -525,10 +569,23 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
 
       {limitTarget ? (
         <ModalDialog title="Change configuration limit" onClose={() => !limitMutation.isPending && setLimitTarget(null)}>
-          <label className={styles.field}><span>Number of configurations</span><input min="0" required type="number" value={limitDraft} onChange={(event) => setLimitDraft(event.target.valueAsNumber)} /></label>
+          <label className={styles.field}>
+            <span>Number of configurations</span>
+            <input
+              min={limitBounds.kind === 'invalid' ? undefined : limitBounds.min}
+              max={limitBounds.kind === 'commercial' ? limitBounds.max : undefined}
+              required
+              step="1"
+              type="number"
+              value={limitDraft}
+              disabled={limitBounds.kind === 'invalid'}
+              onChange={(event) => setLimitDraft(event.target.valueAsNumber)}
+            />
+          </label>
+          {limitBounds.kind === 'invalid' ? <p className={styles.fieldError} role="alert">{limitBounds.message}</p> : null}
           <div className={styles.dialogActions}>
             <button className={styles.secondaryButton} disabled={limitMutation.isPending} type="button" onClick={() => setLimitTarget(null)}>Cancel</button>
-            <button className={styles.primaryButton} disabled={limitMutation.isPending || !Number.isInteger(limitDraft) || limitDraft < 0} type="button" onClick={() => limitMutation.mutate({ inviteId: limitTarget.invite_id, nextLimit: limitDraft })}>Save limit</button>
+            <button className={styles.primaryButton} disabled={limitMutation.isPending || !quantityIsValid(limitDraft, limitBounds)} type="button" onClick={() => limitMutation.mutate({ inviteId: limitTarget.invite_id, nextLimit: limitDraft })}>Save limit</button>
           </div>
         </ModalDialog>
       ) : null}

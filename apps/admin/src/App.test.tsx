@@ -23,10 +23,12 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
 
 const plan = {
   active: true, code: 'standard', default_amneziawg_limit: 0, default_wireguard_limit: 2,
-  display_name: 'Standard', id: 'plan-1', trial_days: null
+  display_name: 'Standard', id: 'plan-1', trial_days: null,
+  commercial_min_quantity: null, commercial_max_quantity: null
 };
 const commercialPlan = {
-  ...plan, code: 'commercial-rub-v1', display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7
+  ...plan, code: 'commercial-rub-v1', display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7,
+  commercial_min_quantity: 1, commercial_max_quantity: 3
 };
 const invite: AdminInviteSummary = {
   can_change_email: true, can_reissue_share_link: false, can_resend: true, can_revoke: true,
@@ -106,6 +108,7 @@ function makeUser(
       can_create_configuration: profileCount < profileLimit,
       configuration_count: profileCount,
       configuration_limit: profileLimit,
+      configuration_limit_management: 'admin',
       protocol_limits: [{ can_create: profileCount < profileLimit, profile_count: profileCount, profile_limit: profileLimit, protocol: 'wireguard' }],
       status: 'active', valid_until: null
     }],
@@ -435,21 +438,72 @@ describe('admin session and invites', () => {
   });
 
   test('offers both backend-returned account plans and submits the selected plan id and default limit', async () => {
-    const commercial = { ...plan, code: 'commercial', default_wireguard_limit: 4, display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7 };
+    const commercial = {
+      ...plan, code: 'commercial', default_wireguard_limit: 4, display_name: 'Commercial', id: 'commercial-plan-id', trial_days: 7,
+      commercial_min_quantity: 1, commercial_max_quantity: 3
+    };
     vi.mocked(loadPlans).mockResolvedValue([plan, commercial]);
     await renderInvitesDashboard();
     const selector = screen.getByLabelText('Plan');
     expect(within(selector).getByRole('option', { name: 'Standard (standard)' })).toBeTruthy();
     expect(within(selector).getByRole('option', { name: 'Commercial (commercial)' })).toBeTruthy();
     fireEvent.change(selector, { target: { value: commercial.id } });
-    expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('4');
+    expect((screen.getByLabelText('Number of configurations') as HTMLInputElement).value).toBe('3');
     const ordinaryForm = screen.getByRole('button', { name: 'Create invite' }).closest('form')!;
     expect((within(ordinaryForm).getByLabelText('Trial days') as HTMLInputElement).value).toBe('7');
     fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
     await waitFor(() => expect(createInvite).toHaveBeenCalledWith({
       intended_email: null, plan_id: commercial.id, recipient_referral_limit: 3,
-      recipient_referrals_enabled: true, trial_days: 7, wireguard_profile_limit: 4
+      recipient_referrals_enabled: true, trial_days: 7, wireguard_profile_limit: 3
     }));
+  });
+
+  test('uses backend Commercial bounds, resets stale plan quantity, and rejects out-of-range input', async () => {
+    await renderInvitesDashboard();
+    const quantity = screen.getByLabelText('Number of configurations') as HTMLInputElement;
+    fireEvent.change(quantity, { target: { value: '9' } });
+    fireEvent.change(screen.getByLabelText('Plan'), { target: { value: commercialPlan.id } });
+    expect(quantity.value).toBe('2');
+    expect(quantity.min).toBe('1');
+    expect(quantity.max).toBe('3');
+    fireEvent.change(quantity, { target: { value: '4' } });
+    expect((screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(quantity, { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create invite' }));
+    await waitFor(() => expect(createInvite).toHaveBeenCalledWith(expect.objectContaining({
+      plan_id: commercialPlan.id,
+      wireguard_profile_limit: 1
+    })));
+  });
+
+  test.each([
+    ['missing minimum', { commercial_min_quantity: null, commercial_max_quantity: 3 }],
+    ['missing maximum', { commercial_min_quantity: 1, commercial_max_quantity: null }],
+    ['reversed bounds', { commercial_min_quantity: 3, commercial_max_quantity: 1 }]
+  ])('fails closed for %s Commercial quantity metadata', async (_label, malformed) => {
+    vi.mocked(loadPlans).mockResolvedValue([{ ...commercialPlan, ...malformed }]);
+    await renderInvitesDashboard();
+    expect(screen.getByText('This plan has invalid Commercial quantity bounds.')).not.toBeNull();
+    const create = screen.getByRole('button', { name: 'Create invite' }) as HTMLButtonElement;
+    const form = create.closest('form')!;
+    const quantity = within(form).getByText('Number of configurations').closest('label')!.querySelector('input')!;
+    expect(quantity.disabled).toBe(true);
+    expect(create.disabled).toBe(true);
+  });
+
+  test('applies the selected invite plan Commercial bounds when editing an ordinary invite', async () => {
+    vi.mocked(loadInvites).mockResolvedValue([{ ...invite, plan_id: commercialPlan.id, wireguard_profile_limit: 2 }]);
+    await renderInvitesDashboard();
+    fireEvent.click(screen.getByRole('button', { name: 'Change configuration limit' }));
+    const dialog = screen.getByRole('dialog', { name: 'Change configuration limit' });
+    const quantity = within(dialog).getByLabelText('Number of configurations') as HTMLInputElement;
+    expect(quantity.min).toBe('1');
+    expect(quantity.max).toBe('3');
+    fireEvent.change(quantity, { target: { value: '4' } });
+    expect((within(dialog).getByRole('button', { name: 'Save limit' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(quantity, { target: { value: '3' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save limit' }));
+    await waitFor(() => expect(updateInviteWireGuardLimit).toHaveBeenCalledWith(invite.invite_id, 3));
   });
 
   test('submits an explicit custom Commercial trial override', async () => {
@@ -1214,6 +1268,19 @@ describe('users, limits, and retirement', () => {
     fireEvent.change(screen.getByLabelText('New configuration limit for grant grant-1'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set limit' }));
     await waitFor(() => expect(setWireGuardLimit).toHaveBeenCalledWith('grant-1', 2, []));
+  });
+
+  test('shows billing-managed quantity without exposing the technical Set limit control', async () => {
+    const base = makeUser();
+    const billingManaged = {
+      ...base,
+      grants: base.grants.map((grant) => ({ ...grant, configuration_limit_management: 'billing' as const }))
+    };
+    await renderDashboard(billingManaged);
+    expandUser();
+    expect(screen.getByText('Configuration quantity is managed by billing.')).not.toBeNull();
+    expect(screen.queryByLabelText('New configuration limit for grant grant-1')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set limit' })).toBeNull();
   });
 
   test('requires exactly two eligible selections before lowering 3 to 1', async () => {

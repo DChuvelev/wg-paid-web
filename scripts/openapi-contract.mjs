@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 
 export const expectedOpenApi = Object.freeze({
-  canonicalSha256: '47e046a42bb8371618d65c32d45747134e5953c859fc38f9cb8b9c350b298b82',
-  operations: 73,
-  schemas: 78,
+  canonicalSha256: 'e95c8ee255e6d7f65065d8efde9e4c4283e3b5f60e9a90e0ee15756189620347',
+  operations: 74,
+  schemas: 81,
   version: '3.1.0'
 });
 

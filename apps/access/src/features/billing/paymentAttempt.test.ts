@@ -5,7 +5,10 @@ import { paymentPollingInterval, paymentPollIntervalMs, paymentPollWindowMs, res
 beforeEach(() => sessionStorage.clear());
 
 test('persists only the logical payment attempt fields and adds payment id when known', () => {
-  const attempt = { version: 2 as const, state: 'active' as const, user_id: 'user-1', idempotency_key: 'same-key', started_at: 1000 };
+  const attempt = {
+    version: 3 as const, state: 'active' as const, user_id: 'user-1', idempotency_key: 'same-key', started_at: 1000,
+    request: { action: 'renew' as const, target_quantity: 2, apply_now: false, future_choice: null, retire_configuration_ids: [], retire_new_configuration_ordinals: [] }
+  };
   writePaymentAttempt(attempt);
   expect(readPaymentAttemptForUser('user-1')).toEqual(attempt);
   writePaymentAttempt({ ...attempt, payment_id: 'payment-1' });
@@ -14,7 +17,7 @@ test('persists only the logical payment attempt fields and adds payment id when 
 });
 
 test('clears stale storage for another account and never clears another account during scoped cleanup', () => {
-  writePaymentAttempt({ version: 2, state: 'active', user_id: 'user-2', idempotency_key: 'key-2', started_at: 1000 });
+  writePaymentAttempt({ version: 3, state: 'active', user_id: 'user-2', idempotency_key: 'key-2', started_at: 1000 });
   clearPaymentAttemptForUser('user-1');
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toBeNull();
   expect(readPaymentAttemptForUser('user-1')).toBeNull();
@@ -22,13 +25,34 @@ test('clears stale storage for another account and never clears another account 
 });
 
 test('persists definite failure and rejects incomplete or legacy records fail-closed', () => {
-  const failed = { version: 2 as const, state: 'definite_failure' as const, user_id: 'user-1', idempotency_key: 'failed-key', started_at: 1000 };
+  const failed = { version: 3 as const, state: 'definite_failure' as const, user_id: 'user-1', idempotency_key: 'failed-key', started_at: 1000 };
   writePaymentAttempt(failed);
   expect(readPaymentAttemptForUser('user-1')).toEqual(failed);
   sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ ...failed, state: 'unexpected' }));
   expect(readPaymentAttemptForUser('user-1')).toBeNull();
   sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ ...failed, version: 1 }));
   expect(readPaymentAttemptForUser('user-1')).toBeNull();
+});
+
+test('migrates a version-2 attempt as an omitted-body legacy renewal', () => {
+  sessionStorage.setItem('wg-paid-payment-attempt-v2', JSON.stringify({
+    version: 2, state: 'active', user_id: 'user-1', idempotency_key: 'legacy-key', started_at: 456,
+    confirmation_url: 'https://provider.example/secret'
+  }));
+  expect(readPaymentAttemptForUser('user-1')).toEqual({
+    version: 3, state: 'active', user_id: 'user-1', idempotency_key: 'legacy-key', started_at: 456
+  });
+  expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!)).not.toHaveProperty('request');
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toContain('provider.example');
+});
+
+test('cleans malformed current attempts and never preserves provider URLs', () => {
+  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({
+    version: 3, state: 'active', user_id: 'user-1', idempotency_key: 'same-key', started_at: 1000,
+    confirmation_url: 'https://provider.example/secret'
+  }));
+  expect(readPaymentAttemptForUser('user-1')).toBeNull();
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
 });
 
 test('polls only nonterminal payments inside the original bounded window', () => {

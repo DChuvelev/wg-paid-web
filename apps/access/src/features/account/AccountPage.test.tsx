@@ -16,6 +16,7 @@ import {
   logout,
   reissueReferral,
   revokeReferral,
+  updateBillingPendingRetirements,
   updateDisplayName,
   updateConfigurationLabel
 } from '../../lib/accessApi';
@@ -42,6 +43,7 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     redeemInvite: vi.fn(),
     requestLogin: vi.fn(),
     updateDisplayName: vi.fn(),
+    updateBillingPendingRetirements: vi.fn(),
     updateConfigurationLabel: vi.fn()
   };
 });
@@ -54,6 +56,7 @@ const account: AccountMeResponse = {
   grants: [{
     id: 'grant-1',
     plan_id: null,
+    configuration_limit_management: 'admin',
     can_create_configuration: true,
     configuration_count: 2,
     configuration_limit: 3,
@@ -91,6 +94,8 @@ const revokeObjectUrlMock = vi.fn<(url: string) => void>();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(createBillingPayment).mockReset();
+  vi.mocked(updateBillingPendingRetirements).mockReset();
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockResolvedValue({
     ok: true,
@@ -103,10 +108,11 @@ beforeEach(() => {
   vi.mocked(loadAccount).mockResolvedValue(account);
   vi.mocked(loadConfigurations).mockResolvedValue(configurations);
   vi.mocked(loadBillingPayments).mockResolvedValue([]);
-  vi.mocked(loadBillingPayment).mockImplementation(async (paymentId) => ({ payment_id: paymentId, status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), succeeded_at: null }));
+  vi.mocked(loadBillingPayment).mockImplementation(async (paymentId) => billingPayment(paymentId, 'pending', { created_at: new Date().toISOString(), updated_at: new Date().toISOString() }));
   vi.mocked(loadReferrals).mockResolvedValue([]);
   vi.mocked(createConfiguration).mockResolvedValue();
   vi.mocked(createProfileConfigDownload).mockResolvedValue('#config-download');
+  vi.mocked(updateBillingPendingRetirements).mockResolvedValue({ configuration_ids: ['configuration-2'], effective_at: '2026-02-01T00:00:00Z' });
   vi.mocked(updateDisplayName).mockImplementation(async (displayName) => ({ ...account, display_name: displayName }));
   vi.mocked(updateConfigurationLabel).mockImplementation(async (configurationId, label) => ({
     ...configurations.find((configuration) => configuration.configuration_id === configurationId)!,
@@ -132,16 +138,34 @@ const referral = (inviteId: string, state: ReferralInviteSummary['state'] = 'act
   can_reissue_share_link: state === 'active'
 });
 
-const commercialAccount = (status: NonNullable<AccountMeResponse['billing']>['status'] = 'trial'): AccountMeResponse => ({
+const commercialAccount = (
+  status: NonNullable<AccountMeResponse['billing']>['status'] = 'trial',
+  overrides: Partial<NonNullable<AccountMeResponse['billing']>> = {}
+): AccountMeResponse => ({
   ...account,
   account_surface: 'commercial',
+  grants: account.grants.map((grant) => ({ ...grant, configuration_limit_management: 'billing' })),
   billing: {
+    access_grant_id: 'grant-1',
     status,
     current_period_start: '2026-01-01T00:00:00Z',
     current_period_end: '2026-02-01T00:00:00Z',
+    quantity_period_start: '2026-01-01T00:00:00Z',
+    quantity_period_end: '2026-02-01T00:00:00Z',
     slot_quantity: 2,
-    monthly_amount_kopeks: 99000,
-    currency: 'RUB'
+    monthly_amount_kopeks: 39900,
+    min_slot_quantity: 1,
+    max_slot_quantity: 3,
+    extra_slot_monthly_kopeks: 10000,
+    pending_slot_quantity: null,
+    pending_period_start: null,
+    pending_period_end: null,
+    pending_monthly_amount_kopeks: null,
+    retirement_configuration_ids: [],
+    can_renew: status !== 'past_due',
+    can_add_devices_now: status === 'active_paid',
+    currency: 'RUB',
+    ...overrides
   }
 });
 
@@ -152,6 +176,9 @@ const billingPayment = (paymentId: string, status: BillingPaymentSummary['status
   kind: 'initial',
   amount_kopeks: 99000,
   currency: 'RUB',
+  quantity_before: 2,
+  quantity_after: 2,
+  calculation: null,
   target_period_start: null,
   target_period_end: null,
   created_at: '2026-01-01T00:00:00Z',
@@ -310,19 +337,79 @@ test('fails safely for an unknown runtime surface instead of inferring from bill
 });
 
 test.each([
-  ['active_paid', 'Access paid', 'Renew for one month'],
-  ['expired', 'Access expired', 'Pay for one month']
-] as const)('renders backend commercial %s terms and permitted action', async (status, label, action) => {
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status, current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 4, monthly_amount_kopeks: 123400, currency: 'RUB' } });
+  ['active_paid', 'Access paid'],
+  ['expired', 'Access expired']
+] as const)('renders backend commercial %s terms and permitted action', async (status, label) => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount(status));
   renderApp('/account');
   expect(await screen.findByText(label)).toBeTruthy();
-  expect(screen.getByText(/4 devices/)).toBeTruthy();
-  expect(screen.getByText(/1[,. ]?234/)).toBeTruthy();
-  expect(await screen.findByRole('button', { name: action })).toBeTruthy();
+  expect(screen.getByText(/2 devices/)).toBeTruthy();
+  expect(screen.getByText(/399/)).toBeTruthy();
+  expect(await screen.findByRole('button', { name: 'Continue to payment' })).toBeTruthy();
+});
+
+test('renders the paid next-period projection and updates exact billing-owned retirements', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
+    pending_slot_quantity: 1,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 29900,
+    retirement_configuration_ids: ['configuration-2'],
+    can_renew: false
+  }));
+  vi.mocked(updateBillingPendingRetirements).mockResolvedValue({
+    configuration_ids: ['configuration-1'], effective_at: '2026-02-01T00:00:00Z'
+  });
+  renderApp('/account');
+  const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
+  expect(within(billing).getByText('Next paid period')).toBeTruthy();
+  expect(within(billing).getByText(/next month is already paid/i)).toBeTruthy();
+  expect(within(billing).getByText('Laptop · Configuration #9')).toBeTruthy();
+  expect(within(billing).getByText(/Scheduled to stop at/).textContent).toContain('2/1/2026');
+
+  fireEvent.click(within(billing).getByRole('button', { name: 'Change scheduled configurations' }));
+  fireEvent.click(within(billing).getByRole('checkbox', { name: /Laptop/ }));
+  fireEvent.click(within(billing).getByRole('checkbox', { name: 'Configuration #7' }));
+  fireEvent.click(within(billing).getByRole('button', { name: 'Save scheduled configurations' }));
+  await waitFor(() => expect(updateBillingPendingRetirements).toHaveBeenCalledWith(['configuration-1']));
+  await waitFor(() => expect(loadAccount).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(loadConfigurations).toHaveBeenCalledTimes(2));
+});
+
+test('builds a keep-paid add-now request with separate existing and prospective retirement identities', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
+    pending_slot_quantity: 1,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 29900,
+    retirement_configuration_ids: ['configuration-1'],
+    can_renew: false
+  }));
+  vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('add-now-payment', 'pending', { confirmation_url: null }));
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('radio', { name: /Keep the already-paid lower quantity/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Future new configuration 1/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), {
+    action: 'add_now',
+    target_quantity: 3,
+    apply_now: false,
+    future_choice: 'keep_paid',
+    retire_configuration_ids: ['configuration-2'],
+    retire_new_configuration_ordinals: [1]
+  }));
+});
+
+test('fails closed when billing ownership cannot be mapped to current configurations', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', { access_grant_id: 'different-grant' }));
+  renderApp('/account');
+  expect(await screen.findByText(/Billing quantity and configuration data do not agree/i)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
 });
 
 test('past-due commercial account has no payment action and cannot POST', async () => {
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'past_due', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('past_due'));
   renderApp('/account');
   expect(await screen.findByText('Payment overdue')).toBeTruthy();
   expect(screen.getByText(/new payment is unavailable/i)).toBeTruthy();
@@ -331,30 +418,42 @@ test('past-due commercial account has no payment action and cannot POST', async 
 });
 
 test('stores the idempotency attempt before POST and retries an uncertain create with the same key', async () => {
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
-  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce({ payment_id: 'payment-1', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
+  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce(billingPayment('payment-1', 'pending', { confirmation_url: null }));
   renderApp('/account');
-  const button = await screen.findByRole('button', { name: 'Pay for one month' });
+  const button = await screen.findByRole('button', { name: 'Continue to payment' });
   fireEvent.click(button);
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(1));
   const first = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
   expect(first.user_id).toBe(account.user_id);
   expect(first.payment_id).toBeUndefined();
   expect(window.location.href).not.toContain(first.idempotency_key);
-  await screen.findByText(/result is uncertain/i);
-  fireEvent.click(button);
+  expect(first.request).toEqual({
+    action: 'renew',
+    target_quantity: 2,
+    apply_now: false,
+    future_choice: null,
+    retire_configuration_ids: [],
+    retire_new_configuration_ordinals: []
+  });
+  const retry = await screen.findByRole('button', { name: 'Retry same payment' });
+  const lockedQuantity = retry.closest('section')!.querySelector<HTMLInputElement>('input[type="number"]')!;
+  expect(lockedQuantity.disabled).toBe(true);
+  fireEvent.click(retry);
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   expect(vi.mocked(createBillingPayment).mock.calls[0]?.[0]).toBe(vi.mocked(createBillingPayment).mock.calls[1]?.[0]);
+  expect(vi.mocked(createBillingPayment).mock.calls[0]?.[1]).toEqual(first.request);
+  expect(vi.mocked(createBillingPayment).mock.calls[1]?.[1]).toEqual(first.request);
   await waitFor(() => expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!).payment_id).toBe('payment-1'));
   expect(screen.getByText(/processing/i)).toBeTruthy();
   expect(screen.queryByText('Payment confirmed.')).toBeNull();
 });
 
-test.each([502, 409])('HTTP %s create failure requires explicit abandonment before a new logical key', async (status) => {
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
-  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(status)).mockResolvedValueOnce({ payment_id: 'payment-new', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
+test.each([502, 409, 422])('HTTP %s create failure requires explicit abandonment before a new logical key', async (status) => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
+  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(status)).mockResolvedValueOnce(billingPayment('payment-new', 'pending', { confirmation_url: null }));
   const firstRender = renderApp('/account');
-  const paymentButton = await screen.findByRole('button', { name: 'Pay for one month' });
+  const paymentButton = await screen.findByRole('button', { name: 'Continue to payment' });
   fireEvent.click(paymentButton);
   await screen.findByText(/request failed and was not accepted/i);
   expect(screen.queryByText(/result is uncertain/i)).toBeNull();
@@ -374,31 +473,33 @@ test.each([502, 409])('HTTP %s create failure requires explicit abandonment befo
   fireEvent.click(screen.getByRole('button', { name: 'Abandon failed attempt' }));
   await screen.findByText(/failed attempt was reset/i);
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Pay for one month' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   const newKey = vi.mocked(createBillingPayment).mock.calls[1]?.[0];
   expect(newKey).not.toBe(failedAttempt.idempotency_key);
 });
 
 test('reload resumes a stored uncertain attempt with the exact same key', async () => {
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
-  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce({ payment_id: 'resumed-payment', status: 'pending', provider_status: null, kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', succeeded_at: null, confirmation_url: null });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
+  vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce(billingPayment('resumed-payment', 'pending', { confirmation_url: null }));
   const firstRender = renderApp('/account');
-  fireEvent.click(await screen.findByRole('button', { name: 'Pay for one month' }));
-  await screen.findByText(/result is uncertain/i);
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }));
+  await screen.findByRole('button', { name: 'Retry same payment' });
   const stored = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
   expect(stored.state).toBe('active');
+  expect(stored.request).toEqual(vi.mocked(createBillingPayment).mock.calls[0]?.[1]);
   firstRender.unmount();
 
   renderApp('/account');
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   expect(vi.mocked(createBillingPayment).mock.calls[0]?.[0]).toBe(stored.idempotency_key);
   expect(vi.mocked(createBillingPayment).mock.calls[1]?.[0]).toBe(stored.idempotency_key);
+  expect(vi.mocked(createBillingPayment).mock.calls[1]?.[1]).toEqual(stored.request);
 });
 
 test('recovers one pending history item through authoritative item GET and never assumes return success', async () => {
-  const pending = { payment_id: 'recover-1', status: 'pending' as const, provider_status: null, kind: 'initial' as const, amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), succeeded_at: null };
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
+  const pending = billingPayment('recover-1', 'pending', { created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
   vi.mocked(loadBillingPayment).mockResolvedValue(pending);
   renderApp('/account');
@@ -413,16 +514,16 @@ test('history loading and failure both prevent a new payment POST', async () => 
   vi.mocked(loadBillingPayments).mockImplementation(() => new Promise((resolve) => { resolveHistory = resolve; }));
   const first = renderApp('/account');
   expect(await screen.findByText('Checking for unfinished payments…')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
   await act(async () => resolveHistory([]));
-  expect(await screen.findByRole('button', { name: 'Pay for one month' })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: 'Continue to payment' })).toBeTruthy();
   first.unmount();
 
   vi.mocked(loadBillingPayments).mockRejectedValue(new AccessApiError(503));
   renderApp('/account');
   expect(await screen.findByText('Payment history is unavailable. A new payment cannot be created until it is checked.')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -435,7 +536,7 @@ test('one pending payment resumes only from its authoritative item URL', async (
   await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('resume-existing'));
   const resume = await screen.findByRole('link', { name: 'Continue payment' });
   expect((resume as HTMLAnchorElement).href).toBe('https://checkout.example/resume-existing');
-  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
   expect(sessionStorage.getItem(paymentAttemptStorageKey) ?? '').not.toContain('checkout.example');
   const historyCalls = vi.mocked(loadBillingPayments).mock.calls.length;
@@ -454,7 +555,7 @@ test('pending without a checkout URL stays in processing and never creates a rep
   renderApp('/account');
   expect(await screen.findByText('The existing payment is still processing. A replacement payment cannot be created.')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Continue payment' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -465,7 +566,7 @@ test('multiple pending payments block both resume and new payment creation', asy
   expect(await screen.findByText('More than one unfinished payment exists. Refresh or check payment history; no success is assumed.')).toBeTruthy();
   expect(loadBillingPayment).not.toHaveBeenCalled();
   expect(createBillingPayment).not.toHaveBeenCalled();
-  expect(screen.queryByRole('button', { name: 'Pay for one month' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
 });
 
 test('Refresh reports checking, unchanged, changed, and error states', async () => {
@@ -474,7 +575,7 @@ test('Refresh reports checking, unchanged, changed, and error states', async () 
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
   vi.mocked(loadBillingPayments).mockResolvedValueOnce([original]).mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
   renderApp('/account');
-  await screen.findByRole('button', { name: 'Pay for one month' });
+  await screen.findByRole('button', { name: 'Continue to payment' });
   fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
   expect(await screen.findByText('Checking…')).toBeTruthy();
   await act(async () => resolveRefresh([original]));
@@ -496,17 +597,17 @@ test('payment history localizes every supported status instead of rendering raw 
     billingPayment('succeeded', 'succeeded'), billingPayment('canceled', 'canceled')
   ]);
   renderApp('/account');
-  const history = (await screen.findByText('Payment history')).closest('details')!;
-  await waitFor(() => expect(history.textContent).toContain('Processing'));
+  await waitFor(() => expect(screen.getByText('Payment history').closest('details')?.textContent).toContain('Processing'));
+  const history = screen.getByText('Payment history').closest('details')!;
   const text = history.textContent ?? '';
   for (const label of ['Created', 'Processing', 'Paid', 'Canceled']) expect(text).toContain(label);
   for (const raw of [' · created · ', ' · pending · ', ' · succeeded · ', ' · canceled · ']) expect(text).not.toContain(raw);
 });
 
 test('reconciles a stored payment id and clears the current-user attempt only after terminal backend truth', async () => {
-  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ version: 2, state: 'active', user_id: account.user_id, idempotency_key: 'stored-key', started_at: Date.now(), payment_id: 'stored-payment' }));
-  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'commercial', billing: { status: 'trial', current_period_start: '2026-01-01T00:00:00Z', current_period_end: '2026-02-01T00:00:00Z', slot_quantity: 2, monthly_amount_kopeks: 99000, currency: 'RUB' } });
-  vi.mocked(loadBillingPayment).mockResolvedValue({ payment_id: 'stored-payment', status: 'succeeded', provider_status: 'succeeded', kind: 'initial', amount_kopeks: 99000, currency: 'RUB', target_period_start: null, target_period_end: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:01Z', succeeded_at: '2026-01-01T00:00:01Z' });
+  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({ version: 3, state: 'active', user_id: account.user_id, idempotency_key: 'stored-key', started_at: Date.now(), payment_id: 'stored-payment' }));
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
+  vi.mocked(loadBillingPayment).mockResolvedValue(billingPayment('stored-payment', 'succeeded', { provider_status: 'succeeded', updated_at: '2026-01-01T00:00:01Z', succeeded_at: '2026-01-01T00:00:01Z' }));
   renderApp('/account');
   expect(await screen.findByText('Payment confirmed.')).toBeTruthy();
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
