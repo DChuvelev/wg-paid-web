@@ -26,11 +26,21 @@
 .scheduledRetirements ul { margin: 0; }
 .editorActions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
 .controls button:disabled, .editorActions button:disabled, .primaryAction:disabled { opacity: 0.55; cursor: not-allowed; }
+.topUpFieldset { min-width: 0; }
+.topUpOptions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 0.55rem; }
+.controls .topUpOption, .controls .topUpOptionSelected { width: 100%; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.controls .topUpOption { color: #2857a4; background: white; }
+.controls .topUpOptionSelected { color: white; background: #2857a4; box-shadow: 0 0 0 2px #a9c2ee; }
+.pendingPayment { display: grid; gap: 0.65rem; padding: 1rem; border: 1px solid #d39a3a; border-radius: 0.75rem; background: #fff8e9; }
+.pendingPayment h3, .pendingPayment p { margin: 0; }
+.pendingActions { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.pendingHint { color: #52627a; font-size: 0.9rem; }
 
 @media (max-width: 30rem) {
   .projectionGrid { grid-template-columns: minmax(0, 1fr); }
-  .controls, .retirementEditor, .card { padding: 0.75rem; }
+  .controls, .retirementEditor, .card, .pendingPayment { padding: 0.75rem; }
   .quantityField { max-width: none; }
   .controls button, .editorActions button, .primaryAction, .refresh, .continueLink { width: 100%; justify-self: stretch; text-align: center; }
   .editorActions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .pendingActions { display: grid; grid-template-columns: minmax(0, 1fr); }
 }

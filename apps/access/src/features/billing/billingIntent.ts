@@ -1,7 +1,8 @@
-import type { BillingAccountSummary, BillingPaymentCreateRequest, ConfigurationSummary } from '@wg-paid/api';
+import type { BillingAccountSummary, BillingPaymentCreateRequest, BillingPaymentSummary, ConfigurationSummary } from '@wg-paid/api';
 
 export type BillingAction = 'renew' | 'add_now' | 'top_up_next';
 export type FutureChoice = 'preserve' | 'keep_paid' | null;
+export type CurrentQuantityPeriodPresentation = 'trial' | 'paid' | 'unknown';
 
 export interface BillingIntentInput {
   action: BillingAction;
@@ -20,6 +21,48 @@ export type BillingIntentResult =
 
 function unique<T>(values: Array<T>) {
   return new Set(values).size === values.length;
+}
+
+function parsedInstant(value: string | null) {
+  if (value === null) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function classifyCurrentQuantityPeriod(
+  billing: BillingAccountSummary,
+  payments: Array<BillingPaymentSummary> | undefined,
+  now = Date.now()
+): CurrentQuantityPeriodPresentation {
+  if (billing.status === 'trial') return 'trial';
+  if (billing.status !== 'active_paid' || payments === undefined || !Number.isFinite(now)) return 'unknown';
+
+  const quantityStart = parsedInstant(billing.quantity_period_start);
+  const quantityEnd = parsedInstant(billing.quantity_period_end);
+  if (quantityStart === null || quantityEnd === null || quantityStart >= quantityEnd || now < quantityStart || now >= quantityEnd) {
+    return 'unknown';
+  }
+
+  let malformedSucceededPeriod = false;
+  for (const payment of payments) {
+    if (payment.status !== 'succeeded') continue;
+    const targetStart = parsedInstant(payment.target_period_start);
+    const targetEnd = parsedInstant(payment.target_period_end);
+    if (targetStart === null || targetEnd === null || targetStart >= targetEnd) {
+      malformedSucceededPeriod = true;
+      continue;
+    }
+    if (targetStart <= now && targetEnd > now) return 'paid';
+  }
+  return malformedSucceededPeriod ? 'unknown' : 'trial';
+}
+
+export function availableBillingActions(billing: BillingAccountSummary): Array<BillingAction> {
+  const actions: Array<BillingAction> = [];
+  if (billing.can_renew && billing.pending_slot_quantity === null) actions.push('renew');
+  if (billing.status === 'active_paid' && billing.can_add_devices_now && billing.slot_quantity < billing.max_slot_quantity) actions.push('add_now');
+  if (billing.pending_slot_quantity !== null && billing.pending_slot_quantity < billing.max_slot_quantity) actions.push('top_up_next');
+  return actions;
 }
 
 export function pendingProjectionIsCoherent(billing: BillingAccountSummary) {
@@ -103,8 +146,10 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
     return { ok: false, reason: 'invalid_quantity' };
   }
 
+  const availableActions = availableBillingActions(billing);
+
   if (input.action === 'renew') {
-    if (!billing.can_renew || billing.pending_slot_quantity !== null) return { ok: false, reason: 'action_unavailable' };
+    if (!availableActions.includes('renew')) return { ok: false, reason: 'action_unavailable' };
     if (billing.status === 'expired') {
       if (input.applyNow || input.retireConfigurationIds.length || input.retireNewConfigurationOrdinals.length) {
         return { ok: false, reason: 'invalid_retirement_selection' };
@@ -120,7 +165,7 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
   }
 
   if (input.action === 'add_now') {
-    if (billing.status !== 'active_paid' || !billing.can_add_devices_now || targetQuantity <= billing.slot_quantity) {
+    if (!availableActions.includes('add_now') || targetQuantity <= billing.slot_quantity) {
       return { ok: false, reason: 'action_unavailable' };
     }
     const pending = billing.pending_slot_quantity;
@@ -142,8 +187,8 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
     return { ok: true, body: normalizedBody({ ...input, applyNow: false }) };
   }
 
-  if (billing.pending_slot_quantity === null
-    || billing.pending_slot_quantity >= billing.max_slot_quantity
+  if (!availableActions.includes('top_up_next')
+    || billing.pending_slot_quantity === null
     || targetQuantity <= billing.pending_slot_quantity
     || input.applyNow
     || input.futureChoice !== null

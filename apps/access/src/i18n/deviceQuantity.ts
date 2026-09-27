@@ -1,16 +1,16 @@
 import type { Locale } from './resources';
 
-export function deviceQuantity(quantity: number, locale: Locale) {
-  if (locale === 'en') return `${quantity} ${quantity === 1 ? 'device' : 'devices'}`;
+export function configurationQuantity(quantity: number, locale: Locale) {
+  if (locale === 'en') return `${quantity} ${quantity === 1 ? 'configuration' : 'configurations'}`;
   const absolute = Math.abs(quantity);
   const lastTwo = absolute % 100;
   const last = absolute % 10;
   const noun = lastTwo >= 11 && lastTwo <= 14
-    ? 'устройств'
+    ? 'конфигураций'
     : last === 1
-      ? 'устройство'
+      ? 'конфигурация'
       : last >= 2 && last <= 4
-        ? 'устройства'
-        : 'устройств';
+        ? 'конфигурации'
+        : 'конфигураций';
   return `${quantity} ${noun}`;
 }

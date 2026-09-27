@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AccountMeResponse, BillingPaymentCreateRequest, BillingPaymentSummary, ConfigurationSummary } from '@wg-paid/api';
-import { deviceQuantity } from '../../i18n/deviceQuantity';
+import { configurationQuantity } from '../../i18n/deviceQuantity';
 import { useLocale } from '../../i18n/localeContext';
 import {
   AccessApiError,
@@ -12,9 +12,10 @@ import {
 } from '../../lib/accessApi';
 import { accountKey, billingPaymentKey, billingPaymentsKey, configurationsKey } from '../account/queryKeys';
 import { BillingControls } from './BillingControls';
-import { billingProjectionIsCoherent, selectBillingConfigurations } from './billingIntent';
+import { billingProjectionIsCoherent, classifyCurrentQuantityPeriod, selectBillingConfigurations } from './billingIntent';
+import { PendingPaymentCard } from './PendingPaymentCard';
 import { clearPaymentAttemptForUser, readPaymentAttemptForUser, type PaymentAttempt, writePaymentAttempt } from './paymentAttempt';
-import { isPendingPayment, paymentPollingInterval, paymentPollWindowMs, resolvePendingPayments } from './paymentState';
+import { isPendingPayment, paymentPollingInterval, paymentPollWindowMs, pendingPaymentAllowsRetirementReselection, resolvePendingPayments } from './paymentState';
 import { RetirementPicker } from './RetirementPicker';
 import styles from './Billing.module.css';
 
@@ -78,7 +79,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
     if (!payment.data) return;
     if (isPendingPayment(payment.data)) {
       if (Date.now() - startedAt >= paymentPollWindowMs) setMessage(t('paymentTimeout'));
-      else setMessage(payment.data.confirmation_url ? '' : t('paymentResumeProcessing'));
+      else setMessage('');
       return;
     }
     void finish(payment.data);
@@ -128,7 +129,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
       }
       setPaymentId(created.payment_id);
       if (created.confirmation_url) window.location.assign(created.confirmation_url);
-      else if (isPendingPayment(created)) setMessage(t('paymentProcessing'));
+      else if (isPendingPayment(created)) setMessage('');
       else void finish(created);
     }
   });
@@ -222,6 +223,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
   const billing = account.billing;
   const billingConfigurations = selectBillingConfigurations(billing, configurations);
   const coherent = billingProjectionIsCoherent(billing, billingConfigurations);
+  const currentPeriodPresentation = classifyCurrentQuantityPeriod(billing, history.isSuccess ? history.data : undefined);
   const statusKey = `billingStatus_${billing.status}` as const;
   const retryUncertain = Boolean(attempt?.state === 'active' && !attempt.payment_id && pendingResolution.kind === 'none' && !paymentId);
   const controlsAvailable = history.isSuccess && pendingResolution.kind === 'none' && !paymentId;
@@ -238,35 +240,63 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
     && billing.pending_monthly_amount_kopeks !== null;
   const retirementRequired = pendingExists ? Math.max(0, billing.slot_quantity - billing.pending_slot_quantity!) : 0;
   const retirementConfigurations = billing.retirement_configuration_ids.map((id) => billingConfigurations.find((item) => item.configuration_id === id)).filter((item): item is ConfigurationSummary => Boolean(item));
+  const retirementPolicy = !history.isSuccess ? 'unknown'
+    : pendingResolution.kind === 'none' ? 'allowed'
+      : pendingResolution.kind === 'one' && pendingPaymentAllowsRetirementReselection(pendingResolution.payment, billing) ? 'safe'
+        : 'blocked';
+  const retirementEditingAllowed = retirementPolicy === 'allowed' || retirementPolicy === 'safe';
+  const itemPendingPayment = payment.data && isPendingPayment(payment.data) ? payment.data : undefined;
+  const historyPendingPayment = pendingResolution.kind === 'one' ? pendingResolution.payment : undefined;
+  const pendingDisplayPayment = itemPendingPayment ?? historyPendingPayment;
+  const showPendingPayment = pendingResolution.kind === 'ambiguous' || Boolean(pendingDisplayPayment) || Boolean(paymentId && payment.isPending);
+  const authoritativeConfirmationUrl = itemPendingPayment?.confirmation_url ?? null;
 
   return (
     <section className={styles.section} aria-labelledby="billing-title">
       <h2 id="billing-title">{t('billing')}</h2>
       <div className={styles.projectionGrid}>
         <article className={styles.card}>
-          <h3>{t('billingCurrentTitle')}</h3>
-          <strong>{t(statusKey)}</strong>
-          <p>{t('billingTerms', { amount: money(billing.monthly_amount_kopeks, billing.currency), devices: deviceQuantity(billing.slot_quantity, locale) })}</p>
-          <p>{t('billingCurrentQuantityPeriod', { start: formatDate(billing.quantity_period_start), end: formatDate(billing.quantity_period_end) })}</p>
-          <p>{t('billingPaidThrough', { date: formatDateTime(billing.current_period_end) })}</p>
-          {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : null}
+          {currentPeriodPresentation === 'trial' ? (
+            <>
+              <h3>{t('billingCurrentTrialTitle')}</h3>
+              <strong>{configurationQuantity(billing.slot_quantity, locale)}</strong>
+              <p>{t('billingTrialEnds', { date: formatDate(billing.quantity_period_end) })}</p>
+            </>
+          ) : billing.status === 'active_paid' && currentPeriodPresentation === 'unknown' ? (
+            <>
+              <h3>{t('billingCurrentTitle')}</h3>
+              <strong>{configurationQuantity(billing.slot_quantity, locale)}</strong>
+              <p>{t('billingCurrentQuantityUntil', { date: formatDate(billing.quantity_period_end) })}</p>
+            </>
+          ) : (
+            <>
+              <h3>{t('billingCurrentTitle')}</h3>
+              <strong>{t(statusKey)}</strong>
+              <p>{t('billingTerms', { amount: money(billing.monthly_amount_kopeks, billing.currency), configurations: configurationQuantity(billing.slot_quantity, locale) })}</p>
+              <p>{t('billingCurrentQuantityPeriod', { start: formatDate(billing.quantity_period_start), end: formatDate(billing.quantity_period_end) })}</p>
+              <p>{t('billingPaidThrough', { date: formatDateTime(billing.current_period_end) })}</p>
+              {billing.status === 'past_due' ? <p className={styles.warning}>{t('pastDueUnavailable')}</p> : null}
+            </>
+          )}
         </article>
         {pendingExists ? (
           <article className={styles.card}>
             <h3>{t('billingNextTitle')}</h3>
-            <p>{t('billingNextTerms', {
+            <strong>{t('billingNextSummary', {
               amount: money(billing.pending_monthly_amount_kopeks!, billing.currency),
-              devices: deviceQuantity(billing.pending_slot_quantity!, locale),
-              start: formatDate(billing.pending_period_start!), end: formatDate(billing.pending_period_end!)
-            })}</p>
-            {!billing.can_renew ? <p className={styles.notice}>{t('billingNextAlreadyPaid')}</p> : null}
+              configurations: configurationQuantity(billing.pending_slot_quantity!, locale)
+            })}</strong>
+            <p>{t('billingPeriodRange', { start: formatDate(billing.pending_period_start!), end: formatDate(billing.pending_period_end!) })}</p>
             {coherent && retirementConfigurations.length ? (
               <div className={styles.scheduledRetirements}>
                 <strong>{t('billingScheduledRetirements', { date: formatDateTime(billing.pending_period_start!) })}</strong>
                 <ul>{retirementConfigurations.map((configuration) => <li key={configuration.configuration_id}>{configuration.label?.trim() || t('billingConfiguration', { number: configuration.ordinal })}{configuration.label?.trim() ? ` · ${t('billingConfiguration', { number: configuration.ordinal })}` : ''}</li>)}</ul>
-                <button className={styles.refresh} type="button" onClick={() => { setRetirementIds(billing.retirement_configuration_ids); setEditingRetirements(true); setRetirementMessage(''); }}>{t('billingEditRetirements')}</button>
+                {retirementPolicy === 'safe' ? <p className={styles.notice}>{t('paymentRetirementSafe')}</p> : null}
+                {retirementPolicy === 'blocked' ? <p className={styles.warning}>{t('paymentRetirementBlocked')}</p> : null}
+                {retirementPolicy === 'unknown' ? <p className={styles.warning}>{t('paymentRetirementUnknown')}</p> : null}
+                <button className={styles.refresh} type="button" disabled={!retirementEditingAllowed} onClick={() => { if (!retirementEditingAllowed) return; setRetirementIds(billing.retirement_configuration_ids); setEditingRetirements(true); setRetirementMessage(''); }}>{t('billingEditRetirements')}</button>
               </div>
-            ) : coherent ? <p>{t('billingNoScheduledRetirements')}</p> : null}
+            ) : null}
           </article>
         ) : null}
       </div>
@@ -283,9 +313,15 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
       {retryUncertain ? <button className={styles.primaryAction} type="button" disabled={create.isPending || singleFlight.current} onClick={() => submit(undefined, attempt!)}>{t('paymentRetryButton')}</button> : null}
       {history.isPending && !retryUncertain ? <p>{t('paymentHistoryLoading')}</p> : null}
       {history.isError && !retryUncertain ? <p className={styles.warning}>{t('paymentHistoryUnavailable')}</p> : null}
-      {pendingResolution.kind === 'ambiguous' ? <p className={styles.warning}>{t('paymentRecoveryAmbiguous')}</p> : null}
-      {paymentId && payment.isPending ? <p>{t('paymentChecking')}</p> : null}
-      {payment.data && isPendingPayment(payment.data) && payment.data.confirmation_url ? <a className={styles.continueLink} href={payment.data.confirmation_url}>{t('continuePayment')}</a> : null}
+      {showPendingPayment ? (
+        <PendingPaymentCard
+          ambiguous={pendingResolution.kind === 'ambiguous'}
+          checking={refreshState === 'checking' || payment.isFetching}
+          confirmationUrl={authoritativeConfirmationUrl}
+          payment={pendingDisplayPayment}
+          onCheck={() => void refresh()}
+        />
+      ) : null}
       {message ? <p role="status">{message}</p> : null}
       {definiteCreateFailure ? <button className={styles.refresh} type="button" onClick={() => void abandonFailedAttempt()}>{t('abandonPaymentAttempt')}</button> : null}
       {payment.isError || history.isError ? <p className={styles.error} role="alert">{t('billingLoadFailed')}</p> : null}
@@ -294,14 +330,14 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
         <div className={styles.retirementEditor}>
           <RetirementPicker
             configurations={billingConfigurations}
-            disabled={retirementMutation.isPending}
+            disabled={retirementMutation.isPending || !retirementEditingAllowed}
             required={retirementRequired}
             selectedConfigurationIds={retirementIds}
             selectedNewOrdinals={[]}
             onChange={(ids) => { setRetirementIds(ids); setRetirementMessage(''); }}
           />
           <div className={styles.editorActions}>
-            <button type="button" disabled={retirementMutation.isPending || retirementIds.length !== retirementRequired} onClick={() => retirementMutation.mutate(retirementIds)}>{t('billingSaveRetirements')}</button>
+            <button type="button" disabled={retirementMutation.isPending || !retirementEditingAllowed || retirementIds.length !== retirementRequired} onClick={() => { if (retirementEditingAllowed) retirementMutation.mutate(retirementIds); }}>{t('billingSaveRetirements')}</button>
             <button className={styles.refresh} type="button" disabled={retirementMutation.isPending} onClick={() => setEditingRetirements(false)}>{t('cancel')}</button>
           </div>
         </div>
@@ -309,7 +345,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
       {retirementMessage ? <p className={retirementMutation.isError ? styles.error : styles.selectionValid} role={retirementMutation.isError ? 'alert' : 'status'}>{retirementMessage}</p> : null}
 
       <details><summary>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{formatDate(item.created_at)} · {paymentStatus(item.status)} · {money(item.amount_kopeks, item.currency)} · {t('billingPaymentQuantity', { before: item.quantity_before, after: item.quantity_after })}</li>)}</ul></details>
-      <button className={styles.refresh} disabled={refreshState === 'checking'} type="button" onClick={() => void refresh()}>{t('refresh')}</button>
+      {!showPendingPayment ? <button className={styles.refresh} disabled={refreshState === 'checking'} type="button" onClick={() => void refresh()}>{t('refresh')}</button> : null}
       {refreshMessage ? <p className={refreshState === 'error' ? styles.error : undefined} role="status">{refreshMessage}</p> : null}
     </section>
   );

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { BillingAccountSummary, ConfigurationSummary } from '@wg-paid/api';
-import { billingProjectionIsCoherent, buildBillingPaymentRequest, selectBillingConfigurations } from './billingIntent';
+import type { BillingAccountSummary, BillingPaymentSummary, ConfigurationSummary } from '@wg-paid/api';
+import { billingProjectionIsCoherent, buildBillingPaymentRequest, classifyCurrentQuantityPeriod, selectBillingConfigurations } from './billingIntent';
 
 const billing = (overrides: Partial<BillingAccountSummary> = {}): BillingAccountSummary => ({
   access_grant_id: 'grant-billing', status: 'active_paid',
@@ -18,6 +18,14 @@ const configuration = (id: string, grant = 'grant-billing', ordinal = Number(id.
 });
 const configurations = [configuration('configuration-1'), configuration('configuration-2')];
 
+const payment = (overrides: Partial<BillingPaymentSummary> = {}): BillingPaymentSummary => ({
+  payment_id: 'payment-1', status: 'succeeded', provider_status: 'succeeded', kind: 'initial',
+  amount_kopeks: 49900, currency: 'RUB', quantity_before: 3, quantity_after: 3,
+  target_period_start: '2026-09-01T00:00:00Z', target_period_end: '2026-10-01T00:00:00Z',
+  calculation: null, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z',
+  succeeded_at: '2026-09-01T00:00:00Z', ...overrides
+});
+
 function request(overrides: Partial<Parameters<typeof buildBillingPaymentRequest>[0]> = {}) {
   return buildBillingPaymentRequest({
     action: 'renew', applyNow: false, billing: billing(), billingConfigurations: configurations,
@@ -27,6 +35,33 @@ function request(overrides: Partial<Parameters<typeof buildBillingPaymentRequest
 }
 
 describe('billing intent', () => {
+  test('classifies a genuinely paid max-q3 current period from succeeded payment coverage', () => {
+    const current = billing({
+      status: 'active_paid', slot_quantity: 3, monthly_amount_kopeks: 49900,
+      can_add_devices_now: false
+    });
+    expect(classifyCurrentQuantityPeriod(current, [payment()], Date.parse('2026-09-15T00:00:00Z'))).toBe('paid');
+  });
+
+  test('classifies an active-paid preserved trial tail when succeeded coverage begins in the future', () => {
+    const current = billing({
+      status: 'active_paid', slot_quantity: 3, monthly_amount_kopeks: 49900,
+      can_add_devices_now: false,
+      pending_slot_quantity: 1, pending_period_start: '2026-10-01T03:00:00+03:00',
+      pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900,
+      retirement_configuration_ids: ['configuration-2', 'configuration-3'], can_renew: false
+    });
+    const future = payment({ target_period_start: '2026-10-01T00:00:00Z', target_period_end: '2026-11-01T00:00:00Z' });
+    expect(classifyCurrentQuantityPeriod(current, [future], Date.parse('2026-09-15T00:00:00Z'))).toBe('trial');
+  });
+
+  test('classifies plain trial without history and leaves unavailable or malformed active-paid evidence unknown', () => {
+    expect(classifyCurrentQuantityPeriod(billing({ status: 'trial' }), undefined)).toBe('trial');
+    expect(classifyCurrentQuantityPeriod(billing(), undefined, Date.parse('2026-09-15T00:00:00Z'))).toBe('unknown');
+    expect(classifyCurrentQuantityPeriod(billing(), [payment({ target_period_start: 'invalid' })], Date.parse('2026-09-15T00:00:00Z'))).toBe('unknown');
+    expect(classifyCurrentQuantityPeriod(billing({ quantity_period_end: 'invalid' }), [], Date.parse('2026-09-15T00:00:00Z'))).toBe('unknown');
+  });
+
   test('builds same, higher-later, and higher-now renewals', () => {
     expect(request()).toMatchObject({ ok: true, body: { action: 'renew', target_quantity: 2, apply_now: false } });
     expect(request({ targetQuantity: 3 })).toMatchObject({ ok: true, body: { target_quantity: 3, apply_now: false } });

@@ -1,10 +1,34 @@
-import type { BillingPaymentSummary } from '@wg-paid/api';
+import type { BillingAccountSummary, BillingPaymentSummary } from '@wg-paid/api';
 
 export const paymentPollIntervalMs = 3000;
 export const paymentPollWindowMs = 120000;
 
 export function isPendingPayment(payment: BillingPaymentSummary) {
   return payment.status === 'created' || payment.status === 'pending';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function topUpNextPaymentTarget(payment: BillingPaymentSummary) {
+  const calculation = payment.calculation;
+  if (!isRecord(calculation)
+    || calculation.version !== 1
+    || calculation.action !== 'top_up_next'
+    || !Number.isInteger(calculation.target_quantity)) return null;
+  return calculation.target_quantity as number;
+}
+
+export function pendingPaymentAllowsRetirementReselection(
+  payment: BillingPaymentSummary,
+  billing: BillingAccountSummary
+) {
+  if (!isPendingPayment(payment) || billing.pending_slot_quantity === null) return false;
+  const targetQuantity = topUpNextPaymentTarget(payment);
+  return targetQuantity !== null
+    && targetQuantity > billing.pending_slot_quantity
+    && targetQuantity >= billing.slot_quantity;
 }
 
 export type PendingPaymentResolution =
