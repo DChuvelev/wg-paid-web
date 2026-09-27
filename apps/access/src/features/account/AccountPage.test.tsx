@@ -447,8 +447,8 @@ test('trial first-payment increase explains immediate availability and submits n
   }));
 });
 
-test('trial top-up-next selects any quantity above pending and explains immediate trial-tail availability', async () => {
-  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+test('paid preserved-trial-tail top-up explains immediate availability when add-now is unavailable', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
     slot_quantity: 1,
     monthly_amount_kopeks: 29900,
     pending_slot_quantity: 1,
@@ -469,7 +469,7 @@ test('trial top-up-next selects any quantity above pending and explains immediat
 });
 
 test('top-up-next uses the shared picker only for exact existing boundary retirements', async () => {
-  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
     slot_quantity: 3,
     monthly_amount_kopeks: 49900,
     pending_slot_quantity: 1,
@@ -492,7 +492,7 @@ test('top-up-next uses the shared picker only for exact existing boundary retire
 });
 
 test('pending max quantity offers no top-up-next action', async () => {
-  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
     pending_slot_quantity: 3,
     pending_period_start: '2026-02-01T00:00:00Z',
     pending_period_end: '2026-03-01T00:00:00Z',
@@ -507,7 +507,7 @@ test('pending max quantity offers no top-up-next action', async () => {
 });
 
 test('reload retries the exact top-up-next target and retirement selection with the same key', async () => {
-  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', {
     slot_quantity: 3,
     monthly_amount_kopeks: 49900,
     pending_slot_quantity: 1,

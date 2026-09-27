@@ -111,16 +111,16 @@ describe('billing intent', () => {
       .toEqual({ ok: false, reason: 'action_unavailable' });
   });
 
-  test('allows trial top-up-next to preserve all current configurations', () => {
-    const trialConfigurations = [...configurations, configuration('configuration-3')];
+  test('allows preserved-trial-tail top-up-next to preserve all current configurations', () => {
+    const trialTailConfigurations = [...configurations, configuration('configuration-3')];
     const pending = billing({
-      status: 'trial', slot_quantity: 3, monthly_amount_kopeks: 49900,
+      status: 'active_paid', slot_quantity: 3, monthly_amount_kopeks: 49900,
       pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z',
       pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900,
       retirement_configuration_ids: ['configuration-1', 'configuration-2'],
       can_renew: false, can_add_devices_now: false
     });
-    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: trialConfigurations, targetQuantity: 3 }))
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: trialTailConfigurations, targetQuantity: 3 }))
       .toEqual({ ok: true, body: {
         action: 'top_up_next', target_quantity: 3, apply_now: false, future_choice: null,
         retire_configuration_ids: [], retire_new_configuration_ordinals: []

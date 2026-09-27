@@ -142,7 +142,7 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
         <p className={styles.notice}>{t('billingTrialRenewImmediate')}</p>
       ) : null}
 
-      {action === 'top_up_next' && billing.status === 'trial' && !billing.can_add_devices_now && targetQuantity > billing.slot_quantity ? (
+      {action === 'top_up_next' && !billing.can_add_devices_now && targetQuantity > billing.slot_quantity ? (
         <p className={styles.notice}>{t('billingTrialTopUpImmediate')}</p>
       ) : null}
 
