@@ -86,6 +86,12 @@ const configurations: Array<ConfigurationSummary> = [
     ]
   }
 ];
+const configurationThree: ConfigurationSummary = {
+  ...configurations[0]!,
+  configuration_id: 'configuration-3',
+  ordinal: 11,
+  variants: []
+};
 
 const qrSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 0h100v100H0z"/></svg>';
 const fetchMock = vi.fn<typeof fetch>();
@@ -418,6 +424,125 @@ test('past-due commercial account has no payment action and cannot POST', async 
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
+test('trial first-payment increase explains immediate availability and submits no retirements', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+    slot_quantity: 1,
+    monthly_amount_kopeks: 29900
+  }));
+  vi.mocked(loadConfigurations).mockResolvedValue([configurations[0]!]);
+  vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('trial-increase', 'pending', { confirmation_url: null }));
+  renderApp('/account');
+
+  const quantity = await screen.findByRole('spinbutton', { name: /Number of configurations/ });
+  fireEvent.change(quantity, { target: { value: '3' } });
+  expect(screen.getByText(/Extra configurations become available immediately after successful payment/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), {
+    action: 'renew',
+    target_quantity: 3,
+    apply_now: false,
+    future_choice: null,
+    retire_configuration_ids: [],
+    retire_new_configuration_ordinals: []
+  }));
+});
+
+test('trial top-up-next selects any quantity above pending and explains immediate trial-tail availability', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+    slot_quantity: 1,
+    monthly_amount_kopeks: 29900,
+    pending_slot_quantity: 1,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 29900,
+    can_renew: false,
+    can_add_devices_now: false
+  }));
+  vi.mocked(loadConfigurations).mockResolvedValue([configurations[0]!]);
+  renderApp('/account');
+
+  const quantity = await screen.findByRole('spinbutton', { name: /Number of configurations/ });
+  expect((quantity as HTMLInputElement).min).toBe('2');
+  expect((quantity as HTMLInputElement).max).toBe('3');
+  fireEvent.change(quantity, { target: { value: '3' } });
+  expect(screen.getByText(/Additional configurations become available immediately after successful payment for the remaining trial period/)).toBeTruthy();
+});
+
+test('top-up-next uses the shared picker only for exact existing boundary retirements', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+    slot_quantity: 3,
+    monthly_amount_kopeks: 49900,
+    pending_slot_quantity: 1,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 29900,
+    retirement_configuration_ids: ['configuration-1', 'configuration-2'],
+    can_renew: false,
+    can_add_devices_now: false
+  }));
+  vi.mocked(loadConfigurations).mockResolvedValue([...configurations, configurationThree]);
+  renderApp('/account');
+
+  const quantity = await screen.findByRole('spinbutton', { name: /Number of configurations/ });
+  expect((quantity as HTMLInputElement).value).toBe('2');
+  expect(screen.getByText('Select exactly 1. Selected: 0.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
+  fireEvent.change(quantity, { target: { value: '3' } });
+  expect(screen.queryByText(/Select exactly/)).toBeNull();
+});
+
+test('pending max quantity offers no top-up-next action', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+    pending_slot_quantity: 3,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 49900,
+    can_renew: false,
+    can_add_devices_now: false
+  }));
+  renderApp('/account');
+  await screen.findByText('Next paid period');
+  expect(screen.queryByRole('radio', { name: /Increase next month/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+});
+
+test('reload retries the exact top-up-next target and retirement selection with the same key', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', {
+    slot_quantity: 3,
+    monthly_amount_kopeks: 49900,
+    pending_slot_quantity: 1,
+    pending_period_start: '2026-02-01T00:00:00Z',
+    pending_period_end: '2026-03-01T00:00:00Z',
+    pending_monthly_amount_kopeks: 29900,
+    retirement_configuration_ids: ['configuration-1', 'configuration-2'],
+    can_renew: false,
+    can_add_devices_now: false
+  }));
+  vi.mocked(loadConfigurations).mockResolvedValue([...configurations, configurationThree]);
+  vi.mocked(createBillingPayment)
+    .mockRejectedValueOnce(new AccessApiError(503))
+    .mockResolvedValueOnce(billingPayment('top-up-resumed', 'pending', { confirmation_url: null }));
+  const firstRender = renderApp('/account');
+  await screen.findByRole('spinbutton', { name: /Number of configurations/ });
+  fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  await screen.findByRole('button', { name: 'Retry same payment' });
+  const stored = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
+  expect(stored.request).toEqual({
+    action: 'top_up_next',
+    target_quantity: 2,
+    apply_now: false,
+    future_choice: null,
+    retire_configuration_ids: ['configuration-2'],
+    retire_new_configuration_ordinals: []
+  });
+  firstRender.unmount();
+
+  renderApp('/account');
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(createBillingPayment).mock.calls[1]).toEqual([stored.idempotency_key, stored.request]);
+});
+
 test('stores the idempotency attempt before POST and retries an uncertain create with the same key', async () => {
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce(billingPayment('payment-1', 'pending', { confirmation_url: null }));
@@ -639,6 +764,18 @@ test('renders each logical configuration once with both variants, backend ordina
 
   fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
   await waitFor(() => expect(vi.mocked(createConfiguration)).toHaveBeenCalledWith('grant-1'));
+});
+
+test('billing-managed commercial grant never exposes generic Add configuration', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
+  renderApp('/account');
+  await screen.findByText('Trial access');
+  expect(screen.queryByRole('button', { name: 'Add configuration' })).toBeNull();
+});
+
+test('admin-managed pilot grant still exposes generic Add configuration when authorized', async () => {
+  renderApp('/account');
+  expect(await screen.findByRole('button', { name: 'Add configuration' })).toBeTruthy();
 });
 
 test('requests a temporary config download URL and navigates to it', async () => {

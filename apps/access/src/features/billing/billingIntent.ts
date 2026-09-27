@@ -143,14 +143,15 @@ export function buildBillingPaymentRequest(input: BillingIntentInput): BillingIn
   }
 
   if (billing.pending_slot_quantity === null
-    || billing.pending_slot_quantity >= billing.slot_quantity
-    || targetQuantity !== billing.slot_quantity
+    || billing.pending_slot_quantity >= billing.max_slot_quantity
+    || targetQuantity <= billing.pending_slot_quantity
     || input.applyNow
     || input.futureChoice !== null
-    || input.retireConfigurationIds.length
     || input.retireNewConfigurationOrdinals.length) {
     return { ok: false, reason: 'action_unavailable' };
   }
+  const required = Math.max(0, billing.slot_quantity - targetQuantity);
+  if (!validExistingSelection(input, required)) return { ok: false, reason: 'invalid_retirement_selection' };
   return { ok: true, body: normalizedBody({ ...input, applyNow: false, futureChoice: null }) };
 }
 

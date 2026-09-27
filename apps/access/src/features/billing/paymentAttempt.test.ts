@@ -16,6 +16,22 @@ test('persists only the logical payment attempt fields and adds payment id when 
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toContain('confirmation');
 });
 
+test('preserves an exact normalized top-up-next body across storage recovery', () => {
+  const attempt = {
+    version: 3 as const, state: 'active' as const, user_id: 'user-1', idempotency_key: 'top-up-key', started_at: 1000,
+    request: {
+      action: 'top_up_next' as const,
+      target_quantity: 2,
+      apply_now: false,
+      future_choice: null,
+      retire_configuration_ids: ['configuration-2'],
+      retire_new_configuration_ordinals: []
+    }
+  };
+  writePaymentAttempt(attempt);
+  expect(readPaymentAttemptForUser('user-1')).toEqual(attempt);
+});
+
 test('clears stale storage for another account and never clears another account during scoped cleanup', () => {
   writePaymentAttempt({ version: 3, state: 'active', user_id: 'user-2', idempotency_key: 'key-2', started_at: 1000 });
   clearPaymentAttemptForUser('user-1');

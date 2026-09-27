@@ -19,7 +19,7 @@ export function selectConfigurationEntitlement(
     }
 
     return {
-      canCreate: grant.can_create_configuration,
+      canCreate: grant.configuration_limit_management === 'admin' && grant.can_create_configuration,
       grantId: grant.id,
       configurationCount: grant.configuration_count,
       configurationLimit: grant.configuration_limit

@@ -41,6 +41,19 @@ describe('billing intent', () => {
       .toEqual({ ok: false, reason: 'invalid_retirement_selection' });
   });
 
+  test.each([1, 2])('preserves exact boundary retirement selection for trial q3 first payment to q%i', (targetQuantity) => {
+    const trialConfigurations = [...configurations, configuration('configuration-3')];
+    const trial = billing({
+      status: 'trial', slot_quantity: 3, monthly_amount_kopeks: 49900,
+      can_add_devices_now: false
+    });
+    const selected = trialConfigurations.slice(targetQuantity).map((item) => item.configuration_id);
+    expect(request({ billing: trial, billingConfigurations: trialConfigurations, targetQuantity }))
+      .toEqual({ ok: false, reason: 'invalid_retirement_selection' });
+    expect(request({ billing: trial, billingConfigurations: trialConfigurations, targetQuantity, retireConfigurationIds: selected }))
+      .toMatchObject({ ok: true, body: { apply_now: false, retire_configuration_ids: selected } });
+  });
+
   test('builds add-now without a future choice when no pending period or pending is high enough', () => {
     expect(request({ action: 'add_now', targetQuantity: 3 })).toMatchObject({ ok: true, body: { action: 'add_now', future_choice: null } });
     expect(request({ action: 'add_now', billing: billing({ pending_slot_quantity: 3, pending_period_start: '2026-10-01T00:00:00Z', pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 49900, can_renew: false }), targetQuantity: 3 }))
@@ -57,9 +70,45 @@ describe('billing intent', () => {
       .toEqual({ ok: false, reason: 'invalid_retirement_selection' });
   });
 
-  test('builds the bounded top-up-next preservation case', () => {
-    const pending = billing({ pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z', pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900, retirement_configuration_ids: ['configuration-1'], can_renew: false });
-    expect(request({ action: 'top_up_next', billing: pending })).toMatchObject({ ok: true, body: { action: 'top_up_next', target_quantity: 2 } });
+  test.each([2, 3])('allows q1 pending quantity to be topped up to q%i', (targetQuantity) => {
+    const oneConfiguration = [configuration('configuration-1')];
+    const pending = billing({
+      slot_quantity: 1, monthly_amount_kopeks: 29900,
+      pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z',
+      pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900,
+      can_renew: false
+    });
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: oneConfiguration, targetQuantity }))
+      .toEqual({ ok: true, body: {
+        action: 'top_up_next', target_quantity: targetQuantity, apply_now: false, future_choice: null,
+        retire_configuration_ids: [], retire_new_configuration_ordinals: []
+      } });
+  });
+
+  test('requires exact existing boundary retirements when top-up target remains below current quantity', () => {
+    const threeConfigurations = [...configurations, configuration('configuration-3')];
+    const pending = billing({
+      slot_quantity: 3, monthly_amount_kopeks: 49900,
+      pending_slot_quantity: 1, pending_period_start: '2026-10-01T00:00:00Z',
+      pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 29900,
+      retirement_configuration_ids: ['configuration-1', 'configuration-2'], can_renew: false
+    });
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: threeConfigurations, targetQuantity: 2 }))
+      .toEqual({ ok: false, reason: 'invalid_retirement_selection' });
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: threeConfigurations, targetQuantity: 2, retireConfigurationIds: ['configuration-2'] }))
+      .toMatchObject({ ok: true, body: { target_quantity: 2, retire_configuration_ids: ['configuration-2'] } });
+    expect(request({ action: 'top_up_next', billing: pending, billingConfigurations: threeConfigurations, targetQuantity: 3 }))
+      .toMatchObject({ ok: true, body: { target_quantity: 3, retire_configuration_ids: [] } });
+  });
+
+  test('does not allow top-up-next when pending quantity is already max quantity', () => {
+    const pending = billing({
+      pending_slot_quantity: 3, pending_period_start: '2026-10-01T00:00:00Z',
+      pending_period_end: '2026-11-01T00:00:00Z', pending_monthly_amount_kopeks: 49900,
+      can_renew: false
+    });
+    expect(request({ action: 'top_up_next', billing: pending, targetQuantity: 3 }))
+      .toEqual({ ok: false, reason: 'action_unavailable' });
   });
 
   test('allows trial top-up-next to preserve all current configurations', () => {

@@ -19,7 +19,9 @@ function initialAction(billing: BillingAccountSummary): BillingAction {
 }
 
 function initialTarget(action: BillingAction, billing: BillingAccountSummary) {
-  return action === 'add_now' ? Math.min(billing.max_slot_quantity, billing.slot_quantity + 1) : billing.slot_quantity;
+  if (action === 'add_now') return Math.min(billing.max_slot_quantity, billing.slot_quantity + 1);
+  if (action === 'top_up_next' && billing.pending_slot_quantity !== null) return billing.pending_slot_quantity + 1;
+  return billing.slot_quantity;
 }
 
 export function BillingControls({ billing, configurations, disabled, onSubmit }: Props) {
@@ -54,19 +56,22 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
     const available: Array<BillingAction> = [];
     if (billing.can_renew && billing.pending_slot_quantity === null) available.push('renew');
     if (billing.status === 'active_paid' && billing.can_add_devices_now && billing.slot_quantity < billing.max_slot_quantity) available.push('add_now');
-    if (billing.pending_slot_quantity !== null && billing.pending_slot_quantity < billing.slot_quantity) available.push('top_up_next');
+    if (billing.pending_slot_quantity !== null && billing.pending_slot_quantity < billing.max_slot_quantity) available.push('top_up_next');
     return available;
   }, [billing]);
 
   if (actions.length === 0) return null;
 
-  const min = action === 'add_now' ? billing.slot_quantity + 1 : billing.min_slot_quantity;
+  const min = action === 'add_now' ? billing.slot_quantity + 1
+    : action === 'top_up_next' ? billing.pending_slot_quantity! + 1
+      : billing.min_slot_quantity;
   const pendingNeedsChoice = action === 'add_now'
     && billing.pending_slot_quantity !== null
     && billing.pending_slot_quantity < targetQuantity;
   const existingRetirementCount = action === 'renew' && billing.status !== 'expired'
     ? Math.max(0, billing.slot_quantity - targetQuantity)
-    : 0;
+    : action === 'top_up_next' ? Math.max(0, billing.slot_quantity - targetQuantity)
+      : 0;
   const mixedRetirementCount = action === 'add_now' && pendingNeedsChoice && futureChoice === 'keep_paid'
     ? targetQuantity - billing.pending_slot_quantity!
     : 0;
@@ -111,28 +116,34 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
         </div>
       </fieldset>
 
-      {action !== 'top_up_next' ? (
-        <label className={styles.quantityField}>
-          <span>{t('billingTargetQuantity')}</span>
-          <input
-            disabled={disabled}
-            inputMode="numeric"
-            max={billing.max_slot_quantity}
-            min={min}
-            step="1"
-            type="number"
-            value={targetQuantity}
-            onChange={(event) => {
-              setTargetQuantity(event.target.valueAsNumber);
-              setApplyNow(false);
-              setFutureChoice(null);
-              setRetireConfigurationIds([]);
-              setRetireNewConfigurationOrdinals([]);
-              setError('');
-            }}
-          />
-          <small>{billing.min_slot_quantity}–{billing.max_slot_quantity}</small>
-        </label>
+      <label className={styles.quantityField}>
+        <span>{t('billingTargetQuantity')}</span>
+        <input
+          disabled={disabled}
+          inputMode="numeric"
+          max={billing.max_slot_quantity}
+          min={min}
+          step="1"
+          type="number"
+          value={targetQuantity}
+          onChange={(event) => {
+            setTargetQuantity(event.target.valueAsNumber);
+            setApplyNow(false);
+            setFutureChoice(null);
+            setRetireConfigurationIds([]);
+            setRetireNewConfigurationOrdinals([]);
+            setError('');
+          }}
+        />
+        <small>{min}–{billing.max_slot_quantity}</small>
+      </label>
+
+      {action === 'renew' && billing.status === 'trial' && targetQuantity > billing.slot_quantity ? (
+        <p className={styles.notice}>{t('billingTrialRenewImmediate')}</p>
+      ) : null}
+
+      {action === 'top_up_next' && billing.status === 'trial' && !billing.can_add_devices_now && targetQuantity > billing.slot_quantity ? (
+        <p className={styles.notice}>{t('billingTrialTopUpImmediate')}</p>
       ) : null}
 
       {action === 'renew' && targetQuantity > billing.slot_quantity && billing.status === 'active_paid' && billing.can_add_devices_now ? (

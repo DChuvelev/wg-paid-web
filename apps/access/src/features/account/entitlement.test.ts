@@ -43,3 +43,17 @@ test('does not derive creation from separate protocol rows', () => {
   ]);
   expect(result?.canCreate).toBe(false);
 });
+
+test('never exposes generic creation for a billing-managed grant', () => {
+  const result = selectConfigurationEntitlement([
+    grant({ configuration_limit_management: 'billing', can_create_configuration: true })
+  ]);
+  expect(result?.canCreate).toBe(false);
+});
+
+test('preserves backend-authorized lazy creation for an admin-managed grant', () => {
+  const result = selectConfigurationEntitlement([
+    grant({ configuration_limit_management: 'admin', can_create_configuration: true })
+  ]);
+  expect(result?.canCreate).toBe(true);
+});
