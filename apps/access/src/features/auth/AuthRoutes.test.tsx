@@ -354,6 +354,45 @@ test('magic fragment is cleared and consumed at most once under StrictMode', asy
   expect(document.body.textContent).not.toContain('magic-test-token');
 });
 
+test('review fragment is cleared before it is consumed exactly once under StrictMode', async () => {
+  window.history.replaceState({}, '', '/auth/magic#review=review-test-secret');
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, account_surface: 'review' });
+  vi.mocked(consumeMagicLink).mockImplementation(async () => {
+    expect(window.location.hash).toBe('');
+    return 200;
+  });
+  renderApp('/auth/magic', { strict: true });
+
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/account'));
+  expect(consumeMagicLink).toHaveBeenCalledTimes(1);
+  expect(consumeMagicLink).toHaveBeenCalledWith('review-test-secret');
+  expect(document.body.textContent).not.toContain('review-test-secret');
+});
+
+test('invalid review credential stays generic and never enters recovery or resend', async () => {
+  window.history.replaceState({}, '', '/auth/magic#review=expired-review-secret');
+  vi.mocked(consumeMagicLink).mockResolvedValue(400);
+  renderApp('/auth/magic');
+
+  expect(await screen.findByText('This review link is invalid or has expired.')).not.toBeNull();
+  expect(window.location.hash).toBe('');
+  expect(consumeMagicLink).toHaveBeenCalledWith('expired-review-secret');
+  expect(inspectMagicLinkRecovery).not.toHaveBeenCalled();
+  expect(resendExpiredMagicLink).not.toHaveBeenCalled();
+});
+
+test('ambiguous token and review fragment fails closed without consuming either credential', async () => {
+  window.history.replaceState({}, '', '/auth/magic#token=magic-token&review=review-secret');
+  renderApp('/auth/magic');
+
+  expect(await screen.findByText('This sign-in link is invalid.')).not.toBeNull();
+  expect(window.location.hash).toBe('');
+  expect(consumeMagicLink).not.toHaveBeenCalled();
+  expect(inspectMagicLinkRecovery).not.toHaveBeenCalled();
+  expect(resendExpiredMagicLink).not.toHaveBeenCalled();
+  expect(document.body.textContent).not.toMatch(/magic-token|review-secret/);
+});
+
 test('an old or expired magic link advises opening the latest email', async () => {
   window.history.replaceState({}, '', '/auth/magic#token=old-token');
   vi.mocked(consumeMagicLink).mockResolvedValue(400);

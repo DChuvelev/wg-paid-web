@@ -99,6 +99,39 @@ const configurationThree: ConfigurationSummary = {
   variants: []
 };
 
+const reviewAccount: AccountMeResponse = {
+  ...account,
+  account_surface: 'review'
+};
+
+function reviewConfiguration(
+  status = 'active',
+  ready = true,
+  protocol: ConfigurationSummary['variants'][number]['protocol'] = 'wireguard',
+  configurationId = 'review-configuration'
+): ConfigurationSummary {
+  return {
+    access_grant_id: 'review-grant',
+    configuration_id: configurationId,
+    ordinal: 1,
+    label: null,
+    created_at: '2026-09-29T10:00:00Z',
+    updated_at: '2026-09-29T10:00:00Z',
+    routing_mode: 'automatic',
+    forced_selector: null,
+    forced_until: null,
+    variants: [{
+      protocol,
+      profile_id: 'review-wg-profile',
+      status,
+      ready,
+      tunnel_ip: '10.253.0.2',
+      created_at: '2026-09-29T10:00:00Z',
+      updated_at: '2026-09-29T10:00:00Z'
+    }]
+  };
+}
+
 const qrSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 0h100v100H0z"/></svg>';
 const fetchMock = vi.fn<typeof fetch>();
 const createObjectUrlMock = vi.fn<(blob: Blob) => string>();
@@ -373,6 +406,109 @@ test('fails safely for an unknown runtime surface instead of inferring from bill
   renderApp('/account');
   expect((await screen.findByRole('alert')).textContent).toBe('This account type is not supported.');
   expect(screen.queryByText('Access and billing')).toBeNull();
+});
+
+test('review surface renders only the ready WireGuard download, library, and logout flow', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
+  renderApp('/account');
+
+  expect(await screen.findByRole('heading', { name: 'Access to Secret Studio resources' })).toBeTruthy();
+  expect(screen.getByText(/including the library of samples and sound effects/)).toBeTruthy();
+  expect(screen.getByText(/import it into WireGuard/)).toBeTruthy();
+  expect(screen.getByText('Your WireGuard configuration is ready.')).toBeTruthy();
+  const library = screen.getByRole('link', { name: 'Open the sample library' });
+  expect(library.getAttribute('href')).toBe('/library/');
+  expect(library.getAttribute('target')).toBe('_blank');
+  expect(library.getAttribute('rel')).toBe('noopener noreferrer');
+  expect(screen.getByRole('button', { name: 'Logout' })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Download WireGuard configuration' }));
+  await waitFor(() => expect(createProfileConfigDownload).toHaveBeenCalledWith('review-wg-profile'));
+
+  expect(loadRoutingExits).not.toHaveBeenCalled();
+  expect(loadBillingPayments).not.toHaveBeenCalled();
+  expect(loadReferrals).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Amnezia|AWG|QR code|Routing|Forced location|Access and billing|Referrals|Configurations:/i)).toBeNull();
+  expect(screen.queryByRole('button', { name: /Add configuration|Show .* QR|Add name|Edit name/i })).toBeNull();
+  expect(document.body.textContent).not.toMatch(/review-configuration|review-wg-profile|10\.253\.0\.2|review-grant/);
+});
+
+test.each(['requested', 'provisioning'])('review WG %s state stays preparing without delivery actions', async (status) => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration(status, false)]);
+  renderApp('/account');
+
+  expect(await screen.findByText('Your WireGuard configuration is being prepared. This page will update automatically.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Download WireGuard configuration' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open the sample library' })).toBeNull();
+});
+
+test('empty review configurations use bounded preparation polling', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  renderApp('/account');
+
+  await screen.findByText('Your WireGuard configuration is being prepared. This page will update automatically.');
+  expect(loadConfigurations).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+  expect(loadConfigurations).toHaveBeenCalledTimes(2);
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  const callsAtTimeout = vi.mocked(loadConfigurations).mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+  expect(loadConfigurations).toHaveBeenCalledTimes(callsAtTimeout);
+});
+
+test('empty Pilot configurations do not enable review preparation polling', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  renderApp('/account');
+
+  await screen.findByText('No configurations yet.');
+  expect(loadConfigurations).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+  expect(loadConfigurations).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['multiple configurations', [reviewConfiguration(), reviewConfiguration('active', true, 'wireguard', 'review-configuration-2')]],
+  ['multiple variants', [{ ...reviewConfiguration(), variants: [...reviewConfiguration().variants, { ...reviewConfiguration().variants[0]!, profile_id: 'second-wg-profile' }] }]],
+  ['non-WG protocol', [reviewConfiguration('active', true, 'amneziawg')]],
+  ['terminal status', [reviewConfiguration('provisioning_failed', false)]],
+  ['active but not ready', [reviewConfiguration('active', false)]]
+] satisfies Array<[string, Array<ConfigurationSummary>]>)('review projection fails closed for %s', async (_label, rows) => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue(rows);
+  renderApp('/account');
+
+  expect(await screen.findByText('The WireGuard configuration is currently unavailable.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Download WireGuard configuration' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open the sample library' })).toBeNull();
+  expect(document.body.textContent).not.toMatch(/amnezia|profile|10\.253\.0\.2|review-grant/i);
+});
+
+test('review download 401 follows the existing session-expired path', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
+  vi.mocked(createProfileConfigDownload).mockRejectedValue(new AccessApiError(401));
+  const { queryClient } = renderApp('/account');
+  const removeQueries = vi.spyOn(queryClient, 'removeQueries');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration' }));
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+  expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access'] });
+});
+
+test('ordinary review download failure stays local', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
+  vi.mocked(createProfileConfigDownload).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('Unable to download the configuration.');
+  expect(screen.getByTestId('location').textContent).toBe('/account');
 });
 
 test('plain q3 trial presents only current trial semantics and no one-option action radio', async () => {

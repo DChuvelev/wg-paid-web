@@ -8,7 +8,7 @@ import {
   inspectMagicLinkRecovery,
   resendExpiredMagicLink
 } from '../../lib/accessApi';
-import { useFragmentToken } from '../../lib/fragmentToken';
+import { useMagicFragmentCredential } from '../../lib/fragmentToken';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
 import { formatLinkDuration } from './linkDuration';
@@ -34,7 +34,7 @@ function retryAt(value: string | null) {
 
 export function MagicPage() {
   const { locale, t } = useLocale();
-  const fragment = useFragmentToken();
+  const fragment = useMagicFragmentCredential();
   const navigate = useNavigate();
   const consumeStarted = useRef(false);
   const [messageKey, setMessageKey] = useState<TranslationKey | null>(null);
@@ -78,18 +78,20 @@ export function MagicPage() {
           navigate('/account', { replace: true, state: { noticeKey: 'signedIn' } });
           return;
         }
-        if (status === 400) {
+        if (fragment.kind === 'token' && status === 400) {
           await inspectRecovery(fragment.token!);
           return;
         }
         setRecoveryView('generic');
-        setMessageKey(status === 404 ? 'signInInactive' : 'magicInvalidOrExpired');
+        setMessageKey(fragment.kind === 'review'
+          ? 'reviewInvalidOrExpired'
+          : status === 404 ? 'signInInactive' : 'magicInvalidOrExpired');
       } catch {
         setRecoveryView('generic');
-        setMessageKey('magicFailed');
+        setMessageKey(fragment.kind === 'review' ? 'reviewInvalidOrExpired' : 'magicFailed');
       }
     })();
-  }, [fragment.ready, fragment.token, inspectRecovery, navigate]);
+  }, [fragment.kind, fragment.ready, fragment.token, inspectRecovery, navigate]);
 
   const retrySeconds = secondsUntil(retryUntil);
   useEffect(() => {

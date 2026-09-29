@@ -1,0 +1,78 @@
+.sessionActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.25rem;
+}
+
+.instruction {
+  margin: 0 0 1.25rem;
+  color: #34435a;
+  line-height: 1.55;
+}
+
+.configuration {
+  padding: 1rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 0.75rem;
+  background: #fafbfd;
+}
+
+.configuration h2,
+.status {
+  margin: 0;
+}
+
+.status {
+  margin-top: 0.55rem;
+  color: #52627a;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.primaryButton,
+.secondaryButton,
+.libraryLink {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #2857a4;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.primaryButton,
+.libraryLink {
+  color: #fff;
+  background: #2857a4;
+}
+
+.secondaryButton {
+  color: #2857a4;
+  background: #fff;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.error {
+  color: #9e2d2d;
+}
+
+@media (max-width: 30rem) {
+  .actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

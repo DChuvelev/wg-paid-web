@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
-interface FragmentTokenState {
+export interface MagicFragmentCredential {
+  kind: 'token' | 'review' | null;
   ready: boolean;
   token: string | null;
 }
@@ -15,9 +16,9 @@ function clearFragment() {
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
 }
 
-export function useFragmentToken(): FragmentTokenState {
+export function useMagicFragmentCredential(): MagicFragmentCredential {
   const consumed = useRef(false);
-  const [state, setState] = useState<FragmentTokenState>({ ready: false, token: null });
+  const [state, setState] = useState<MagicFragmentCredential>({ kind: null, ready: false, token: null });
 
   useLayoutEffect(() => {
     if (consumed.current) {
@@ -27,8 +28,17 @@ export function useFragmentToken(): FragmentTokenState {
 
     const parameters = new URLSearchParams(window.location.hash.slice(1));
     const token = parameters.get('token');
+    const review = parameters.get('review');
     clearFragment();
-    setState({ ready: true, token: token || null });
+    if (parameters.has('token') && parameters.has('review')) {
+      setState({ kind: null, ready: true, token: null });
+    } else if (token) {
+      setState({ kind: 'token', ready: true, token });
+    } else if (review) {
+      setState({ kind: 'review', ready: true, token: review });
+    } else {
+      setState({ kind: null, ready: true, token: null });
+    }
   }, []);
 
   return state;

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { ConfigurationSummary } from '@wg-paid/api';
-import { configurationPollTimeoutMs, configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
+import { configurationPollTimeoutMs, configurationPollingInterval, hasReviewPreparationConfiguration, hasTransitionalConfiguration } from './profileState';
 
 function configuration(wgStatus: string, awgStatus = 'active'): ConfigurationSummary {
   return {
@@ -20,4 +20,20 @@ test('polls either transitional variant, then stops on terminal state or timeout
   expect(configurationPollingInterval([configuration('active', 'disabling')], 1000, 2000)).toBe(3000);
   expect(configurationPollingInterval([configuration('active')], 1000, 2000)).toBe(false);
   expect(configurationPollingInterval([configuration('provisioning')], 1000, 1000 + configurationPollTimeoutMs)).toBe(false);
+});
+
+test('polls an empty list only when the review caller explicitly enables preparation polling', () => {
+  expect(configurationPollingInterval([], 1000, 1000)).toBe(false);
+  expect(configurationPollingInterval([], 1000, 1000, 'review')).toBe(3000);
+  expect(configurationPollingInterval([], 1000, 1000 + configurationPollTimeoutMs, 'review')).toBe(false);
+});
+
+test('review polling accepts only the exact empty or single requested/provisioning WG projection', () => {
+  const requested = configuration('requested');
+  requested.variants = [requested.variants[0]!];
+  expect(hasReviewPreparationConfiguration([])).toBe(true);
+  expect(hasReviewPreparationConfiguration([requested])).toBe(true);
+  expect(configurationPollingInterval([requested], 1000, 1000, 'review')).toBe(3000);
+  expect(hasReviewPreparationConfiguration([configuration('requested')])).toBe(false);
+  expect(configurationPollingInterval([configuration('disabling')], 1000, 1000, 'review')).toBe(false);
 });

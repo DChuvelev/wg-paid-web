@@ -49,15 +49,16 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('786063a68cd206bb6cbc99a9f632854eba8471c235cf965e84f0c77a77969049');
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 77, schemas: 88 });
+      .toBe('d214cecb5eba0ec8d8743f4eb2bc2c2897512f13280dc85591ee471b35a0676d');
+    expect(Object.keys(document.paths)).toHaveLength(70);
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 79, schemas: 90 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
       'user_id', 'email', 'display_name', 'account_surface', 'grants', 'billing', 'referrals'
     ]);
     expect(schemas.AccountMeResponse.properties).not.toHaveProperty('admin_note');
-    expect(schemas.AccountMeResponse.properties.account_surface.enum).toEqual(['pilot', 'commercial']);
+    expect(schemas.AccountMeResponse.properties.account_surface.enum).toEqual(['pilot', 'commercial', 'review']);
     expect(schemas.AccountMeResponse.properties.billing.anyOf[0])
       .toEqual({ $ref: '#/components/schemas/BillingAccountSummary' });
     expect(schemas.AccountMeResponse.properties.referrals)
@@ -138,6 +139,12 @@ describe('OpenAPI canonical fingerprint guard', () => {
     ]);
     expect(schemas.MagicLinkRecoveryResponse.properties.state.const).toBe('expired_registration');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/recipient');
+    expect(document.paths['/v2/admin/review-access'].post.operationId)
+      .toBe('admin_review_access_v2_admin_review_access_post');
+    expect(document.paths['/v2/admin/review-access'].post.responses['200'].content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/AdminReviewAccessResponse' });
+    expect(schemas.AdminReviewAccessResponse.required).toContain('review_url');
+    expect(schemas.AdminReviewAccessResponse.required).toContain('expires_at');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/share-token/reissue');
     expect(document.paths).toHaveProperty('/v2/admin/bulk-invites');

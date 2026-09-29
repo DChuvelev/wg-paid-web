@@ -7,6 +7,7 @@ import {
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost,
+  adminReviewAccessV2AdminReviewAccessPost,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet,
   adminResendInviteV2AdminInvitesInviteIdResendPost,
   adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost,
@@ -30,6 +31,7 @@ import {
   type AdminPlanSummary,
   type AdminProtocolLimitUpdateResponse,
   type AdminRuntimeConnectionsResponse,
+  type AdminReviewAccessResponse,
   type AdminListUsersV2AdminUsersGetData,
   type AdminUserDeleteResponse,
   type AdminUserMetadataUpdateResponse,
@@ -162,6 +164,13 @@ export function adminProfileConfigUrl(profileId: string) {
 
 export async function createInvite(body: AdminInviteRequest): Promise<AdminInviteResponse> {
   return requireData(await adminCreateInviteV2AdminInvitesPost({ ...mutationOptions(), body }), 'Unable to create invite.');
+}
+
+export async function createReviewAccess(): Promise<AdminReviewAccessResponse> {
+  return requireData(
+    await adminReviewAccessV2AdminReviewAccessPost(mutationOptions()),
+    'Unable to create or reissue the review link.'
+  );
 }
 
 export async function revokeInvite(inviteId: string): Promise<AdminInviteSummary> {

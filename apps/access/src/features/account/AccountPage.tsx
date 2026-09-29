@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AccountMeResponse } from '@wg-paid/api';
 import { useLocation, useNavigate } from 'react-router';
 import { AppShell } from '../../app/AppShell';
 import { useLocale } from '../../i18n/localeContext';
 import { AccessApiError, loadAccount, loadConfigurations, logout } from '../../lib/accessApi';
 import { clearPaymentAttemptForUser } from '../billing/paymentAttempt';
 import { CommercialAccountPage } from './CommercialAccountPage';
-import { configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
+import { configurationPollingInterval, hasReviewPreparationConfiguration, hasTransitionalConfiguration } from './profileState';
 import { PilotAccountPage } from './PilotAccountPage';
 import { accessRootKey, accountKey, configurationsKey } from './queryKeys';
+import { ReviewAccountPage } from './ReviewAccountPage';
 import styles from './Account.module.css';
 
 function isUnauthorized(error: unknown) { return error instanceof AccessApiError && error.status === 401; }
@@ -20,9 +22,13 @@ export function AccountPage() {
   const queryClient = useQueryClient();
   const pollStartedAt = useRef<number | null>(null);
   const pollInterval = (data: Parameters<typeof configurationPollingInterval>[0]) => {
-    if (!hasTransitionalConfiguration(data)) { pollStartedAt.current = null; return false; }
+    const reviewAccount = queryClient.getQueryData<AccountMeResponse>(accountKey)?.account_surface === 'review';
+    const shouldPoll = reviewAccount
+      ? hasReviewPreparationConfiguration(data)
+      : hasTransitionalConfiguration(data);
+    if (!shouldPoll) { pollStartedAt.current = null; return false; }
     pollStartedAt.current ??= Date.now();
-    return configurationPollingInterval(data, pollStartedAt.current);
+    return configurationPollingInterval(data, pollStartedAt.current, Date.now(), reviewAccount ? 'review' : 'ordinary');
   };
   const configurationsQuery = useQuery({ queryKey: configurationsKey, queryFn: loadConfigurations, refetchInterval: ({ state }) => pollInterval(state.data), refetchOnWindowFocus: true, retry: false });
   const accountQuery = useQuery({ queryKey: accountKey, queryFn: loadAccount, refetchInterval: () => pollInterval(configurationsQuery.data), refetchOnWindowFocus: true, retry: false });
@@ -55,5 +61,6 @@ export function AccountPage() {
   };
   if (accountQuery.data.account_surface === 'pilot') return <PilotAccountPage {...common} />;
   if (accountQuery.data.account_surface === 'commercial') return <CommercialAccountPage {...common} />;
+  if (accountQuery.data.account_surface === 'review') return <ReviewAccountPage {...common} />;
   return <AppShell title={t('account')}><p className={styles.error} role="alert">{t('accountSurfaceUnsupported')}</p></AppShell>;
 }

@@ -18,6 +18,7 @@ import {
 } from '../../lib/adminApi';
 import { BulkInviteCampaigns } from './BulkInviteCampaigns';
 import { InviteOriginFilters } from './InviteOriginFilters';
+import { ReviewAccessControl } from './ReviewAccessControl';
 import inviteStyles from './Invites.module.css';
 import styles from '../../app/Admin.module.css';
 
@@ -432,6 +433,8 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         <div><p className={styles.eyebrow}>Access onboarding</p><h2 id="invites-title">Invites</h2></div>
         {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
       </div>
+
+      <ReviewAccessControl active={active} onSessionExpired={onSessionExpired} />
 
       <form className={`${styles.inviteForm} ${inviteStyles.ordinaryInviteForm} ${trialApplicable ? inviteStyles.ordinaryInviteFormWithTrial : inviteStyles.ordinaryInviteFormWithoutTrial}`} onSubmit={submit}>
         <label className={`${styles.field} ${inviteStyles.invitePlanField}`}>

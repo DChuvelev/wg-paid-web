@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
-  revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
+  reviewAccess: vi.fn(), revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -16,6 +16,7 @@ vi.mock('@wg-paid/api', () => ({
   adminListUsersV2AdminUsersGet: sdk.listUsers,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet: sdk.runtimeConnections,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost: sdk.reissueInvite,
+  adminReviewAccessV2AdminReviewAccessPost: sdk.reviewAccess,
   adminResendInviteV2AdminInvitesInviteIdResendPost: sdk.resendInvite,
   adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost: sdk.revokeBulkInvite,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost: sdk.revokeInvite,
@@ -33,6 +34,7 @@ import {
   adminProfileConfigUrl,
   AdminApiError,
   createBulkInviteCampaign,
+  createReviewAccess,
   getAdminCsrfHeaders,
   loadBulkInviteCampaigns,
   loadRuntimeConnections,
@@ -113,6 +115,30 @@ describe('admin CSRF cookie handling', () => {
     expect(sdk.reissueInvite).toHaveBeenCalledWith(shared);
     expect(sdk.updateInviteRecipient).toHaveBeenCalledWith({ ...shared, body: { email: null } });
     expect(sdk.updateInviteLimit).toHaveBeenCalledWith({ ...shared, body: { profile_limit: 0 } });
+  });
+
+  test('creates review access through the generated endpoint with same-origin credentials and admin CSRF', async () => {
+    document.cookie = 'wg_admin_csrf=review%20csrf; Path=/';
+    const response = {
+      review_url: 'https://access.secret-studio.ru/auth/magic#review=exact-secret',
+      expires_at: '2026-09-30T10:00:00Z',
+      user_id: '00000000-0000-0000-0000-000000000001',
+      grant_id: '00000000-0000-0000-0000-000000000002',
+      configuration_id: '00000000-0000-0000-0000-000000000003',
+      wireguard_profile_id: '00000000-0000-0000-0000-000000000004',
+      wireguard_status: 'active',
+      wireguard_tunnel_ip: '10.253.0.2',
+      amneziawg_profile_id: '00000000-0000-0000-0000-000000000005',
+      amneziawg_status: 'active',
+      amneziawg_tunnel_ip: '10.254.0.2'
+    };
+    sdk.reviewAccess.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+
+    await expect(createReviewAccess()).resolves.toEqual(response);
+    expect(sdk.reviewAccess).toHaveBeenCalledWith({
+      credentials: 'same-origin',
+      headers: { 'x-admin-csrf-token': 'review csrf' }
+    });
   });
 
   test('loads runtime connections through the generated same-origin GET and preserves AbortSignal', async () => {

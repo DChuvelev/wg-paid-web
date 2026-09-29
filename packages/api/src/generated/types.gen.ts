@@ -45,7 +45,7 @@ export type AccountMeResponse = {
     /**
      * Account Surface
      */
-    account_surface: 'pilot' | 'commercial';
+    account_surface: 'pilot' | 'commercial' | 'review';
     /**
      * Grants
      */
@@ -507,6 +507,56 @@ export type AdminProtocolLimitUpdateResponse = {
      * Retirement In Progress
      */
     retirement_in_progress: boolean;
+};
+
+/**
+ * AdminReviewAccessResponse
+ */
+export type AdminReviewAccessResponse = {
+    /**
+     * Review Url
+     */
+    review_url: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Grant Id
+     */
+    grant_id: string;
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Wireguard Profile Id
+     */
+    wireguard_profile_id: string;
+    /**
+     * Wireguard Status
+     */
+    wireguard_status: string;
+    /**
+     * Wireguard Tunnel Ip
+     */
+    wireguard_tunnel_ip: string | null;
+    /**
+     * Amneziawg Profile Id
+     */
+    amneziawg_profile_id: string;
+    /**
+     * Amneziawg Status
+     */
+    amneziawg_status: string;
+    /**
+     * Amneziawg Tunnel Ip
+     */
+    amneziawg_tunnel_ip: string | null;
 };
 
 /**
@@ -1085,6 +1135,16 @@ export type AgentPeerResponse = {
      * Enabled
      */
     enabled: boolean;
+};
+
+/**
+ * AgentReviewDirectResponse
+ */
+export type AgentReviewDirectResponse = {
+    /**
+     * Tunnel Ips
+     */
+    tunnel_ips: Array<string>;
 };
 
 /**
@@ -2746,6 +2806,42 @@ export type GetEnabledPeersAgentPeersGetResponses = {
 
 export type GetEnabledPeersAgentPeersGetResponse = GetEnabledPeersAgentPeersGetResponses[keyof GetEnabledPeersAgentPeersGetResponses];
 
+export type GetReviewDirectDesiredAgentReviewDirectGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Node Id
+         */
+        node_id: string;
+    };
+    url: '/agent/review-direct';
+};
+
+export type GetReviewDirectDesiredAgentReviewDirectGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetReviewDirectDesiredAgentReviewDirectGetError = GetReviewDirectDesiredAgentReviewDirectGetErrors[keyof GetReviewDirectDesiredAgentReviewDirectGetErrors];
+
+export type GetReviewDirectDesiredAgentReviewDirectGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AgentReviewDirectResponse;
+};
+
+export type GetReviewDirectDesiredAgentReviewDirectGetResponse = GetReviewDirectDesiredAgentReviewDirectGetResponses[keyof GetReviewDirectDesiredAgentReviewDirectGetResponses];
+
 export type GetActiveRoutingOverridesAgentRoutingOverridesGetData = {
     body?: never;
     headers?: {
@@ -3051,6 +3147,37 @@ export type AdminSessionLogoutV2AdminSessionLogoutPostResponses = {
 };
 
 export type AdminSessionLogoutV2AdminSessionLogoutPostResponse = AdminSessionLogoutV2AdminSessionLogoutPostResponses[keyof AdminSessionLogoutV2AdminSessionLogoutPostResponses];
+
+export type AdminReviewAccessV2AdminReviewAccessPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/review-access';
+};
+
+export type AdminReviewAccessV2AdminReviewAccessPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminReviewAccessV2AdminReviewAccessPostError = AdminReviewAccessV2AdminReviewAccessPostErrors[keyof AdminReviewAccessV2AdminReviewAccessPostErrors];
+
+export type AdminReviewAccessV2AdminReviewAccessPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminReviewAccessResponse;
+};
+
+export type AdminReviewAccessV2AdminReviewAccessPostResponse = AdminReviewAccessV2AdminReviewAccessPostResponses[keyof AdminReviewAccessV2AdminReviewAccessPostResponses];
 
 export type AdminListInvitesV2AdminInvitesGetData = {
     body?: never;
