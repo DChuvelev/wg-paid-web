@@ -14,7 +14,8 @@ const billing = (overrides: Partial<BillingAccountSummary> = {}): BillingAccount
 
 const configuration = (id: string, grant = 'grant-billing', ordinal = Number(id.at(-1))): ConfigurationSummary => ({
   access_grant_id: grant, configuration_id: id, ordinal, label: null,
-  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', variants: []
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+  routing_mode: 'automatic', forced_selector: null, forced_until: null, variants: []
 });
 const configurations = [configuration('configuration-1'), configuration('configuration-2')];
 

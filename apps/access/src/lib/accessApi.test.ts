@@ -17,6 +17,8 @@ const sdk = vi.hoisted(() => ({
   logout: vi.fn(),
   configurations: vi.fn(),
   configurationUpdate: vi.fn(),
+  configurationRoutingUpdate: vi.fn(),
+  routingExits: vi.fn(),
   redeemInvite: vi.fn(),
   redeemBulkInvite: vi.fn(),
   resendInvite: vi.fn()
@@ -34,6 +36,8 @@ vi.mock('@wg-paid/api', () => ({
   accountConfigurationCreateV2AccountProfilesConfigurationsPost: sdk.createConfiguration,
   accountConfigurationsV2AccountProfilesConfigurationsGet: sdk.configurations,
   accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch: sdk.configurationUpdate,
+  accountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPut: sdk.configurationRoutingUpdate,
+  accountRoutingExitsV2AccountProfilesRoutingExitsGet: sdk.routingExits,
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost: sdk.changeInviteEmail,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost: sdk.consumeMagic,
   inspectInviteRouteV2AuthInvitesInspectPost: sdk.inspectInvite,
@@ -61,13 +65,15 @@ import {
   inspectInvite,
   inspectMagicLinkRecovery,
   loadConfigurations,
+  loadRoutingExits,
   loadReferrals,
   redeemBulkInvite,
   resendInvite,
   resendExpiredMagicLink,
   updateDisplayName,
   updateBillingPendingRetirements,
-  updateConfigurationLabel
+  updateConfigurationLabel,
+  updateConfigurationRouting
 } from './accessApi';
 
 afterEach(() => {
@@ -174,6 +180,9 @@ test('sends nullable account and configuration metadata through generated PATCH 
     created_at: '2026-01-01T00:00:00Z',
     label: null,
     ordinal: 1,
+    routing_mode: 'automatic',
+    forced_selector: null,
+    forced_until: null,
     updated_at: '2026-01-01T00:00:00Z',
     variants: []
   };
@@ -365,4 +374,58 @@ test('loads typed logical configurations through the generated GET operation', a
   sdk.configurations.mockResolvedValue({ data: [], response: new Response('[]', { status: 200 }) });
   await expect(loadConfigurations()).resolves.toEqual([]);
   expect(sdk.configurations).toHaveBeenCalledWith({ credentials: 'same-origin' });
+});
+
+test('loads the authenticated routing-exit catalog with same-origin credentials and AbortSignal', async () => {
+  const controller = new AbortController();
+  const catalog = {
+    generated_at: '2026-09-29T10:00:00Z',
+    observed_at: '2026-09-29T10:00:00Z',
+    exits: [
+      { selector: 1, display_name: 'Location Alpha' },
+      { selector: 2, display_name: 'Location Beta' },
+      { selector: 3, display_name: 'Location Gamma' },
+      { selector: 4, display_name: 'Location Delta' },
+      { selector: 5, display_name: 'Location Epsilon' }
+    ]
+  };
+  sdk.routingExits.mockResolvedValue({ data: catalog, response: new Response(null, { status: 200 }) });
+
+  await expect(loadRoutingExits(controller.signal)).resolves.toEqual(catalog);
+  expect(sdk.routingExits).toHaveBeenCalledWith({ credentials: 'same-origin', signal: controller.signal });
+});
+
+test('updates Configuration routing through the generated operation with CSRF', async () => {
+  document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
+  const updated = {
+    access_grant_id: 'grant-1',
+    configuration_id: 'configuration-1',
+    created_at: '2026-01-01T00:00:00Z',
+    forced_selector: 3,
+    forced_until: '2026-09-29T10:30:00Z',
+    label: null,
+    ordinal: 1,
+    routing_mode: 'forced',
+    updated_at: '2026-09-29T10:00:00Z',
+    variants: []
+  };
+  sdk.configurationRoutingUpdate.mockResolvedValue({ data: updated, response: new Response(null, { status: 200 }) });
+
+  await expect(updateConfigurationRouting('configuration-1', { mode: 'forced', selector: 3 })).resolves.toEqual(updated);
+  expect(sdk.configurationRoutingUpdate).toHaveBeenCalledWith({
+    body: { mode: 'forced', selector: 3 },
+    credentials: 'same-origin',
+    headers: { 'x-csrf-token': 'csrf value' },
+    path: { configuration_id: 'configuration-1' }
+  });
+
+  sdk.configurationRoutingUpdate.mockResolvedValue({
+    data: { ...updated, forced_selector: null, forced_until: null, routing_mode: 'automatic' },
+    response: new Response(null, { status: 200 })
+  });
+  await updateConfigurationRouting('configuration-1', { mode: 'automatic' });
+  expect(sdk.configurationRoutingUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+    body: { mode: 'automatic' }
+  }));
+  expect(sdk.configurationRoutingUpdate.mock.calls.at(-1)?.[0].body).not.toHaveProperty('selector');
 });

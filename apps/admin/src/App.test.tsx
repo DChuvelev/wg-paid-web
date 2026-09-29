@@ -82,6 +82,9 @@ function configuration(profileRow: ProfileSummary, ordinal: number): Configurati
     label: profileRow.label,
     created_at: profileRow.created_at,
     updated_at: profileRow.updated_at,
+    routing_mode: 'automatic',
+    forced_selector: null,
+    forced_until: null,
     variants: [
       { protocol: 'wireguard', profile_id: profileRow.id, status: profileRow.status,
         tunnel_ip: profileRow.tunnel_ip, ready: profileRow.status === 'active' && Boolean(profileRow.tunnel_ip),

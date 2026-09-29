@@ -12,13 +12,15 @@ import {
   loadBillingPayment,
   loadBillingPayments,
   loadConfigurations,
+  loadRoutingExits,
   loadReferrals,
   logout,
   reissueReferral,
   revokeReferral,
   updateBillingPendingRetirements,
   updateDisplayName,
-  updateConfigurationLabel
+  updateConfigurationLabel,
+  updateConfigurationRouting
 } from '../../lib/accessApi';
 import { renderApp } from '../../test/renderApp';
 import { paymentAttemptStorageKey } from '../billing/paymentAttempt';
@@ -35,6 +37,7 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     loadBillingPayment: vi.fn(),
     loadBillingPayments: vi.fn(),
     loadConfigurations: vi.fn(),
+    loadRoutingExits: vi.fn(),
     loadReferrals: vi.fn(),
     createReferral: vi.fn(),
     reissueReferral: vi.fn(),
@@ -44,7 +47,8 @@ vi.mock('../../lib/accessApi', async (importOriginal) => {
     requestLogin: vi.fn(),
     updateDisplayName: vi.fn(),
     updateBillingPendingRetirements: vi.fn(),
-    updateConfigurationLabel: vi.fn()
+    updateConfigurationLabel: vi.fn(),
+    updateConfigurationRouting: vi.fn()
   };
 });
 
@@ -72,6 +76,7 @@ const configurations: Array<ConfigurationSummary> = [
   {
     access_grant_id: 'grant-1', configuration_id: 'configuration-1', ordinal: 7, label: null,
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    routing_mode: 'automatic', forced_selector: null, forced_until: null,
     variants: [
       { protocol: 'wireguard', profile_id: 'wg-1', status: 'active', ready: true, tunnel_ip: '10.0.0.2', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
       { protocol: 'amneziawg', profile_id: 'awg-1', status: 'active', ready: true, tunnel_ip: '10.0.0.3', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
@@ -80,6 +85,7 @@ const configurations: Array<ConfigurationSummary> = [
   {
     access_grant_id: 'grant-1', configuration_id: 'configuration-2', ordinal: 9, label: 'Laptop',
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    routing_mode: 'automatic', forced_selector: null, forced_until: null,
     variants: [
       { protocol: 'wireguard', profile_id: 'wg-2', status: 'provisioning_failed', ready: false, tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
       { protocol: 'amneziawg', profile_id: 'awg-2', status: 'active', ready: false, tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
@@ -113,6 +119,17 @@ beforeEach(() => {
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrlMock });
   vi.mocked(loadAccount).mockResolvedValue(account);
   vi.mocked(loadConfigurations).mockResolvedValue(configurations);
+  vi.mocked(loadRoutingExits).mockResolvedValue({
+    generated_at: '2026-09-29T10:00:00Z',
+    observed_at: '2026-09-29T10:00:00Z',
+    exits: [
+      { selector: 1, display_name: 'Location Alpha' },
+      { selector: 2, display_name: 'Location Beta' },
+      { selector: 3, display_name: 'Location Gamma' },
+      { selector: 4, display_name: 'Location Delta' },
+      { selector: 5, display_name: 'Location Epsilon' }
+    ]
+  });
   vi.mocked(loadBillingPayments).mockResolvedValue([]);
   vi.mocked(loadBillingPayment).mockImplementation(async (paymentId) => billingPayment(paymentId, 'pending', { created_at: new Date().toISOString(), updated_at: new Date().toISOString() }));
   vi.mocked(loadReferrals).mockResolvedValue([]);
@@ -123,6 +140,13 @@ beforeEach(() => {
   vi.mocked(updateConfigurationLabel).mockImplementation(async (configurationId, label) => ({
     ...configurations.find((configuration) => configuration.configuration_id === configurationId)!,
     label,
+    updated_at: '2026-01-02T00:00:00Z'
+  }));
+  vi.mocked(updateConfigurationRouting).mockImplementation(async (configurationId, body) => ({
+    ...configurations.find((configuration) => configuration.configuration_id === configurationId)!,
+    routing_mode: body.mode,
+    forced_selector: body.mode === 'forced' ? body.selector ?? null : null,
+    forced_until: body.mode === 'forced' ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null,
     updated_at: '2026-01-02T00:00:00Z'
   }));
   window.history.replaceState(null, '', '/');
@@ -340,6 +364,7 @@ test('dispatches strictly by commercial surface and handles null billing safely'
   renderApp('/account');
   expect(await screen.findByText('Access and billing')).toBeTruthy();
   expect(screen.getByText('Billing information is temporarily unavailable.')).toBeTruthy();
+  expect(await screen.findAllByRole('combobox', { name: 'Forced location' })).toHaveLength(2);
   expect(loadBillingPayments).not.toHaveBeenCalled();
 });
 
@@ -1010,6 +1035,193 @@ test('401 from account data replace-navigates to login', async () => {
   renderApp('/account');
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+});
+
+test('routing catalog loading does not block Configuration cards and exposes no fabricated locations', async () => {
+  vi.mocked(loadRoutingExits).mockImplementation(() => new Promise(() => {}));
+  renderApp('/account');
+
+  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(screen.getAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
+  expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
+  expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
+});
+
+test('routing catalog failure keeps cards visible and exposes no fabricated locations', async () => {
+  vi.mocked(loadRoutingExits).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+
+  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(await screen.findAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
+  expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
+  expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
+});
+
+test('malformed routing catalog exposes no fabricated locations', async () => {
+  vi.mocked(loadRoutingExits).mockResolvedValue({
+    generated_at: '2026-09-29T10:00:00Z',
+    observed_at: '2026-09-29T10:00:00Z',
+    exits: [
+      { selector: 1, display_name: 'Location Alpha' },
+      { selector: 1, display_name: 'Duplicated selector' },
+      { selector: 3, display_name: 'Location Gamma' },
+      { selector: 4, display_name: 'Location Delta' },
+      { selector: 5, display_name: 'Location Epsilon' }
+    ]
+  });
+  renderApp('/account');
+
+  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(screen.getAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
+  expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
+  expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
+});
+
+test('valid catalog renders only backend location names and applies the selected selector', async () => {
+  renderApp('/account');
+  const routing = (await screen.findAllByRole('region', { name: 'Routing' }))[0]!;
+  const select = await within(routing).findByRole('combobox', { name: 'Forced location' });
+  expect(within(select).getByRole('option', { name: 'Location Alpha' })).toBeTruthy();
+  expect(within(select).getByRole('option', { name: 'Location Epsilon' })).toBeTruthy();
+
+  fireEvent.change(select, { target: { value: '3' } });
+  fireEvent.click(within(routing).getByRole('button', { name: 'Apply' }));
+
+  await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
+    'configuration-1',
+    { mode: 'forced', selector: 3 }
+  ));
+});
+
+test('an active forced Configuration can directly request a different catalog location', async () => {
+  vi.mocked(loadConfigurations).mockResolvedValue([{
+    ...configurations[0]!,
+    forced_selector: 2,
+    forced_until: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+    routing_mode: 'forced'
+  }]);
+  renderApp('/account');
+  const routing = await screen.findByRole('region', { name: 'Routing' });
+  expect(await within(routing).findByText(/Location Beta · .* min remaining/)).toBeTruthy();
+  const select = within(routing).getByRole('combobox', { name: 'Forced location' });
+  fireEvent.change(select, { target: { value: '5' } });
+  fireEvent.click(within(routing).getByRole('button', { name: 'Apply' }));
+
+  await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
+    'configuration-1',
+    { mode: 'forced', selector: 5 }
+  ));
+});
+
+test('unresolved forced selector against a valid catalog has no numeric or technical fallback', async () => {
+  vi.mocked(loadConfigurations).mockResolvedValue([{
+    ...configurations[0]!,
+    forced_selector: 17,
+    forced_until: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+    routing_mode: 'forced'
+  }]);
+  renderApp('/account');
+
+  const routing = await screen.findByRole('region', { name: 'Routing' });
+  expect(within(routing).getByText('Selected location unavailable.')).toBeTruthy();
+  expect(routing.textContent).not.toContain('17');
+  expect(await within(routing).findByRole('combobox', { name: 'Forced location' })).toBeTruthy();
+  expect(routing.textContent).not.toMatch(/selector|cs17|egress17|vpn17/i);
+});
+
+test('Return to Automatic remains available while the routing catalog is unavailable', async () => {
+  vi.mocked(loadConfigurations).mockResolvedValue([{
+    ...configurations[0]!,
+    forced_selector: 2,
+    forced_until: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+    routing_mode: 'forced'
+  }]);
+  vi.mocked(loadRoutingExits).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+
+  const routing = await screen.findByRole('region', { name: 'Routing' });
+  expect(within(routing).getByText('Selected location unavailable.')).toBeTruthy();
+  expect(within(routing).queryByRole('combobox')).toBeNull();
+
+  fireEvent.click(within(routing).getByRole('button', { name: 'Return to Automatic' }));
+  await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
+    'configuration-1',
+    { mode: 'automatic' }
+  ));
+});
+
+test('a pending routing mutation is single-flight and preserves the last known state', async () => {
+  let resolveMutation!: (value: ConfigurationSummary) => void;
+  vi.mocked(updateConfigurationRouting).mockImplementation(() => new Promise((resolve) => { resolveMutation = resolve; }));
+  renderApp('/account');
+  const routing = (await screen.findAllByRole('region', { name: 'Routing' }))[0]!;
+  const select = await within(routing).findByRole('combobox', { name: 'Forced location' });
+  fireEvent.change(select, { target: { value: '4' } });
+  const apply = within(routing).getByRole('button', { name: 'Apply' });
+  await waitFor(() => expect((apply as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(apply);
+  await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect((apply as HTMLButtonElement).disabled).toBe(true));
+  fireEvent.click(apply);
+
+  expect(updateConfigurationRouting).toHaveBeenCalledTimes(1);
+  expect(within(routing).getByText('Automatic routing is active.')).toBeTruthy();
+
+  resolveMutation({
+    ...configurations[0]!,
+    routing_mode: 'forced',
+    forced_selector: 4,
+    forced_until: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+  });
+  await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledTimes(1));
+});
+
+test('routing mutation failure stays local and preserves both Configuration states', async () => {
+  vi.mocked(updateConfigurationRouting).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+  const routingCards = await screen.findAllByRole('region', { name: 'Routing' });
+  const first = routingCards[0]!;
+  const second = routingCards[1]!;
+  fireEvent.change(await within(first).findByRole('combobox'), { target: { value: '2' } });
+  fireEvent.click(within(first).getByRole('button', { name: 'Apply' }));
+
+  expect((await within(first).findByRole('alert')).textContent).toBe('Unable to update routing.');
+  expect(within(first).getByText('Automatic routing is active.')).toBeTruthy();
+  expect(within(second).getByText('Automatic routing is active.')).toBeTruthy();
+  expect(within(second).queryByRole('alert')).toBeNull();
+});
+
+test('forced countdown uses forced_until, updates by minute boundary, and refetches once at expiry', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const start = new Date('2026-09-29T10:00:00Z');
+  vi.setSystemTime(start);
+  const forced = {
+    ...configurations[0]!,
+    routing_mode: 'forced' as const,
+    forced_selector: 2,
+    forced_until: new Date(start.getTime() + 61000).toISOString()
+  };
+  vi.mocked(loadConfigurations).mockResolvedValue([forced]);
+  renderApp('/account');
+  const routing = await screen.findByRole('region', { name: 'Routing' });
+  expect(await within(routing).findByText('Location Beta · 2 min remaining')).toBeTruthy();
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(within(routing).getByText('Location Beta · 1 min remaining')).toBeTruthy();
+  const callsBeforeExpiry = vi.mocked(loadConfigurations).mock.calls.length;
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(within(routing).getByText('Automatic routing is active.')).toBeTruthy();
+  await waitFor(() => expect(loadConfigurations).toHaveBeenCalledTimes(callsBeforeExpiry + 1));
+});
+
+test('routing catalog 401 follows the existing session-expired path', async () => {
+  vi.mocked(loadRoutingExits).mockRejectedValue(new AccessApiError(401));
+  const { queryClient } = renderApp('/account');
+  const removeQueries = vi.spyOn(queryClient, 'removeQueries');
+
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+  expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access'] });
 });
 
 test('renders each logical configuration once with both variants, backend ordinal, and one common quota', async () => {

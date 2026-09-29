@@ -49,8 +49,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('e03385d8f003b75e254eb51c204d8bddf4c37b560af96fd02f499019ed921b51');
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 74, schemas: 81 });
+      .toBe('786063a68cd206bb6cbc99a9f632854eba8471c235cf965e84f0c77a77969049');
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 77, schemas: 88 });
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
@@ -72,8 +72,15 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.GrantSummary.properties.configuration_limit_management.enum).toEqual(['admin', 'billing']);
     expect(schemas.ConfigurationSummary.required).toEqual([
       'configuration_id', 'ordinal', 'access_grant_id', 'label',
-      'created_at', 'updated_at', 'variants'
+      'created_at', 'updated_at', 'routing_mode', 'forced_selector', 'forced_until', 'variants'
     ]);
+    expect(schemas.ConfigurationSummary.properties.routing_mode.enum).toEqual(['automatic', 'forced']);
+    expect(schemas.ConfigurationRoutingUpdateRequest.required).toEqual(['mode']);
+    expect(schemas.ConfigurationRoutingUpdateRequest.properties.selector.anyOf[0])
+      .toMatchObject({ type: 'integer', minimum: 1, maximum: 5 });
+    expect(schemas.RoutingExitCatalogResponse.required).toEqual(['generated_at', 'observed_at', 'exits']);
+    expect(schemas.RoutingExitCatalogResponse.properties.exits).toMatchObject({ minItems: 5, maxItems: 5 });
+    expect(schemas.RoutingExitSummary.required).toEqual(['selector', 'display_name']);
     expect(schemas.ConfigurationVariantSummary.properties.protocol.enum).toEqual(['wireguard', 'amneziawg']);
     expect(schemas.ConfigurationVariantSummary.required).toContain('ready');
     expect(schemas.AdminUserSummary.required).toContain('configurations');
@@ -151,6 +158,14 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths).toHaveProperty('/v2/admin/profiles/{profile_id}/config');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations');
     expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}');
+    expect(document.paths).toHaveProperty('/v2/account/profiles/configurations/{configuration_id}/routing');
+    expect(document.paths).toHaveProperty('/v2/account/profiles/routing-exits');
+    expect(document.paths['/v2/account/profiles/configurations/{configuration_id}/routing'].put.operationId)
+      .toBe('account_configuration_update_routing_v2_account_profiles_configurations__configuration_id__routing_put');
+    expect(document.paths['/v2/account/profiles/configurations/{configuration_id}/routing'].put.requestBody.content['application/json'].schema)
+      .toEqual({ $ref: '#/components/schemas/ConfigurationRoutingUpdateRequest' });
+    expect(document.paths['/v2/account/profiles/routing-exits'].get.operationId)
+      .toBe('account_routing_exits_v2_account_profiles_routing_exits_get');
     expect(document.paths).toHaveProperty('/v2/account/billing/payments');
     expect(document.paths).toHaveProperty('/v2/account/billing/pending-retirements');
     expect(document.paths).toHaveProperty('/v2/account/billing/payments/{payment_id}');

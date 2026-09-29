@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ConfigurationSummary, ConfigurationVariantSummary } from '@wg-paid/api';
+import type { ConfigurationSummary, ConfigurationVariantSummary, RoutingExitSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
 import type { TranslationKey } from '../../i18n/resources';
 import { AccessApiError, createProfileConfigDownload, updateConfigurationLabel } from '../../lib/accessApi';
+import { ConfigurationRoutingControl } from './ConfigurationRoutingControl';
 import { configurationsKey } from './queryKeys';
 import styles from './Account.module.css';
 
 interface ConfigurationListProps {
   configurations: Array<ConfigurationSummary>;
+  routingExits: Array<RoutingExitSummary> | null;
   onUnauthorized: (error: unknown) => void;
 }
 
@@ -90,7 +92,7 @@ function ConfigurationNameEditor({ configuration, onUnauthorized }: { configurat
   );
 }
 
-export function ConfigurationList({ configurations, onUnauthorized }: ConfigurationListProps) {
+export function ConfigurationList({ configurations, routingExits, onUnauthorized }: ConfigurationListProps) {
   const { t } = useLocale();
   const [downloadingProfileId, setDownloadingProfileId] = useState<string | null>(null);
   const [downloadErrorProfileId, setDownloadErrorProfileId] = useState<string | null>(null);
@@ -173,6 +175,11 @@ export function ConfigurationList({ configurations, onUnauthorized }: Configurat
               {configurationName}{configuration.label ? ` · ${configuration.label}` : null}
             </h3>
             <ConfigurationNameEditor configuration={configuration} onUnauthorized={onUnauthorized} />
+            <ConfigurationRoutingControl
+              configuration={configuration}
+              exits={routingExits}
+              onUnauthorized={onUnauthorized}
+            />
             <div className={styles.variantList}>
               {configuration.variants.map((variant: ConfigurationVariantSummary) => {
                 const protocolName = variant.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG';

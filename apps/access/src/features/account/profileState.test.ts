@@ -6,6 +6,7 @@ function configuration(wgStatus: string, awgStatus = 'active'): ConfigurationSum
   return {
     access_grant_id: 'grant-1', configuration_id: 'configuration-1', ordinal: 1,
     label: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    routing_mode: 'automatic', forced_selector: null, forced_until: null,
     variants: [
       { protocol: 'wireguard', profile_id: 'wg-1', status: wgStatus, ready: wgStatus === 'active', tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
       { protocol: 'amneziawg', profile_id: 'awg-1', status: awgStatus, ready: awgStatus === 'active', tunnel_ip: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }

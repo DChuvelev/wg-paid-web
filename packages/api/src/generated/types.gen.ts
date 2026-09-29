@@ -1088,6 +1088,46 @@ export type AgentPeerResponse = {
 };
 
 /**
+ * AgentRoutingOverrideResponse
+ */
+export type AgentRoutingOverrideResponse = {
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Selector
+     */
+    selector: number;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Variants
+     */
+    variants: Array<AgentRoutingVariantResponse>;
+};
+
+/**
+ * AgentRoutingVariantResponse
+ */
+export type AgentRoutingVariantResponse = {
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string;
+};
+
+/**
  * BillingAccountSummary
  */
 export type BillingAccountSummary = {
@@ -1370,6 +1410,20 @@ export type ConfigurationCreateRequest = {
 };
 
 /**
+ * ConfigurationRoutingUpdateRequest
+ */
+export type ConfigurationRoutingUpdateRequest = {
+    /**
+     * Mode
+     */
+    mode: 'automatic' | 'forced';
+    /**
+     * Selector
+     */
+    selector?: number | null;
+};
+
+/**
  * ConfigurationSummary
  */
 export type ConfigurationSummary = {
@@ -1397,6 +1451,18 @@ export type ConfigurationSummary = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Routing Mode
+     */
+    routing_mode: 'automatic' | 'forced';
+    /**
+     * Forced Selector
+     */
+    forced_selector: number | null;
+    /**
+     * Forced Until
+     */
+    forced_until: string | null;
     /**
      * Variants
      */
@@ -2017,6 +2083,86 @@ export type ReferralInviteSummary = {
 };
 
 /**
+ * RoutingExitCatalogResponse
+ */
+export type RoutingExitCatalogResponse = {
+    /**
+     * Generated At
+     */
+    generated_at: string;
+    /**
+     * Observed At
+     */
+    observed_at: string;
+    /**
+     * Exits
+     */
+    exits: [
+        RoutingExitSummary,
+        RoutingExitSummary,
+        RoutingExitSummary,
+        RoutingExitSummary,
+        RoutingExitSummary
+    ];
+};
+
+/**
+ * RoutingExitSummary
+ */
+export type RoutingExitSummary = {
+    /**
+     * Selector
+     */
+    selector: number;
+    /**
+     * Display Name
+     */
+    display_name: string;
+};
+
+/**
+ * RuntimeExitCatalogEntryRequest
+ */
+export type RuntimeExitCatalogEntryRequest = {
+    /**
+     * Selector
+     */
+    selector: number;
+    /**
+     * Display Name
+     */
+    display_name: string;
+};
+
+/**
+ * RuntimeExitCatalogRequest
+ */
+export type RuntimeExitCatalogRequest = {
+    /**
+     * Generated At
+     */
+    generated_at: string;
+    /**
+     * Source Generation
+     */
+    source_generation: string;
+    /**
+     * Confirm Sha256
+     */
+    confirm_sha256: string;
+    /**
+     * Exits
+     */
+    exits: [
+        RuntimeExitCatalogEntryRequest,
+        RuntimeExitCatalogEntryRequest,
+        RuntimeExitCatalogEntryRequest,
+        RuntimeExitCatalogEntryRequest,
+        RuntimeExitCatalogEntryRequest
+    ];
+};
+
+/**
  * RuntimeSnapshotAccepted
  */
 export type RuntimeSnapshotAccepted = {
@@ -2050,6 +2196,7 @@ export type RuntimeSnapshotRequest = {
      * Rows
      */
     rows: Array<RuntimeSnapshotRowRequest>;
+    exit_catalog?: RuntimeExitCatalogRequest | null;
 };
 
 /**
@@ -2598,6 +2745,44 @@ export type GetEnabledPeersAgentPeersGetResponses = {
 };
 
 export type GetEnabledPeersAgentPeersGetResponse = GetEnabledPeersAgentPeersGetResponses[keyof GetEnabledPeersAgentPeersGetResponses];
+
+export type GetActiveRoutingOverridesAgentRoutingOverridesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Node Id
+         */
+        node_id: string;
+    };
+    url: '/agent/routing-overrides';
+};
+
+export type GetActiveRoutingOverridesAgentRoutingOverridesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetActiveRoutingOverridesAgentRoutingOverridesGetError = GetActiveRoutingOverridesAgentRoutingOverridesGetErrors[keyof GetActiveRoutingOverridesAgentRoutingOverridesGetErrors];
+
+export type GetActiveRoutingOverridesAgentRoutingOverridesGetResponses = {
+    /**
+     * Response Get Active Routing Overrides Agent Routing Overrides Get
+     *
+     * Successful Response
+     */
+    200: Array<AgentRoutingOverrideResponse>;
+};
+
+export type GetActiveRoutingOverridesAgentRoutingOverridesGetResponse = GetActiveRoutingOverridesAgentRoutingOverridesGetResponses[keyof GetActiveRoutingOverridesAgentRoutingOverridesGetResponses];
 
 export type GetPendingJobsAgentJobsGetData = {
     body?: never;
@@ -3593,6 +3778,31 @@ export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostRespons
 
 export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponse = AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses[keyof AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses];
 
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/profiles/routing-exits';
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetError = AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors];
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: RoutingExitCatalogResponse;
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponse = AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses];
+
 export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchData = {
     body: ProfileLabelUpdateRequest;
     path: {
@@ -3622,6 +3832,36 @@ export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfig
 };
 
 export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponse = AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponses[keyof AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchResponses];
+
+export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutData = {
+    body: ConfigurationRoutingUpdateRequest;
+    path: {
+        /**
+         * Configuration Id
+         */
+        configuration_id: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/configurations/{configuration_id}/routing';
+};
+
+export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutError = AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutErrors[keyof AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutErrors];
+
+export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConfigurationSummary;
+};
+
+export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponse = AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponses[keyof AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponses];
 
 export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchData = {
     body: ProfileLabelUpdateRequest;

@@ -12,6 +12,8 @@ import {
   accountConfigurationCreateV2AccountProfilesConfigurationsPost,
   accountConfigurationsV2AccountProfilesConfigurationsGet,
   accountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatch,
+  accountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPut,
+  accountRoutingExitsV2AccountProfilesRoutingExitsGet,
   changeInviteEmailRouteV2AuthInvitesChangeEmailPost,
   consumeMagicLinkRouteV2AuthMagicLinkConsumePost,
   inspectInviteRouteV2AuthInvitesInspectPost,
@@ -28,12 +30,14 @@ import {
   type BillingPaymentCreateRequest,
   type BillingRetirementSelectionResponse,
   type ConfigurationSummary,
+  type ConfigurationRoutingUpdateRequest,
   type InviteInspectResponse,
   type BulkInviteInspectResponse,
   type MagicLinkRecoveryResponse,
   type ProfileConfigDownloadResponse,
   type ReferralInviteCreateResponse,
-  type ReferralInviteSummary
+  type ReferralInviteSummary,
+  type RoutingExitCatalogResponse
 } from '@wg-paid/api';
 
 const csrfCookieName = 'wg_access_csrf';
@@ -153,6 +157,12 @@ export async function loadConfigurations(): Promise<Array<ConfigurationSummary>>
   if (result.data) {
     return result.data;
   }
+  throw accessApiError(result.response);
+}
+
+export async function loadRoutingExits(signal?: AbortSignal): Promise<RoutingExitCatalogResponse> {
+  const result = await accountRoutingExitsV2AccountProfilesRoutingExitsGet(requestOptions(signal));
+  if (result.data) return result.data;
   throw accessApiError(result.response);
 }
 
@@ -297,6 +307,19 @@ export async function updateConfigurationLabel(configurationId: string, label: s
   });
   if (result.data) return result.data;
   throw new AccessApiError(result.response?.status);
+}
+
+export async function updateConfigurationRouting(
+  configurationId: string,
+  body: ConfigurationRoutingUpdateRequest
+): Promise<ConfigurationSummary> {
+  const result = await accountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPut({
+    ...mutationOptions(),
+    body,
+    path: { configuration_id: configurationId }
+  });
+  if (result.data) return result.data;
+  throw accessApiError(result.response);
 }
 
 async function requireSuccessfulMutation(result: { response?: Response }) {

@@ -179,6 +179,63 @@
 .variant { padding: 0.75rem; border: 1px solid #dce4ee; border-radius: 0.6rem; }
 .variant h4 { margin: 0 0 0.35rem; }
 
+.routing {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid #dce4ee;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+}
+
+.routingHeading h4,
+.routingHeading p,
+.routingStatus,
+.routingUnavailable {
+  margin: 0;
+}
+
+.routingHeading p,
+.routingUnavailable {
+  margin-top: 0.25rem;
+  color: #52627a;
+  font-size: 0.9rem;
+}
+
+.routingStatus {
+  color: #34435a;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.routingSelection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.routingSelection label {
+  display: grid;
+  flex: 1 1 16rem;
+  min-width: 0;
+  gap: 0.35rem;
+  color: #34435a;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.routingSelection select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #aebbd0;
+  border-radius: 0.5rem;
+  color: #172033;
+  background: #ffffff;
+}
+
 .sectionHeader {
   display: flex;
   flex-wrap: wrap;
@@ -311,6 +368,27 @@
   .profileNameEditor {
     padding-right: 0.5rem;
     padding-left: 0.5rem;
+  }
+
+  .routing {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  .routingHeading p,
+  .routingUnavailable,
+  .routingSelection label {
+    font-size: 1rem;
+  }
+
+  .routingSelection {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .routingSelection select,
+  .routingSelection .button {
+    width: 100%;
   }
 
   .qrDialog {
