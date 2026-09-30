@@ -44,7 +44,7 @@ test('displays and copies the exact backend URL without exposing AWG or internal
 
   expect((await screen.findByLabelText('YooKassa review URL')).textContent).toBe(exactUrl);
   expect(screen.getByText('Expires').parentElement?.textContent).toMatch(/2026/);
-  expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('active');
+  expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Active');
   expect(screen.getByText(/invalidates the prior review link and its active session/i)).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/Amnezia|AWG|00000000|10\.25[34]\.0\.2/i);
 
@@ -52,6 +52,32 @@ test('displays and copies the exact backend URL without exposing AWG or internal
   await waitFor(() => expect(clipboardWrite).toHaveBeenCalledWith(exactUrl));
   expect(localStorage.length).toBe(0);
   expect(sessionStorage.length).toBe(0);
+});
+
+test.each([
+  ['payment_required', 'Payment required'],
+  ['payment_pending', 'Payment pending'],
+  ['requested', 'Requested'],
+  ['provisioning', 'Provisioning'],
+  ['active', 'Active'],
+  ['backend_internal_value', 'Unavailable']
+])('renders %s as a safe status label with nullable internal ids', async (wireguardStatus, label) => {
+  vi.mocked(createReviewAccess).mockResolvedValue({
+    ...response,
+    configuration_id: null,
+    wireguard_profile_id: null,
+    amneziawg_profile_id: null,
+    wireguard_status: wireguardStatus,
+    wireguard_tunnel_ip: null,
+    amneziawg_status: 'payment_required',
+    amneziawg_tunnel_ip: null
+  });
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }));
+
+  expect((await screen.findByText('WireGuard status')).parentElement?.textContent).toContain(label);
+  expect(document.body.textContent).not.toContain('backend_internal_value');
+  expect(document.body.textContent).not.toMatch(/Amnezia|AWG|00000000|10\.25[34]\.0\.2/i);
 });
 
 test('starting a reissue clears the old URL before the replacement request settles', async () => {

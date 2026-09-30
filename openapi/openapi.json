@@ -5998,13 +5998,27 @@
             "title": "Grant Id"
           },
           "configuration_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Configuration Id"
           },
           "wireguard_profile_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Wireguard Profile Id"
           },
           "wireguard_status": {
@@ -6023,8 +6037,15 @@
             "title": "Wireguard Tunnel Ip"
           },
           "amneziawg_profile_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Amneziawg Profile Id"
           },
           "amneziawg_status": {

@@ -17,6 +17,25 @@
   background: #fafbfd;
 }
 
+.purchase {
+  padding: 1.25rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 0.75rem;
+  background: #fafbfd;
+}
+
+.purchase h2,
+.purchase p {
+  margin-top: 0;
+}
+
+.price {
+  display: block;
+  margin: 0.75rem 0;
+  color: #17233a;
+  font-size: 1.35rem;
+}
+
 .configuration h2,
 .status {
   margin: 0;

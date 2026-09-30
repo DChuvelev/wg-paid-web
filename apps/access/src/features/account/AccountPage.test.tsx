@@ -99,9 +99,24 @@ const configurationThree: ConfigurationSummary = {
   variants: []
 };
 
+const reviewBilling = (
+  status: NonNullable<AccountMeResponse['billing']>['status'] = 'active_paid',
+  overrides: Partial<NonNullable<AccountMeResponse['billing']>> = {}
+): NonNullable<AccountMeResponse['billing']> => ({
+  access_grant_id: 'review-grant', status,
+  current_period_start: '2026-09-30T00:00:00Z', current_period_end: '2026-10-30T00:00:00Z',
+  quantity_period_start: '2026-09-30T00:00:00Z', quantity_period_end: '2026-10-30T00:00:00Z',
+  slot_quantity: 1, monthly_amount_kopeks: 29900, min_slot_quantity: 1, max_slot_quantity: 1,
+  extra_slot_monthly_kopeks: 0, pending_slot_quantity: null, pending_period_start: null,
+  pending_period_end: null, pending_monthly_amount_kopeks: null, retirement_configuration_ids: [],
+  can_renew: true, can_add_devices_now: false, currency: 'RUB', ...overrides
+});
+
 const reviewAccount: AccountMeResponse = {
-  ...account,
-  account_surface: 'review'
+  ...account, account_surface: 'review', billing: reviewBilling()
+};
+const unpaidReviewAccount: AccountMeResponse = {
+  ...reviewAccount, billing: reviewBilling('expired')
 };
 
 function reviewConfiguration(
@@ -444,7 +459,7 @@ test.each(['requested', 'provisioning'])('review WG %s state stays preparing wit
   expect(screen.queryByRole('link', { name: 'Open the sample library' })).toBeNull();
 });
 
-test('empty review configurations use bounded preparation polling', async () => {
+test('paid empty review configurations use bounded preparation polling', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
   vi.mocked(loadConfigurations).mockResolvedValue([]);
@@ -458,6 +473,20 @@ test('empty review configurations use bounded preparation polling', async () => 
   const callsAtTimeout = vi.mocked(loadConfigurations).mock.calls.length;
   await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
   expect(loadConfigurations).toHaveBeenCalledTimes(callsAtTimeout);
+});
+
+test('unpaid empty review configurations show payment and never poll configurations', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  renderApp('/account');
+
+  expect(await screen.findByText('Secret Studio sample library access')).toBeTruthy();
+  expect(screen.getByText('299 ₽ / month')).toBeTruthy();
+  expect(screen.getByText(/test store.*No real money/i)).toBeTruthy();
+  await screen.findByRole('button', { name: 'Pay with YooKassa' });
+  await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+  expect(loadConfigurations).toHaveBeenCalledTimes(1);
 });
 
 test('empty Pilot configurations do not enable review preparation polling', async () => {
@@ -509,6 +538,201 @@ test('ordinary review download failure stays local', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to download the configuration.');
   expect(screen.getByTestId('location').textContent).toBe('/account');
+});
+
+test('review waits for authoritative history, stores the attempt before one exact renew POST, and localizes the purchase', async () => {
+  let resolveHistory!: (value: Array<BillingPaymentSummary>) => void;
+  let resolveCreate!: (value: BillingPaymentSummary) => void;
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockReturnValue(new Promise((resolve) => { resolveHistory = resolve; }));
+  vi.mocked(createBillingPayment).mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+  renderApp('/account');
+
+  await screen.findByText('Checking for an unfinished payment…');
+  expect(screen.queryByRole('button', { name: 'Pay with YooKassa' })).toBeNull();
+  resolveHistory([]);
+  const pay = await screen.findByRole('button', { name: 'Pay with YooKassa' });
+  fireEvent.click(pay);
+  fireEvent.click(pay);
+
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledOnce());
+  const [key, body] = vi.mocked(createBillingPayment).mock.calls[0]!;
+  expect(key).toEqual(expect.any(String));
+  expect(body).toEqual({
+    action: 'renew', target_quantity: 1, apply_now: false, future_choice: null,
+    retire_configuration_ids: [], retire_new_configuration_ordinals: []
+  });
+  expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!)).toMatchObject({ idempotency_key: key, request: body, state: 'active' });
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toContain('yookassa');
+
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  expect(await screen.findByText('Доступ к библиотеке сэмплов Secret Studio')).toBeTruthy();
+  expect(screen.getByText('299 ₽ / месяц')).toBeTruthy();
+  expect(screen.getByText(/тестовый магазин ЮKassa.*Реального списания/i)).toBeTruthy();
+  resolveCreate(billingPayment('review-created', 'pending', {
+    amount_kopeks: 29900,
+    quantity_before: 1,
+    quantity_after: 1,
+    confirmation_url: '#checkout.example/new-review-payment'
+  }));
+  await waitFor(() => expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!).payment_id).toBe('review-created'));
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toContain('checkout.example');
+});
+
+test.each([
+  ['transport failure', new Error('network unavailable')],
+  ['503', new AccessApiError(503)]
+])('review retries %s uncertainty with the same key and request', async (_label, error) => {
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(createBillingPayment)
+    .mockRejectedValueOnce(error)
+    .mockResolvedValueOnce(billingPayment('review-payment', 'pending', { amount_kopeks: 29900 }));
+  renderApp('/account');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Pay with YooKassa' }));
+  const retry = await screen.findByRole('button', { name: 'Retry same payment' });
+  const first = vi.mocked(createBillingPayment).mock.calls[0]!;
+  fireEvent.click(retry);
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(createBillingPayment).mock.calls[1]).toEqual(first);
+});
+
+test.each([409, 422, 502])('review treats %s create as definite failure without automatic replacement', async (status) => {
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(createBillingPayment).mockRejectedValue(new AccessApiError(status));
+  renderApp('/account');
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Pay with YooKassa' }));
+  await screen.findByText(/payment request was not accepted/i);
+  expect(createBillingPayment).toHaveBeenCalledOnce();
+  expect(JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!).state).toBe('definite_failure');
+  expect(screen.queryByRole('button', { name: 'Pay with YooKassa' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Reset failed attempt' })).toBeTruthy();
+});
+
+test('review recovers one history payment through exact item GET and trusts only its Continue URL', async () => {
+  const pending = billingPayment('review-pending', 'pending', { amount_kopeks: 29900, confirmation_url: 'https://stale.example/ignored' });
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
+  vi.mocked(loadBillingPayment).mockResolvedValue({ ...pending, confirmation_url: 'https://checkout.example/review' });
+  renderApp('/account');
+
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('review-pending'));
+  expect(await screen.findByRole('button', { name: 'Continue payment' })).toBeTruthy();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem(paymentAttemptStorageKey) ?? '').not.toContain('checkout.example');
+  expect(document.body.textContent).not.toContain('stale.example');
+});
+
+test('review pending without an exact-item URL cannot continue, and multiple pending payments fail closed', async () => {
+  const pending = billingPayment('review-pending', 'pending', { amount_kopeks: 29900, confirmation_url: null });
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
+  vi.mocked(loadBillingPayment).mockResolvedValue(pending);
+  const first = renderApp('/account');
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('review-pending'));
+  expect(screen.queryByRole('button', { name: 'Continue payment' })).toBeNull();
+  first.unmount();
+
+  vi.clearAllMocks();
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([
+    billingPayment('review-one', 'created'), billingPayment('review-two', 'pending')
+  ]);
+  renderApp('/account');
+  expect(await screen.findByText('The WireGuard configuration is currently unavailable.')).toBeTruthy();
+  expect(loadBillingPayment).not.toHaveBeenCalled();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('review exact-item 401 follows session expiry and terminal success clears storage and invalidates account state', async () => {
+  const request = { action: 'renew' as const, target_quantity: 1, apply_now: false, future_choice: null, retire_configuration_ids: [], retire_new_configuration_ordinals: [] };
+  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({
+    version: 3, state: 'active', user_id: unpaidReviewAccount.user_id, idempotency_key: 'review-key',
+    started_at: Date.now(), payment_id: 'review-stored', request
+  }));
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayment).mockRejectedValue(new AccessApiError(401));
+  const first = renderApp('/account');
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+  first.unmount();
+
+  sessionStorage.setItem(paymentAttemptStorageKey, JSON.stringify({
+    version: 3, state: 'active', user_id: unpaidReviewAccount.user_id, idempotency_key: 'review-key',
+    started_at: Date.now(), payment_id: 'review-stored', request
+  }));
+  vi.clearAllMocks();
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([]);
+  vi.mocked(loadBillingPayment).mockResolvedValue(billingPayment('review-stored', 'succeeded', { amount_kopeks: 29900 }));
+  renderApp('/account');
+  await waitFor(() => expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull());
+  expect(loadAccount).toHaveBeenCalledTimes(2);
+  expect(loadConfigurations).toHaveBeenCalledTimes(2);
+  expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('review history and create 401 both follow the existing session-expired path', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockRejectedValue(new AccessApiError(401));
+  const historyView = renderApp('/account');
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+  historyView.unmount();
+
+  vi.clearAllMocks();
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([]);
+  vi.mocked(createBillingPayment).mockRejectedValue(new AccessApiError(401));
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Pay with YooKassa' }));
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
+});
+
+test('review cancellation never auto-posts and restores a deliberate payment only after history has no pending item', async () => {
+  const pending = billingPayment('review-canceled', 'pending', { amount_kopeks: 29900 });
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValueOnce([pending]).mockResolvedValue([]);
+  vi.mocked(loadBillingPayment).mockResolvedValue({ ...pending, status: 'canceled' });
+  renderApp('/account');
+
+  expect(await screen.findByText(/payment was not completed/i)).toBeTruthy();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+  expect(await screen.findByRole('button', { name: 'Pay with YooKassa' })).toBeTruthy();
+  expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
+});
+
+test('review payment polling stops at 120 seconds and manual status check remains available', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const pending = billingPayment('review-long-pending', 'pending', {
+    amount_kopeks: 29900,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  });
+  vi.mocked(loadAccount).mockResolvedValue(unpaidReviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([pending]);
+  vi.mocked(loadBillingPayment).mockResolvedValue(pending);
+  renderApp('/account');
+
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalled());
+  await act(async () => { await vi.advanceTimersByTimeAsync(120000); });
+  expect(await screen.findByText(/Automatic checking has stopped/i)).toBeTruthy();
+  const callsAtTimeout = vi.mocked(loadBillingPayment).mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+  expect(loadBillingPayment).toHaveBeenCalledTimes(callsAtTimeout);
+  fireEvent.click(screen.getByRole('button', { name: 'Check status' }));
+  await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledTimes(callsAtTimeout + 1));
 });
 
 test('plain q3 trial presents only current trial semantics and no one-option action radio', async () => {

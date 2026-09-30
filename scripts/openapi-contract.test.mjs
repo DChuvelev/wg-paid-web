@@ -49,7 +49,7 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('d214cecb5eba0ec8d8743f4eb2bc2c2897512f13280dc85591ee471b35a0676d');
+      .toBe('5d1a15a7d1fa0613c5495454f3c4164a573860a074277b4f13e7653e29cfa31d');
     expect(Object.keys(document.paths)).toHaveLength(70);
     expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 79, schemas: 90 });
 
@@ -145,6 +145,11 @@ describe('OpenAPI canonical fingerprint guard', () => {
       .toEqual({ $ref: '#/components/schemas/AdminReviewAccessResponse' });
     expect(schemas.AdminReviewAccessResponse.required).toContain('review_url');
     expect(schemas.AdminReviewAccessResponse.required).toContain('expires_at');
+    for (const property of ['configuration_id', 'wireguard_profile_id', 'amneziawg_profile_id']) {
+      expect(schemas.AdminReviewAccessResponse.required).toContain(property);
+      expect(schemas.AdminReviewAccessResponse.properties[property].anyOf)
+        .toEqual([{ type: 'string', format: 'uuid' }, { type: 'null' }]);
+    }
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/wireguard-limit');
     expect(document.paths).toHaveProperty('/v2/admin/invites/{invite_id}/share-token/reissue');
     expect(document.paths).toHaveProperty('/v2/admin/bulk-invites');

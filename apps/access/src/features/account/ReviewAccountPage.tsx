@@ -1,30 +1,15 @@
 import { useState } from 'react';
-import type { ConfigurationVariantSummary } from '@wg-paid/api';
 import { AppShell } from '../../app/AppShell';
 import { useLocale } from '../../i18n/localeContext';
 import { AccessApiError, createProfileConfigDownload } from '../../lib/accessApi';
 import type { AccountSurfaceProps } from './PilotAccountPage';
+import { ReviewPaymentSection } from './ReviewPaymentSection';
+import { reviewProjection } from './reviewProjection';
 import styles from './ReviewAccount.module.css';
-
-type ReviewProjection =
-  | { state: 'preparing' }
-  | { state: 'ready'; variant: ConfigurationVariantSummary }
-  | { state: 'unavailable' };
-
-function reviewProjection(configurations: AccountSurfaceProps['configurations']): ReviewProjection {
-  if (configurations.length === 0) return { state: 'preparing' };
-  if (configurations.length !== 1 || configurations[0]!.variants.length !== 1) return { state: 'unavailable' };
-
-  const variant = configurations[0]!.variants[0]!;
-  if (variant.protocol !== 'wireguard') return { state: 'unavailable' };
-  if (variant.status === 'requested' || variant.status === 'provisioning') return { state: 'preparing' };
-  if (variant.status === 'active' && variant.ready) return { state: 'ready', variant };
-  return { state: 'unavailable' };
-}
 
 export function ReviewAccountPage(props: AccountSurfaceProps) {
   const { t } = useLocale();
-  const projection = reviewProjection(props.configurations);
+  const projection = reviewProjection(props.account, props.configurations);
   const [downloading, setDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
 
@@ -51,28 +36,34 @@ export function ReviewAccountPage(props: AccountSurfaceProps) {
         </button>
       </div>
       {props.logoutError ? <p className={styles.error} role="alert">{t('logoutFailed')}</p> : null}
-      <p className={styles.instruction}>{t('reviewInstruction')}</p>
-      <section className={styles.configuration} aria-labelledby="review-wireguard-title">
-        <h2 id="review-wireguard-title">WireGuard</h2>
-        {projection.state === 'preparing' ? (
-          <p className={styles.status} role="status">{t('reviewPreparing')}</p>
-        ) : projection.state === 'unavailable' ? (
-          <p className={styles.error} role="alert">{t('reviewUnavailable')}</p>
-        ) : (
-          <>
-            <p className={styles.status}>{t('reviewReady')}</p>
-            <div className={styles.actions}>
-              <button className={styles.primaryButton} type="button" disabled={downloading} onClick={() => void download()}>
-                {downloading ? t('downloadingConfig') : t('reviewDownload')}
-              </button>
-              <a className={styles.libraryLink} href="/library/" target="_blank" rel="noopener noreferrer">
-                {t('reviewOpenLibrary')}
-              </a>
-            </div>
-            {downloadFailed ? <p className={styles.error} role="alert">{t('configDownloadFailed')}</p> : null}
-          </>
-        )}
-      </section>
+      {projection.state === 'payment_required' ? (
+        <ReviewPaymentSection account={props.account} configurations={props.configurations} onUnauthorized={props.onError} />
+      ) : (
+        <>
+          <p className={styles.instruction}>{t('reviewInstruction')}</p>
+          <section className={styles.configuration} aria-labelledby="review-wireguard-title">
+            <h2 id="review-wireguard-title">WireGuard</h2>
+            {projection.state === 'provisioning' ? (
+              <p className={styles.status} role="status">{t('reviewPreparing')}</p>
+            ) : projection.state === 'unavailable' ? (
+              <p className={styles.error} role="alert">{t('reviewUnavailable')}</p>
+            ) : (
+              <>
+                <p className={styles.status}>{t('reviewReady')}</p>
+                <div className={styles.actions}>
+                  <button className={styles.primaryButton} type="button" disabled={downloading} onClick={() => void download()}>
+                    {downloading ? t('downloadingConfig') : t('reviewDownload')}
+                  </button>
+                  <a className={styles.libraryLink} href="/library/" target="_blank" rel="noopener noreferrer">
+                    {t('reviewOpenLibrary')}
+                  </a>
+                </div>
+                {downloadFailed ? <p className={styles.error} role="alert">{t('configDownloadFailed')}</p> : null}
+              </>
+            )}
+          </section>
+        </>
+      )}
     </AppShell>
   );
 }

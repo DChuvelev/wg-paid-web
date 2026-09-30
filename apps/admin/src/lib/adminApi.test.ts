@@ -124,13 +124,13 @@ describe('admin CSRF cookie handling', () => {
       expires_at: '2026-09-30T10:00:00Z',
       user_id: '00000000-0000-0000-0000-000000000001',
       grant_id: '00000000-0000-0000-0000-000000000002',
-      configuration_id: '00000000-0000-0000-0000-000000000003',
-      wireguard_profile_id: '00000000-0000-0000-0000-000000000004',
-      wireguard_status: 'active',
-      wireguard_tunnel_ip: '10.253.0.2',
-      amneziawg_profile_id: '00000000-0000-0000-0000-000000000005',
-      amneziawg_status: 'active',
-      amneziawg_tunnel_ip: '10.254.0.2'
+      configuration_id: null,
+      wireguard_profile_id: null,
+      wireguard_status: 'payment_required',
+      wireguard_tunnel_ip: null,
+      amneziawg_profile_id: null,
+      amneziawg_status: 'payment_required',
+      amneziawg_tunnel_ip: null
     };
     sdk.reviewAccess.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
 

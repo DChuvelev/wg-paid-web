@@ -7,10 +7,11 @@ import { useLocale } from '../../i18n/localeContext';
 import { AccessApiError, loadAccount, loadConfigurations, logout } from '../../lib/accessApi';
 import { clearPaymentAttemptForUser } from '../billing/paymentAttempt';
 import { CommercialAccountPage } from './CommercialAccountPage';
-import { configurationPollingInterval, hasReviewPreparationConfiguration, hasTransitionalConfiguration } from './profileState';
+import { configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
 import { PilotAccountPage } from './PilotAccountPage';
 import { accessRootKey, accountKey, configurationsKey } from './queryKeys';
 import { ReviewAccountPage } from './ReviewAccountPage';
+import { reviewProjection } from './reviewProjection';
 import styles from './Account.module.css';
 
 function isUnauthorized(error: unknown) { return error instanceof AccessApiError && error.status === 401; }
@@ -22,9 +23,10 @@ export function AccountPage() {
   const queryClient = useQueryClient();
   const pollStartedAt = useRef<number | null>(null);
   const pollInterval = (data: Parameters<typeof configurationPollingInterval>[0]) => {
-    const reviewAccount = queryClient.getQueryData<AccountMeResponse>(accountKey)?.account_surface === 'review';
-    const shouldPoll = reviewAccount
-      ? hasReviewPreparationConfiguration(data)
+    const account = queryClient.getQueryData<AccountMeResponse>(accountKey);
+    const reviewAccount = account?.account_surface === 'review';
+    const shouldPoll = reviewAccount && account && data
+      ? reviewProjection(account, data).state === 'provisioning'
       : hasTransitionalConfiguration(data);
     if (!shouldPoll) { pollStartedAt.current = null; return false; }
     pollStartedAt.current ??= Date.now();

@@ -9,6 +9,15 @@ interface ReviewAccessControlProps {
   onSessionExpired: () => void;
 }
 
+function wireGuardStatusLabel(status: string) {
+  if (status === 'payment_required') return 'Payment required';
+  if (status === 'payment_pending') return 'Payment pending';
+  if (status === 'requested') return 'Requested';
+  if (status === 'provisioning') return 'Provisioning';
+  if (status === 'active') return 'Active';
+  return 'Unavailable';
+}
+
 export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessControlProps) {
   const [result, setResult] = useState<AdminReviewAccessResponse | null>(null);
   const [pending, setPending] = useState(false);
@@ -87,7 +96,7 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
           <code aria-label="YooKassa review URL">{result.review_url}</code>
           <dl>
             <div><dt>Expires</dt><dd>{new Date(result.expires_at).toLocaleString()}</dd></div>
-            <div><dt>WireGuard status</dt><dd>{result.wireguard_status}</dd></div>
+            <div><dt>WireGuard status</dt><dd>{wireGuardStatusLabel(result.wireguard_status)}</dd></div>
           </dl>
           <button className={adminStyles.secondaryButton} type="button" onClick={() => void copy()}>
             {copied ? 'Copied' : 'Copy review link'}

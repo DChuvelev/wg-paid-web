@@ -532,11 +532,11 @@ export type AdminReviewAccessResponse = {
     /**
      * Configuration Id
      */
-    configuration_id: string;
+    configuration_id: string | null;
     /**
      * Wireguard Profile Id
      */
-    wireguard_profile_id: string;
+    wireguard_profile_id: string | null;
     /**
      * Wireguard Status
      */
@@ -548,7 +548,7 @@ export type AdminReviewAccessResponse = {
     /**
      * Amneziawg Profile Id
      */
-    amneziawg_profile_id: string;
+    amneziawg_profile_id: string | null;
     /**
      * Amneziawg Status
      */
