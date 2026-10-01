@@ -8,6 +8,7 @@ import {
   adminListUsersV2AdminUsersGet,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost,
   adminReviewAccessV2AdminReviewAccessPost,
+  adminReviewAccessResetV2AdminReviewAccessResetPost,
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet,
   adminResendInviteV2AdminInvitesInviteIdResendPost,
   adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost,
@@ -32,6 +33,7 @@ import {
   type AdminProtocolLimitUpdateResponse,
   type AdminRuntimeConnectionsResponse,
   type AdminReviewAccessResponse,
+  type AdminReviewResetResponse,
   type AdminListUsersV2AdminUsersGetData,
   type AdminUserDeleteResponse,
   type AdminUserMetadataUpdateResponse,
@@ -170,6 +172,13 @@ export async function createReviewAccess(): Promise<AdminReviewAccessResponse> {
   return requireData(
     await adminReviewAccessV2AdminReviewAccessPost(mutationOptions()),
     'Unable to create or reissue the review link.'
+  );
+}
+
+export async function resetReviewAccess(signal?: AbortSignal): Promise<AdminReviewResetResponse> {
+  return requireData(
+    await adminReviewAccessResetV2AdminReviewAccessResetPost({ ...mutationOptions(), ...(signal ? { signal } : {}) }),
+    'Unable to reset review access.'
   );
 }
 

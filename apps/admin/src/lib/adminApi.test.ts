@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 const sdk = vi.hoisted(() => ({
   createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
-  reviewAccess: vi.fn(), revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
+  reviewAccess: vi.fn(), resetReview: vi.fn(), revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
@@ -17,6 +17,7 @@ vi.mock('@wg-paid/api', () => ({
   adminRuntimeConnectionsV2AdminRuntimeConnectionsGet: sdk.runtimeConnections,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost: sdk.reissueInvite,
   adminReviewAccessV2AdminReviewAccessPost: sdk.reviewAccess,
+  adminReviewAccessResetV2AdminReviewAccessResetPost: sdk.resetReview,
   adminResendInviteV2AdminInvitesInviteIdResendPost: sdk.resendInvite,
   adminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePost: sdk.revokeBulkInvite,
   adminRevokeInviteV2AdminInvitesInviteIdRevokePost: sdk.revokeInvite,
@@ -35,6 +36,7 @@ import {
   AdminApiError,
   createBulkInviteCampaign,
   createReviewAccess,
+  resetReviewAccess,
   getAdminCsrfHeaders,
   loadBulkInviteCampaigns,
   loadRuntimeConnections,
@@ -52,6 +54,21 @@ import {
 afterEach(() => {
   document.cookie = 'wg_admin_csrf=; Max-Age=0; Path=/';
   vi.clearAllMocks();
+});
+
+test('resets review access via the generated POST with admin CSRF and preserves the abort signal', async () => {
+  document.cookie = 'wg_admin_csrf=reset%20csrf; Path=/';
+  const response = { state: 'resetting', retained_succeeded_payments: 1 };
+  const controller = new AbortController();
+  sdk.resetReview.mockResolvedValue({ data: response, response: new Response(null, { status: 200 }) });
+  await expect(resetReviewAccess(controller.signal)).resolves.toEqual(response);
+  expect(sdk.resetReview).toHaveBeenCalledWith({ credentials: 'same-origin', headers: { 'x-admin-csrf-token': 'reset csrf' }, signal: controller.signal });
+  expect(sdk.reviewAccess).not.toHaveBeenCalled();
+});
+
+test('preserves the backend reset conflict detail and status', async () => {
+  sdk.resetReview.mockResolvedValue({ error: { detail: 'review payment is still pending' }, response: new Response(null, { status: 409 }) });
+  await expect(resetReviewAccess()).rejects.toMatchObject({ status: 409, message: 'review payment is still pending' });
 });
 
 test('updates referral enabled and limit atomically with admin CSRF', async () => {

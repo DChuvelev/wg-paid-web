@@ -1219,6 +1219,88 @@
         }
       }
     },
+    "/v2/admin/review-access/reset": {
+      "post": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Review Access Reset",
+        "description": "Reset the isolated YooKassa reviewer back to a fresh unpaid cycle.\n\nPayment history is retained. In-flight provider payments are never reset because\na late success could otherwise recreate entitlement after the admin reset.\nRuntime retirement uses the normal Domain V2 disable lifecycle and therefore\nmay require repeated calls until both protocol siblings acknowledge disable.",
+        "operationId": "admin_review_access_reset_v2_admin_review_access_reset_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReviewResetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/invites": {
       "post": {
         "tags": [
@@ -6079,6 +6161,69 @@
           "amneziawg_tunnel_ip"
         ],
         "title": "AdminReviewAccessResponse"
+      },
+      "AdminReviewResetResponse": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "resetting",
+              "payment_required"
+            ],
+            "title": "State"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "grant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Grant Id"
+          },
+          "billing_account_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Billing Account Id"
+          },
+          "configuration_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuration Id"
+          },
+          "wireguard_status": {
+            "type": "string",
+            "title": "Wireguard Status"
+          },
+          "amneziawg_status": {
+            "type": "string",
+            "title": "Amneziawg Status"
+          },
+          "retained_succeeded_payments": {
+            "type": "integer",
+            "title": "Retained Succeeded Payments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "user_id",
+          "grant_id",
+          "billing_account_id",
+          "configuration_id",
+          "wireguard_status",
+          "amneziawg_status",
+          "retained_succeeded_payments"
+        ],
+        "title": "AdminReviewResetResponse"
       },
       "AdminRuntimeConnectionRow": {
         "properties": {

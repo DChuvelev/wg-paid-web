@@ -560,6 +560,44 @@ export type AdminReviewAccessResponse = {
 };
 
 /**
+ * AdminReviewResetResponse
+ */
+export type AdminReviewResetResponse = {
+    /**
+     * State
+     */
+    state: 'resetting' | 'payment_required';
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Grant Id
+     */
+    grant_id: string;
+    /**
+     * Billing Account Id
+     */
+    billing_account_id: string;
+    /**
+     * Configuration Id
+     */
+    configuration_id: string | null;
+    /**
+     * Wireguard Status
+     */
+    wireguard_status: string;
+    /**
+     * Amneziawg Status
+     */
+    amneziawg_status: string;
+    /**
+     * Retained Succeeded Payments
+     */
+    retained_succeeded_payments: number;
+};
+
+/**
  * AdminRuntimeConnectionRow
  */
 export type AdminRuntimeConnectionRow = {
@@ -3178,6 +3216,37 @@ export type AdminReviewAccessV2AdminReviewAccessPostResponses = {
 };
 
 export type AdminReviewAccessV2AdminReviewAccessPostResponse = AdminReviewAccessV2AdminReviewAccessPostResponses[keyof AdminReviewAccessV2AdminReviewAccessPostResponses];
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/review-access/reset';
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostError = AdminReviewAccessResetV2AdminReviewAccessResetPostErrors[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostErrors];
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminReviewResetResponse;
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponse = AdminReviewAccessResetV2AdminReviewAccessResetPostResponses[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostResponses];
 
 export type AdminListInvitesV2AdminInvitesGetData = {
     body?: never;

@@ -49,9 +49,13 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('5d1a15a7d1fa0613c5495454f3c4164a573860a074277b4f13e7653e29cfa31d');
-    expect(Object.keys(document.paths)).toHaveLength(70);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 79, schemas: 90 });
+      .toBe('7a5d635e34905f93dc0e1ab9a2a50e2d198e7d45647185aa6d09deed44fa54cf');
+    expect(Object.keys(document.paths)).toHaveLength(71);
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 80, schemas: 91 });
+    expect(document.paths['/v2/admin/review-access/reset'].post.operationId)
+      .toBe('admin_review_access_reset_v2_admin_review_access_reset_post');
+    expect(document.components.schemas.AdminReviewResetResponse.properties.state.enum)
+      .toEqual(['resetting', 'payment_required']);
 
     const schemas = document.components.schemas;
     expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([

@@ -1,12 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { AdminReviewAccessResponse } from '@wg-paid/api';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { AdminReviewAccessResponse, AdminReviewResetResponse } from '@wg-paid/api';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { AdminApiError, createReviewAccess } from '../../lib/adminApi';
+import { AdminApiError, createReviewAccess, resetReviewAccess } from '../../lib/adminApi';
 import { ReviewAccessControl } from './ReviewAccessControl';
 
 vi.mock('../../lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/adminApi')>();
-  return { ...actual, createReviewAccess: vi.fn() };
+  return { ...actual, createReviewAccess: vi.fn(), resetReviewAccess: vi.fn() };
 });
 
 const exactUrl = 'https://access.secret-studio.ru/auth/magic#review=exact-backend-secret';
@@ -24,9 +24,18 @@ const response: AdminReviewAccessResponse = {
   amneziawg_tunnel_ip: '10.254.0.2'
 };
 const clipboardWrite = vi.fn<(value: string) => Promise<void>>();
+const resetting: AdminReviewResetResponse = {
+  state: 'resetting', user_id: response.user_id, grant_id: response.grant_id,
+  billing_account_id: '00000000-0000-0000-0000-000000000006', configuration_id: response.configuration_id,
+  wireguard_status: 'retiring', amneziawg_status: 'retiring', retained_succeeded_payments: 1
+};
+const completed: AdminReviewResetResponse = { ...resetting, state: 'payment_required', configuration_id: null, wireguard_status: 'payment_required', amneziawg_status: 'payment_required' };
+const freshReview = { ...response, review_url: `${exactUrl}-fresh-unpaid`, wireguard_status: 'payment_required' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  vi.mocked(resetReviewAccess).mockResolvedValue(resetting);
   clipboardWrite.mockResolvedValue();
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: clipboardWrite } });
   localStorage.clear();
@@ -36,6 +45,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 test('displays and copies the exact backend URL without exposing AWG or internal identifiers', async () => {
@@ -43,6 +53,8 @@ test('displays and copies the exact backend URL without exposing AWG or internal
   fireEvent.click(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }));
 
   expect((await screen.findByLabelText('YooKassa review URL')).textContent).toBe(exactUrl);
+  expect(createReviewAccess).toHaveBeenCalledOnce();
+  expect(resetReviewAccess).not.toHaveBeenCalled();
   expect(screen.getByText('Expires').parentElement?.textContent).toMatch(/2026/);
   expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Active');
   expect(screen.getByText(/invalidates the prior review link and its active session/i)).toBeTruthy();
@@ -125,4 +137,154 @@ test('401 follows the existing session-expired callback', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }));
   await waitFor(() => expect(onSessionExpired).toHaveBeenCalledOnce());
   expect(screen.queryByLabelText('YooKassa review URL')).toBeNull();
+});
+
+test('reset requires confirmation and cancellation does not mutate anything', () => {
+  vi.mocked(window.confirm).mockReturnValue(false);
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('The current reviewer access will be ended.'));
+  expect(resetReviewAccess).not.toHaveBeenCalled();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+});
+
+test('polls only the reset endpoint until authoritative completion, then issues and displays the fresh unpaid link', async () => {
+  vi.useFakeTimers();
+  vi.mocked(resetReviewAccess).mockResolvedValueOnce(resetting).mockResolvedValueOnce(completed);
+  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
+  const view = render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  expect(resetReviewAccess).toHaveBeenCalledOnce();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.getByText('Resetting review access…')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Start new review cycle' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }).hasAttribute('disabled')).toBe(true);
+  view.rerender(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1499); });
+  expect(resetReviewAccess).toHaveBeenCalledOnce();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(resetReviewAccess).toHaveBeenCalledTimes(2);
+  expect(createReviewAccess).toHaveBeenCalledOnce();
+  expect(screen.getByLabelText('YooKassa review URL').textContent).toBe(freshReview.review_url);
+  expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Payment required');
+  expect(screen.getByText('New review cycle ready. Previous succeeded payments retained: 1.')).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(130000); });
+  expect(resetReviewAccess).toHaveBeenCalledTimes(2);
+});
+
+test('completed initial reset automatically creates a review link without another click', async () => {
+  vi.mocked(resetReviewAccess).mockResolvedValue(completed);
+  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  expect(await screen.findByText(freshReview.review_url)).toBeTruthy();
+  expect(createReviewAccess).toHaveBeenCalledOnce();
+});
+
+test('does not overlap reset requests or allow duplicate clicks while a request is unsettled', async () => {
+  vi.useFakeTimers();
+  let resolve!: (value: AdminReviewResetResponse) => void;
+  vi.mocked(resetReviewAccess).mockReturnValue(new Promise((done) => { resolve = done; }));
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(resetReviewAccess).toHaveBeenCalledOnce();
+  expect(window.confirm).toHaveBeenCalledOnce();
+  await act(async () => { resolve(resetting); });
+  expect(createReviewAccess).not.toHaveBeenCalled();
+});
+
+test.each(['inactive', 'unmount'])('%s stops reset polling and ignores a late completion', async (stop) => {
+  vi.useFakeTimers();
+  let resolve!: (value: AdminReviewResetResponse) => void;
+  vi.mocked(resetReviewAccess).mockResolvedValueOnce(resetting).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+  const view = render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+  const signal = vi.mocked(resetReviewAccess).mock.calls[1]![0]!;
+  if (stop === 'unmount') view.unmount();
+  else view.rerender(<ReviewAccessControl active={false} onSessionExpired={vi.fn()} />);
+  expect(signal.aborted).toBe(true);
+  await act(async () => { resolve(completed); await vi.advanceTimersByTimeAsync(130000); });
+  expect(resetReviewAccess).toHaveBeenCalledTimes(2);
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
+});
+
+test('inactive stops an already scheduled poll', async () => {
+  vi.useFakeTimers();
+  const view = render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  view.rerender(<ReviewAccessControl active={false} onSessionExpired={vi.fn()} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(130000); });
+  expect(resetReviewAccess).toHaveBeenCalledOnce();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+});
+
+test('timeout stops polling without claiming success and a new press resumes the authoritative reset', async () => {
+  vi.useFakeTimers();
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(120000); });
+  const count = vi.mocked(resetReviewAccess).mock.calls.length;
+  expect(screen.getByRole('alert').textContent).toContain('Review reset is still incomplete');
+  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+  expect(resetReviewAccess).toHaveBeenCalledTimes(count);
+  expect(screen.getByRole('button', { name: 'Start new review cycle' }).hasAttribute('disabled')).toBe(false);
+  vi.mocked(resetReviewAccess).mockResolvedValue(completed);
+  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  expect(resetReviewAccess).toHaveBeenCalledTimes(count + 1);
+  expect(screen.getByText(freshReview.review_url)).toBeTruthy();
+});
+
+test('409 displays backend detail and does not issue a link or retry silently', async () => {
+  vi.mocked(resetReviewAccess).mockRejectedValue(new AdminApiError(409, 'review payment is still pending'));
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('review payment is still pending');
+  expect(resetReviewAccess).toHaveBeenCalledOnce();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
+});
+
+test('reset 401 uses the session-expired callback', async () => {
+  const onSessionExpired = vi.fn();
+  vi.mocked(resetReviewAccess).mockRejectedValue(new AdminApiError(401));
+  render(<ReviewAccessControl active onSessionExpired={onSessionExpired} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  await waitFor(() => expect(onSessionExpired).toHaveBeenCalledOnce());
+  expect(createReviewAccess).not.toHaveBeenCalled();
+});
+
+test('a stalled reset request is aborted at the deadline and late success cannot issue a link', async () => {
+  vi.useFakeTimers();
+  let resolve!: (value: AdminReviewResetResponse) => void;
+  vi.mocked(resetReviewAccess).mockReturnValue(new Promise((done) => { resolve = done; }));
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  const signal = vi.mocked(resetReviewAccess).mock.calls[0]![0]!;
+  await act(async () => { await vi.advanceTimersByTimeAsync(120000); });
+  expect(signal.aborted).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('still incomplete');
+  await act(async () => { resolve(completed); });
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
+});
+
+test('starting reset clears the prior URL and copy feedback; failed link issuance never claims readiness', async () => {
+  render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }));
+  await screen.findByText(exactUrl);
+  fireEvent.click(screen.getByRole('button', { name: 'Copy review link' }));
+  await screen.findByRole('button', { name: 'Copied' });
+  vi.mocked(resetReviewAccess).mockResolvedValue(completed);
+  vi.mocked(createReviewAccess).mockRejectedValue(new AdminApiError(500, 'link could not be issued'));
+  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
+  expect(screen.queryByText(exactUrl)).toBeNull();
+  expect((await screen.findByRole('alert')).textContent).toBe('link could not be issued');
+  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
 });
