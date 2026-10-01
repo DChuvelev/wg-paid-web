@@ -35,12 +35,6 @@ export function ReviewAccountPage(props: AccountSurfaceProps) {
 
   return (
     <AppShell title={t('reviewTitle')} description={t('reviewLead')}>
-      <div className={styles.sessionActions}>
-        <button className={styles.secondaryButton} type="button" disabled={props.logoutPending} onClick={props.onLogout}>
-          {t('logout')}
-        </button>
-      </div>
-      {props.logoutError ? <p className={styles.error} role="alert">{t('logoutFailed')}</p> : null}
       {billing?.status === 'active_paid' ? (
         <section className={styles.paidSummary} aria-labelledby="review-paid-title">
           <h2 id="review-paid-title">{t('reviewPaymentConfirmed')}</h2>

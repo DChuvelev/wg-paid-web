@@ -93,7 +93,7 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
 
   const startCycle = () => {
     if (!activeRef.current || busyRef.current) return;
-    if (!window.confirm('Start a new YooKassa review cycle?\n\nThe current reviewer access will be ended.\nSucceeded payment history will be preserved.\nA new Payment required review link will be created.')) return;
+    if (!window.confirm('Start a new YooKassa review cycle?\n\nThe current reviewer access will be ended.\nSucceeded payment history will be preserved.\nThe shared review link will remain unchanged.')) return;
     busyRef.current = true;
     const epoch = ++requestEpoch.current;
     const current = () => activeRef.current && requestEpoch.current === epoch;
@@ -102,7 +102,6 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
     resetController.current = controller;
     if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
     copyTimer.current = null;
-    setResult(null);
     setResetResult(null);
     setCopied(false);
     setError('');
@@ -131,11 +130,8 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
           return;
         }
         if (response.state !== 'payment_required') throw new Error('Unexpected review reset state.');
-        // Only the backend's completed reset permits issuing the next review link.
+        // The backend has completed reset; the shared URL must not be rotated.
         clearReset();
-        const review = await createReviewAccess();
-        if (!current()) return;
-        setResult(review);
         setResetPending(false);
         setPending(false);
         busyRef.current = false;
@@ -174,8 +170,8 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
     <section className={styles.reviewAccess} aria-labelledby="review-access-title">
       <div>
         <h3 id="review-access-title">YooKassa review access</h3>
-        <p>Reissuing invalidates the prior review link and its active session.</p>
-        <p>Reissuing only replaces the review link and active session; it does not reset payment or billing state. Starting a new review cycle ends the current review access, preserves payment history, and returns the reviewer to Payment required.</p>
+        <p>Create / reissue replaces the shared review URL and invalidates the previous URL. It does not reset payment or billing state.</p>
+        <p>Start new review cycle resets billing/access state, preserves payment history and the shared review URL, and returns the reviewer to Payment required.</p>
       </div>
       <button className={adminStyles.primaryButton} disabled={!active || pending} type="button" onClick={() => void issue()}>
         {pending && !resetPending ? 'Creating review link…' : 'Create / reissue YooKassa review link'}
@@ -183,9 +179,9 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
       <button className={adminStyles.secondaryButton} disabled={!active || pending} type="button" onClick={startCycle}>
         Start new review cycle
       </button>
-      {resetPending ? <p role="status">{resetResult?.state === 'payment_required' ? 'Creating new review link…' : 'Resetting review access…'}</p> : null}
-      {result && resetResult?.state === 'payment_required' ? (
-        <p role="status">New review cycle ready. Previous succeeded payments retained: {resetResult.retained_succeeded_payments}.</p>
+      {resetPending ? <p role="status">Resetting review access…</p> : null}
+      {resetResult?.state === 'payment_required' ? (
+        <p role="status">New review cycle ready. {result ? 'Shared review link unchanged.' : 'Use the previously issued shared review link.'} Previous succeeded payments retained: {resetResult.retained_succeeded_payments}.</p>
       ) : null}
       {error ? <p className={adminStyles.alert} role="alert">{error}</p> : null}
       {result ? (
@@ -193,7 +189,7 @@ export function ReviewAccessControl({ active, onSessionExpired }: ReviewAccessCo
           <code aria-label="YooKassa review URL">{result.review_url}</code>
           <dl>
             <div><dt>Expires</dt><dd>{new Date(result.expires_at).toLocaleString()}</dd></div>
-            <div><dt>WireGuard status</dt><dd>{wireGuardStatusLabel(result.wireguard_status)}</dd></div>
+            <div><dt>WireGuard status</dt><dd>{wireGuardStatusLabel(resetResult?.wireguard_status ?? result.wireguard_status)}</dd></div>
           </dl>
           <button className={adminStyles.secondaryButton} type="button" onClick={() => void copy()}>
             {copied ? 'Copied' : 'Copy review link'}

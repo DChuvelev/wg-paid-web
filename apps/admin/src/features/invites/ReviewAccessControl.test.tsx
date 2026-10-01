@@ -30,7 +30,6 @@ const resetting: AdminReviewResetResponse = {
   wireguard_status: 'retiring', amneziawg_status: 'retiring', retained_succeeded_payments: 1
 };
 const completed: AdminReviewResetResponse = { ...resetting, state: 'payment_required', configuration_id: null, wireguard_status: 'payment_required', amneziawg_status: 'payment_required' };
-const freshReview = { ...response, review_url: `${exactUrl}-fresh-unpaid`, wireguard_status: 'payment_required' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -57,7 +56,7 @@ test('displays and copies the exact backend URL without exposing AWG or internal
   expect(resetReviewAccess).not.toHaveBeenCalled();
   expect(screen.getByText('Expires').parentElement?.textContent).toMatch(/2026/);
   expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Active');
-  expect(screen.getByText(/invalidates the prior review link and its active session/i)).toBeTruthy();
+  expect(screen.getByText(/replaces the shared review URL and invalidates the previous URL/i)).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/Amnezia|AWG|00000000|10\.25[34]\.0\.2/i);
 
   fireEvent.click(screen.getByRole('button', { name: 'Copy review link' }));
@@ -148,10 +147,9 @@ test('reset requires confirmation and cancellation does not mutate anything', ()
   expect(createReviewAccess).not.toHaveBeenCalled();
 });
 
-test('polls only the reset endpoint until authoritative completion, then issues and displays the fresh unpaid link', async () => {
+test('polls only the reset endpoint until authoritative completion without issuing a shared link', async () => {
   vi.useFakeTimers();
   vi.mocked(resetReviewAccess).mockResolvedValueOnce(resetting).mockResolvedValueOnce(completed);
-  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
   const view = render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
   expect(resetReviewAccess).toHaveBeenCalledOnce();
@@ -164,21 +162,20 @@ test('polls only the reset endpoint until authoritative completion, then issues 
   expect(resetReviewAccess).toHaveBeenCalledOnce();
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   expect(resetReviewAccess).toHaveBeenCalledTimes(2);
-  expect(createReviewAccess).toHaveBeenCalledOnce();
-  expect(screen.getByLabelText('YooKassa review URL').textContent).toBe(freshReview.review_url);
-  expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Payment required');
-  expect(screen.getByText('New review cycle ready. Previous succeeded payments retained: 1.')).toBeTruthy();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText('YooKassa review URL')).toBeNull();
+  expect(screen.getByText('New review cycle ready. Use the previously issued shared review link. Previous succeeded payments retained: 1.')).toBeTruthy();
   await act(async () => { await vi.advanceTimersByTimeAsync(130000); });
   expect(resetReviewAccess).toHaveBeenCalledTimes(2);
 });
 
-test('completed initial reset automatically creates a review link without another click', async () => {
+test('completed initial reset succeeds without creating or recovering a secret URL', async () => {
   vi.mocked(resetReviewAccess).mockResolvedValue(completed);
-  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
   render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
   fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
-  expect(await screen.findByText(freshReview.review_url)).toBeTruthy();
-  expect(createReviewAccess).toHaveBeenCalledOnce();
+  expect(await screen.findByText('New review cycle ready. Use the previously issued shared review link. Previous succeeded payments retained: 1.')).toBeTruthy();
+  expect(createReviewAccess).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText('YooKassa review URL')).toBeNull();
 });
 
 test('does not overlap reset requests or allow duplicate clicks while a request is unsettled', async () => {
@@ -235,10 +232,10 @@ test('timeout stops polling without claiming success and a new press resumes the
   expect(resetReviewAccess).toHaveBeenCalledTimes(count);
   expect(screen.getByRole('button', { name: 'Start new review cycle' }).hasAttribute('disabled')).toBe(false);
   vi.mocked(resetReviewAccess).mockResolvedValue(completed);
-  vi.mocked(createReviewAccess).mockResolvedValue(freshReview);
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
   expect(resetReviewAccess).toHaveBeenCalledTimes(count + 1);
-  expect(screen.getByText(freshReview.review_url)).toBeTruthy();
+  expect(screen.getByText(/New review cycle ready.*Use the previously issued shared review link/)).toBeTruthy();
+  expect(createReviewAccess).not.toHaveBeenCalled();
 });
 
 test('409 displays backend detail and does not issue a link or retry silently', async () => {
@@ -275,16 +272,24 @@ test('a stalled reset request is aborted at the deadline and late success cannot
   expect(screen.queryByText(/New review cycle ready/)).toBeNull();
 });
 
-test('starting reset clears the prior URL and copy feedback; failed link issuance never claims readiness', async () => {
+test('reset preserves the displayed shared URL throughout polling and completion, clears copy feedback, and never rotates it', async () => {
   render(<ReviewAccessControl active onSessionExpired={vi.fn()} />);
   fireEvent.click(screen.getByRole('button', { name: 'Create / reissue YooKassa review link' }));
   await screen.findByText(exactUrl);
   fireEvent.click(screen.getByRole('button', { name: 'Copy review link' }));
   await screen.findByRole('button', { name: 'Copied' });
-  vi.mocked(resetReviewAccess).mockResolvedValue(completed);
+  vi.useFakeTimers();
+  vi.mocked(resetReviewAccess).mockResolvedValueOnce(resetting).mockResolvedValueOnce(completed);
   vi.mocked(createReviewAccess).mockRejectedValue(new AdminApiError(500, 'link could not be issued'));
-  fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' }));
-  expect(screen.queryByText(exactUrl)).toBeNull();
-  expect((await screen.findByRole('alert')).textContent).toBe('link could not be issued');
-  expect(screen.queryByText(/New review cycle ready/)).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Start new review cycle' })); });
+  expect(screen.getByLabelText('YooKassa review URL').textContent).toBe(exactUrl);
+  expect(screen.getByRole('button', { name: 'Copy review link' })).toBeTruthy();
+  expect(screen.getByText('Resetting review access…')).toBeTruthy();
+  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('The shared review link will remain unchanged.'));
+  await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+  expect(screen.getByLabelText('YooKassa review URL').textContent).toBe(exactUrl);
+  expect(screen.getByText('New review cycle ready. Shared review link unchanged. Previous succeeded payments retained: 1.')).toBeTruthy();
+  expect(screen.getByText('WireGuard status').parentElement?.textContent).toContain('Payment required');
+  expect(createReviewAccess).toHaveBeenCalledOnce(); // Only the explicit initial create.
+  expect(screen.queryByRole('alert')).toBeNull();
 });

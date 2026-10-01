@@ -441,7 +441,7 @@ test.each(['provisioning', 'ready'])('paid Review summary stays visible during %
   expect(within(summary).getByText('There is no automatic renewal.')).toBeTruthy();
   expect(summary.querySelectorAll('time')[0]?.getAttribute('datetime')).toBe('2026-04-03T12:00:00Z');
   expect(summary.querySelectorAll('time')[1]?.getAttribute('datetime')).toBe('2026-04-18T12:00:00Z');
-  expect(screen.getByRole('button', { name: 'Logout' }).compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Logout' })).toBeNull();
   expect(summary.compareDocumentPosition(screen.getByText(/import it into WireGuard/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Pay with YooKassa' })).toBeNull();
   expect(loadBillingPayments).not.toHaveBeenCalled();
@@ -463,7 +463,7 @@ test('paid Review summary formats the authoritative billing amount instead of a 
   expect(loadBillingPayments).not.toHaveBeenCalled();
 });
 
-test('review surface renders only the ready WireGuard download, library, and logout flow', async () => {
+test('review surface renders the ready WireGuard download and library without logout', async () => {
   vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
   vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
   renderApp('/account');
@@ -476,7 +476,8 @@ test('review surface renders only the ready WireGuard download, library, and log
   expect(library.getAttribute('href')).toBe('/library/');
   expect(library.getAttribute('target')).toBe('_blank');
   expect(library.getAttribute('rel')).toBe('noopener noreferrer');
-  expect(screen.getByRole('button', { name: 'Logout' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Logout' })).toBeNull();
+  expect(logout).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole('button', { name: 'Download WireGuard configuration' }));
   await waitFor(() => expect(createProfileConfigDownload).toHaveBeenCalledWith('review-wg-profile'));
@@ -522,6 +523,7 @@ test('unpaid empty review configurations show payment and never poll configurati
   renderApp('/account');
 
   expect(await screen.findByText('Access to Secret Studio server resources')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Logout' })).toBeNull();
   expect(screen.queryByRole('region', { name: 'Payment confirmed' })).toBeNull();
   expect(screen.getByText('Includes access to the original Secret Studio sample and sound-effects library.')).toBeTruthy();
   expect(screen.getByText('299 ₽ / month')).toBeTruthy();
@@ -1814,12 +1816,13 @@ test('configuration creation 403 shows the session-validation message', async ()
   expect((await screen.findByRole('alert')).textContent).toBe('Session validation failed. Sign in again.');
 });
 
-test('logout 401 clears account state and replace-navigates to login', async () => {
+test.each(['pilot', 'commercial'] as const)('%s logout 401 clears account state and replace-navigates to login', async (surface) => {
+  if (surface === 'commercial') vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid'));
   vi.mocked(logout).mockRejectedValue(new AccessApiError(401));
   const { queryClient } = renderApp('/account');
   const removeQueries = vi.spyOn(queryClient, 'removeQueries');
 
-  await screen.findByText('Configurations: 2 / 3');
+  await screen.findByRole('button', { name: 'Logout' });
   fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
