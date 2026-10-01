@@ -10,6 +10,25 @@
   line-height: 1.55;
 }
 
+.paidSummary {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #d9e0ec;
+  border-radius: 0.75rem;
+  background: #fafbfd;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.paidSummary h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.paidSummary p {
+  margin: 0.65rem 0 0;
+}
+
 .configuration {
   padding: 1rem;
   border: 1px solid #d9e0ec;

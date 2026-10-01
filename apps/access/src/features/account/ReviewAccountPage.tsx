@@ -8,7 +8,12 @@ import { reviewProjection } from './reviewProjection';
 import styles from './ReviewAccount.module.css';
 
 export function ReviewAccountPage(props: AccountSurfaceProps) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const billing = props.account.billing;
+  const displayLocale = locale === 'ru' ? 'ru-RU' : 'en-US';
+  const formatDate = (value: string) => new Intl.DateTimeFormat(displayLocale, {
+    day: 'numeric', month: 'long', year: 'numeric'
+  }).format(new Date(value));
   const projection = reviewProjection(props.account, props.configurations);
   const [downloading, setDownloading] = useState(false);
   const [downloadFailed, setDownloadFailed] = useState(false);
@@ -36,6 +41,21 @@ export function ReviewAccountPage(props: AccountSurfaceProps) {
         </button>
       </div>
       {props.logoutError ? <p className={styles.error} role="alert">{t('logoutFailed')}</p> : null}
+      {billing?.status === 'active_paid' ? (
+        <section className={styles.paidSummary} aria-labelledby="review-paid-title">
+          <h2 id="review-paid-title">{t('reviewPaymentConfirmed')}</h2>
+          <p>{t('reviewPaidAmount', { amount: new Intl.NumberFormat(displayLocale, {
+            style: 'currency', currency: billing.currency, minimumFractionDigits: 0
+          }).format(billing.monthly_amount_kopeks / 100) })}</p>
+          <p>
+            {t('reviewAccessPeriod')}<br />
+            <time dateTime={billing.current_period_start}>{formatDate(billing.current_period_start)}</time>
+            {' — '}
+            <time dateTime={billing.current_period_end}>{formatDate(billing.current_period_end)}</time>
+          </p>
+          <p className={styles.status}>{t('reviewNoAutoRenewal')}</p>
+        </section>
+      ) : null}
       {projection.state === 'payment_required' ? (
         <ReviewPaymentSection account={props.account} configurations={props.configurations} onUnauthorized={props.onError} />
       ) : (

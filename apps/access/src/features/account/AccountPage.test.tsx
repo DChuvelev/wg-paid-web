@@ -423,6 +423,46 @@ test('fails safely for an unknown runtime surface instead of inferring from bill
   expect(screen.queryByText('Access and billing')).toBeNull();
 });
 
+test.each(['provisioning', 'ready'])('paid Review summary stays visible during %s and uses backend periods in RU/EN', async (state) => {
+  vi.mocked(loadAccount).mockResolvedValue({
+    ...reviewAccount,
+    billing: reviewBilling('active_paid', {
+      current_period_start: '2026-04-03T12:00:00Z',
+      current_period_end: '2026-04-18T12:00:00Z'
+    })
+  });
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration(state === 'ready' ? 'active' : 'provisioning', state === 'ready')]);
+  renderApp('/account');
+
+  const summary = await screen.findByRole('region', { name: 'Payment confirmed' });
+  expect(within(summary).getByText('Paid: RUB 299')).toBeTruthy();
+  expect(within(summary).getByText('April 3, 2026')).toBeTruthy();
+  expect(within(summary).getByText('April 18, 2026')).toBeTruthy();
+  expect(within(summary).getByText('There is no automatic renewal.')).toBeTruthy();
+  expect(summary.querySelectorAll('time')[0]?.getAttribute('datetime')).toBe('2026-04-03T12:00:00Z');
+  expect(summary.querySelectorAll('time')[1]?.getAttribute('datetime')).toBe('2026-04-18T12:00:00Z');
+  expect(screen.getByRole('button', { name: 'Logout' }).compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(summary.compareDocumentPosition(screen.getByText(/import it into WireGuard/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Pay with YooKassa' })).toBeNull();
+  expect(loadBillingPayments).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  const russianSummary = screen.getByRole('region', { name: 'Оплата подтверждена' });
+  expect(within(russianSummary).getByText('Оплачено: 299 ₽')).toBeTruthy();
+  expect(within(russianSummary).getByText('3 апреля 2026 г.')).toBeTruthy();
+  expect(within(russianSummary).getByText('18 апреля 2026 г.')).toBeTruthy();
+  expect(within(russianSummary).getByText('Автоматического продления нет.')).toBeTruthy();
+});
+
+test('paid Review summary formats the authoritative billing amount instead of a fixed price', async () => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...reviewAccount, billing: reviewBilling('active_paid', { monthly_amount_kopeks: 45123 }) });
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
+  renderApp('/account');
+  const summary = await screen.findByRole('region', { name: 'Payment confirmed' });
+  expect(within(summary).getByText('Paid: RUB 451.23')).toBeTruthy();
+  expect(loadBillingPayments).not.toHaveBeenCalled();
+});
+
 test('review surface renders only the ready WireGuard download, library, and logout flow', async () => {
   vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
   vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
@@ -482,6 +522,7 @@ test('unpaid empty review configurations show payment and never poll configurati
   renderApp('/account');
 
   expect(await screen.findByText('Access to Secret Studio server resources')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Payment confirmed' })).toBeNull();
   expect(screen.getByText('Includes access to the original Secret Studio sample and sound-effects library.')).toBeTruthy();
   expect(screen.getByText('299 ₽ / month')).toBeTruthy();
   expect(screen.getByText(/test store.*No real money/i)).toBeTruthy();
