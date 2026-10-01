@@ -27,12 +27,18 @@ export function ReviewPaymentSection({ account, configurations, onUnauthorized }
   return (
     <section className={styles.purchase} aria-labelledby="review-purchase-title">
       <h2 id="review-purchase-title">{t('reviewPurchaseTitle')}</h2>
+      <p>{t('reviewPurchaseIncludes')}</p>
       <strong className={styles.price}>{t('reviewPurchasePrice')}</strong>
       <p>{t('reviewTestStore')}</p>
+      <p>{t('reviewPurchaseDelivery')}</p>
       {flow.historyPending ? <p role="status">{t('reviewPaymentHistoryLoading')}</p> : null}
       {flow.historyError ? <p className={styles.error} role="alert">{t('reviewPaymentHistoryFailed')}</p> : null}
       {flow.payment ? <p role="status">{t('reviewPaymentPending')}</p> : null}
       {message ? <p role="status">{message}</p> : null}
+      <p>
+        {t('reviewOfferAcceptance')}{' '}
+        <a href="/#offer" target="_blank" rel="noopener noreferrer">{t('reviewOfferTerms')}</a>.
+      </p>
       <div className={styles.actions}>
         {flow.canCreate ? (
           <button className={styles.primaryButton} type="button" onClick={flow.createPayment}>

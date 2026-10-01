@@ -481,9 +481,15 @@ test('unpaid empty review configurations show payment and never poll configurati
   vi.mocked(loadConfigurations).mockResolvedValue([]);
   renderApp('/account');
 
-  expect(await screen.findByText('Secret Studio sample library access')).toBeTruthy();
+  expect(await screen.findByText('Access to Secret Studio server resources')).toBeTruthy();
+  expect(screen.getByText('Includes access to the original Secret Studio sample and sound-effects library.')).toBeTruthy();
   expect(screen.getByText('299 ₽ / month')).toBeTruthy();
   expect(screen.getByText(/test store.*No real money/i)).toBeTruthy();
+  expect(screen.getByText('After payment is confirmed, access will be activated automatically. Your account will show the technical details needed to connect to the studio server. Once connected, you will have access to the Secret Studio sample and sound-effects library.')).toBeTruthy();
+  const purchase = screen.getByRole('region', { name: 'Access to Secret Studio server resources' });
+  expect(purchase.textContent).toContain('By making a payment, you accept the terms of the Public Offer.');
+  expect(within(purchase).getByRole('link', { name: 'Public Offer' }).getAttribute('href')).toBe('/#offer');
+  expect(within(purchase).getByRole('link', { name: 'Public Offer' }).getAttribute('target')).toBe('_blank');
   await screen.findByRole('button', { name: 'Pay with YooKassa' });
   await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
   expect(loadConfigurations).toHaveBeenCalledTimes(1);
@@ -567,9 +573,14 @@ test('review waits for authoritative history, stores the attempt before one exac
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).not.toContain('yookassa');
 
   fireEvent.click(screen.getByRole('button', { name: 'RU' }));
-  expect(await screen.findByText('Доступ к библиотеке сэмплов Secret Studio')).toBeTruthy();
+  expect(await screen.findByText('Доступ к ресурсам студийного сервера Secret Studio')).toBeTruthy();
   expect(screen.getByText('299 ₽ / месяц')).toBeTruthy();
   expect(screen.getByText(/тестовый магазин ЮKassa.*Реального списания/i)).toBeTruthy();
+  expect(screen.getByText('Включает доступ к библиотеке оригинальных сэмплов и звуковых эффектов Secret Studio.')).toBeTruthy();
+  expect(screen.getByText('После подтверждения оплаты доступ будет активирован автоматически. В личном кабинете появятся технические данные для подключения к студийному серверу. После подключения станет доступна библиотека сэмплов и звуковых эффектов Secret Studio.')).toBeTruthy();
+  const purchase = screen.getByRole('region', { name: 'Доступ к ресурсам студийного сервера Secret Studio' });
+  expect(purchase.textContent).toContain('Совершая оплату, вы принимаете условия Публичной оферты.');
+  expect(within(purchase).getByRole('link', { name: 'Публичной оферты' }).getAttribute('href')).toBe('/#offer');
   resolveCreate(billingPayment('review-created', 'pending', {
     amount_kopeks: 29900,
     quantity_before: 1,

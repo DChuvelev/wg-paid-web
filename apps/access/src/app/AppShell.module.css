@@ -67,6 +67,31 @@
   color: #52627a;
 }
 
+.legal {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d9e0ec;
+  color: #52627a;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.legal p {
+  margin: 0.3rem 0;
+}
+
+.legal nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.legal a {
+  color: inherit;
+}
+
 @media (max-width: 30rem) {
   .page {
     place-items: start center;

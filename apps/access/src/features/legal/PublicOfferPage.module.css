@@ -1,0 +1,23 @@
+.document {
+  min-width: 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.document h2 {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.document p {
+  margin: 0.9rem 0;
+}
+
+.document a {
+  color: #2857a4;
+}
+
+.notice {
+  font-weight: 650;
+}
