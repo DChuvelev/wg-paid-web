@@ -5,6 +5,7 @@ import { useLocale } from '../../i18n/localeContext';
 import { AccessApiError, updateConfigurationRouting } from '../../lib/accessApi';
 import { configurationsKey } from './queryKeys';
 import styles from './Account.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface Props {
   configuration: ConfigurationSummary;
@@ -93,9 +94,11 @@ export function ConfigurationRoutingControl({ configuration, exits, onUnauthoriz
   const errorKey = mutation.error instanceof AccessApiError && mutation.error.status === 403
     ? 'sessionValidationFailed' as const
     : 'routingUpdateFailed' as const;
+  const helpAnchor = useHelpAnchor('routing', { instance: configuration.configuration_id, bodyKeys: ['helpBody_routing', exits || forcedActive ? 'helpRoutingManual' : 'helpRoutingUnavailable'] });
+  useHelpBlocker(mutation.isPending || selectedSelector !== '');
 
   return (
-    <section className={styles.routing} aria-label={t('routingTitle')}>
+    <section {...helpAnchor} className={styles.routing} aria-label={t('routingTitle')}>
       <div className={styles.routingHeading}>
         <h4>{t('routingTitle')}</h4>
         <p>{t('routingAppliesToConfiguration')}</p>

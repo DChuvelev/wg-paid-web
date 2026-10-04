@@ -52,6 +52,7 @@ export function AccountPage() {
   if (accountQuery.isPending || configurationsQuery.isPending) return <AppShell title={t('account')}><p>{t('loadingAccount')}</p></AppShell>;
   if (!accountQuery.data || !configurationsQuery.data) return <AppShell title={t('account')}><p className={styles.error}>{t('accountLoadFailed')}</p></AppShell>;
   const common = {
+    helpReady: accountQuery.isSuccess && configurationsQuery.isSuccess,
     account: accountQuery.data,
     configurations: configurationsQuery.data,
     notice: (location.state as { noticeKey?: string } | null)?.noticeKey === 'signedIn',

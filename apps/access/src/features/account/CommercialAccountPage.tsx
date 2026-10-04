@@ -7,14 +7,21 @@ import { ConfigurationsSection } from './ConfigurationsSection';
 import { DisplayNameForm } from './DisplayNameForm';
 import styles from './Account.module.css';
 import commercial from './CommercialAccount.module.css';
+import { AccountHelp, HelpEntry } from '../help/AccountHelp';
+import { useHelpAnchor } from '../help/helpContext';
 
 export function CommercialAccountPage(props: AccountSurfaceProps) {
+  return <AccountHelp userId={props.account.user_id} ready={props.helpReady && !props.logoutPending}><CommercialContent {...props} /></AccountHelp>;
+}
+
+function CommercialContent(props: AccountSurfaceProps) {
   const { t } = useLocale();
   const { account } = props;
+  const headerAnchor = useHelpAnchor('account');
   return (
     <AppShell title={t('account')}>
       {props.notice ? <p className={styles.notice} role="status">{t('signedIn')}</p> : null}
-      <div className={styles.header}>
+      <div {...headerAnchor} className={styles.header}>
         <p className={styles.email}>{account.email}</p>
         <button className={styles.button} type="button" disabled={props.logoutPending} onClick={props.onLogout}>{t('logout')}</button>
       </div>
@@ -25,6 +32,7 @@ export function CommercialAccountPage(props: AccountSurfaceProps) {
         <ConfigurationsSection account={account} configurations={props.configurations} onChanged={props.onChanged} onError={props.onError} />
         {account.referrals.enabled ? <ReferralsSection capability={account.referrals} onUnauthorized={props.onError} /> : null}
       </div>
+      <HelpEntry />
     </AppShell>
   );
 }

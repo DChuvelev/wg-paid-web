@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConfigurationSummary, ConfigurationVariantSummary, RoutingExitSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
@@ -7,6 +7,7 @@ import { AccessApiError, createProfileConfigDownload, updateConfigurationLabel }
 import { ConfigurationRoutingControl } from './ConfigurationRoutingControl';
 import { configurationsKey } from './queryKeys';
 import styles from './Account.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface ConfigurationListProps {
   configurations: Array<ConfigurationSummary>;
@@ -54,11 +55,13 @@ function ConfigurationNameEditor({ configuration, onUnauthorized }: { configurat
   useEffect(() => setDraft(configuration.label ?? ''), [configuration.label]);
 
   const save = () => mutation.mutate(draft.trim() || null);
+  const helpAnchor = useHelpAnchor('configurationName', { instance: configuration.configuration_id, readyVariant: configuration.variants.some((variant) => variant.status === 'active' && variant.ready) });
+  useHelpBlocker(editing || mutation.isPending);
   const clear = () => mutation.mutate(null);
 
   if (!editing) {
     return (
-      <div className={styles.profileNameAction}>
+      <div {...helpAnchor} className={styles.profileNameAction}>
         <button className={styles.textButton} type="button" onClick={() => { setFeedbackKey(null); setEditing(true); }}>
           {configuration.label ? t('editName') : t('addName')}
         </button>
@@ -68,7 +71,7 @@ function ConfigurationNameEditor({ configuration, onUnauthorized }: { configurat
   }
 
   return (
-    <div className={styles.profileNameEditor}>
+    <div {...helpAnchor} className={styles.profileNameEditor}>
       <label>
           <span>{t('configurationName')}</span>
         <input
@@ -99,6 +102,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
   const [selectedQr, setSelectedQr] = useState<{ href: string; label: string } | null>(null);
   const [qrLoadState, setQrLoadState] = useState<QrLoadState>({ status: 'loading' });
   const qrTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useHelpBlocker(Boolean(selectedQr) || downloadingProfileId !== null);
 
   const closeQr = useCallback(() => {
     qrTriggerRef.current?.focus();
@@ -180,7 +184,9 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
               exits={routingExits}
               onUnauthorized={onUnauthorized}
             />
-            <div className={styles.variantList}>
+            <ConfigurationHelpArea topic="protocols" instance={configuration.configuration_id} className={styles.variantList} bodyKeys={[
+              'helpBody_protocols', ...(configuration.variants.some((variant) => variant.status !== 'active' || !variant.ready) ? ['helpProtocolsReadiness' as const] : [])
+            ]}>
               {configuration.variants.map((variant: ConfigurationVariantSummary) => {
                 const protocolName = variant.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG';
                 const qrHref = `/v2/account/profiles/${encodeURIComponent(variant.profile_id)}/qr.svg`;
@@ -196,7 +202,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                     </p>
                     {canDeliver ? (
                       <>
-                        <div className={styles.actions}>
+                        <ConfigurationHelpArea topic="delivery" instance={configuration.configuration_id} className={styles.actions}>
                           <button
                             aria-label={t('downloadProtocolConfig', { protocol: protocolName })}
                             className={styles.linkButton}
@@ -218,7 +224,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                           >
                             {t('showQr')}
                           </button>
-                        </div>
+                        </ConfigurationHelpArea>
                         {downloadErrorProfileId === variant.profile_id ? (
                           <p className={styles.error} role="alert">{t('configDownloadFailed')}</p>
                         ) : null}
@@ -227,7 +233,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                   </section>
                 );
               })}
-            </div>
+            </ConfigurationHelpArea>
           </li>
         );
       })}
@@ -258,4 +264,9 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
       ) : null}
     </>
   );
+}
+
+function ConfigurationHelpArea({ topic, instance, className, children, bodyKeys }: { topic: 'protocols' | 'delivery'; instance: string; className?: string; children: ReactNode; bodyKeys?: TranslationKey[] }) {
+  const anchor = useHelpAnchor(topic, { instance, bodyKeys });
+  return <div {...anchor} className={className}>{children}</div>;
 }

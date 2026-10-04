@@ -5,6 +5,7 @@ import { useLocale } from '../../i18n/localeContext';
 import { availableBillingActions, buildBillingPaymentRequest, type BillingAction, type FutureChoice } from './billingIntent';
 import { RetirementPicker } from './RetirementPicker';
 import styles from './Billing.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface Props {
   billing: BillingAccountSummary;
@@ -91,6 +92,9 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
     retireNewConfigurationOrdinals,
     targetQuantity
   }), [action, applyNow, billing, configurations, futureChoice, retireConfigurationIds, retireNewConfigurationOrdinals, targetQuantity]);
+  const helpAnchor = useHelpAnchor('billingActions', { available: actions.length > 0, bodyKeys: ['helpBody_billingActions', ...actions.map((item) =>
+    item === 'renew' ? 'helpBillingRenew' as const : item === 'add_now' ? 'helpBillingAddNow' as const : 'helpBillingTopUpNext' as const)] });
+  useHelpBlocker(disabled);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -107,7 +111,7 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
   if (actions.length === 0) return null;
 
   return (
-    <form className={styles.controls} onSubmit={submit}>
+    <form {...helpAnchor} className={styles.controls} onSubmit={submit}>
       {actions.length >= 2 ? (
         <fieldset disabled={disabled}>
           <legend>{t('billingQuantityManaged')}</legend>

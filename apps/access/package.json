@@ -8,6 +8,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@floating-ui/react": "0.27.20",
     "@tanstack/react-query": "5.85.5",
     "@wg-paid/api": "0.1.0",
     "@wg-paid/common": "0.1.0",

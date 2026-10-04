@@ -1,6 +1,7 @@
 import type { ConfigurationSummary } from '@wg-paid/api';
 import { useLocale } from '../../i18n/localeContext';
 import styles from './Billing.module.css';
+import { useHelpAnchor } from '../help/helpContext';
 
 interface Props {
   configurations: Array<ConfigurationSummary>;
@@ -23,6 +24,7 @@ export function RetirementPicker({
 }: Props) {
   const { t } = useLocale();
   const selected = selectedConfigurationIds.length + selectedNewOrdinals.length;
+  const helpAnchor = useHelpAnchor('billingRetirement', { available: required > 0 });
   const toggleExisting = (id: string, checked: boolean) => onChange(
     checked ? [...selectedConfigurationIds, id] : selectedConfigurationIds.filter((item) => item !== id),
     selectedNewOrdinals
@@ -33,7 +35,7 @@ export function RetirementPicker({
   );
 
   return (
-    <fieldset className={styles.retirementPicker} disabled={disabled}>
+    <fieldset {...helpAnchor} className={styles.retirementPicker} disabled={disabled}>
       <legend>{t('billingRetirementLegend')}</legend>
       <p className={selected === required ? styles.selectionValid : styles.warning} role="status">
         {t('billingRetirementCount', { required, selected })}

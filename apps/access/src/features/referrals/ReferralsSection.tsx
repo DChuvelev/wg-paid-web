@@ -5,6 +5,7 @@ import { useLocale } from '../../i18n/localeContext';
 import { AccessApiError, createReferral, loadReferrals, reissueReferral, revokeReferral } from '../../lib/accessApi';
 import { accountKey, referralsKey } from '../account/queryKeys';
 import styles from './Referrals.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface Props { capability: ReferralCapabilitySummary; onUnauthorized: (error: unknown) => void; }
 type CopyFeedback = 'copied' | 'error';
@@ -140,11 +141,15 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
     copyTimers.current.set(inviteId, timer);
   };
   const actionable = query.data?.filter(isActionable) ?? [];
+  const helpAnchor = useHelpAnchor('invitations', { available: capability.can_create || actionable.length > 0,
+    discoveryUsable: capability.enabled && capability.can_create,
+    bodyKeys: [capability.can_create ? 'helpBody_invitations' : 'helpInvitationManage', 'helpInvitationLink', ...(actionable.some((invite) => invite.can_reissue_share_link) ? ['helpInvitationReissue' as const] : [])] });
+  useHelpBlocker(query.isPending || create.isPending || reissue.isPending || revoke.isPending);
 
   return (
-    <section className={styles.section} aria-labelledby="referrals-title">
+    <section {...(capability.can_create ? {} : helpAnchor)} className={styles.section} aria-labelledby="referrals-title">
       <div className={styles.heading}><div><h2 id="referrals-title">{t('referrals')}</h2><p>{t('referralCount', { count: capability.active_count })} · {capability.limit === 0 ? t('unlimited') : t('referralRemaining', { count: capability.remaining_count ?? 0 })}</p></div>
-        <button type="button" disabled={!capability.can_create || create.isPending} onClick={() => create.mutate()}>{t('createReferral')}</button>
+        <button {...(capability.can_create ? helpAnchor : {})} type="button" disabled={!capability.can_create || create.isPending} onClick={() => create.mutate()}>{t('createReferral')}</button>
       </div>
       {query.isPending ? <p>{t('loadingReferrals')}</p> : null}
       {query.isError || create.isError || reissue.isError || revoke.isError ? <p className={styles.error} role="alert">{t('referralActionFailed')}</p> : null}

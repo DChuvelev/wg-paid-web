@@ -3,6 +3,7 @@ import { configurationQuantity } from '../../i18n/deviceQuantity';
 import { useLocale } from '../../i18n/localeContext';
 import { topUpNextPaymentTarget } from './paymentState';
 import styles from './Billing.module.css';
+import { useHelpAnchor } from '../help/helpContext';
 
 interface Props {
   ambiguous: boolean;
@@ -14,13 +15,14 @@ interface Props {
 
 export function PendingPaymentCard({ ambiguous, checking, confirmationUrl, onCheck, payment }: Props) {
   const { locale, t } = useLocale();
+  const helpAnchor = useHelpAnchor('billingPendingPayment', { bodyKeys: [ambiguous ? 'helpPendingAmbiguous' : 'helpBody_billingPendingPayment'] });
   const money = (kopeks: number, currency: string) => new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     style: 'currency', currency, maximumFractionDigits: 0
   }).format(kopeks / 100);
   const targetQuantity = payment ? topUpNextPaymentTarget(payment) : null;
 
   return (
-    <article className={styles.pendingPayment} aria-labelledby="unfinished-payment-title">
+    <article {...helpAnchor} className={styles.pendingPayment} aria-labelledby="unfinished-payment-title">
       <h3 id="unfinished-payment-title">{t('paymentUnfinishedTitle')}</h3>
       {ambiguous ? <p className={styles.warning}>{t('paymentRecoveryAmbiguous')}</p> : null}
       {payment ? (

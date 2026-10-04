@@ -7,6 +7,7 @@ import type { TranslationKey } from '../../i18n/resources';
 import { updateDisplayName } from '../../lib/accessApi';
 import { accountKey } from './queryKeys';
 import styles from './Account.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface DisplayNameFormProps {
   account: AccountMeResponse;
@@ -25,7 +26,7 @@ export function DisplayNameForm({ account, onError }: DisplayNameFormProps) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const [feedbackKey, setFeedbackKey] = useState<TranslationKey | null>(null);
-  const { handleSubmit, register, reset, setValue } = useForm<FormValues>({
+  const { handleSubmit, register, reset, setValue, formState: { isDirty } } = useForm<FormValues>({
     defaultValues: { displayName: account.display_name ?? '' }
   });
   const mutation = useMutation({
@@ -46,13 +47,15 @@ export function DisplayNameForm({ account, onError }: DisplayNameFormProps) {
   }, [account.display_name, reset]);
 
   const submit = handleSubmit(({ displayName }) => mutation.mutate(optionalValue(displayName)));
+  const helpAnchor = useHelpAnchor('userName');
+  useHelpBlocker(isDirty || mutation.isPending);
   const clear = () => {
     setValue('displayName', '', { shouldDirty: true });
     mutation.mutate(null);
   };
 
   return (
-    <section className={styles.identityCard} aria-labelledby="display-name-title">
+    <section {...helpAnchor} className={styles.identityCard} aria-labelledby="display-name-title">
       <h2 id="display-name-title">{t('displayNameTitle')}</h2>
       <p>{t('displayNameDescription')}</p>
       <form className={styles.nameForm} onSubmit={submit}>

@@ -24,6 +24,9 @@ import {
 } from '../../lib/accessApi';
 import { renderApp } from '../../test/renderApp';
 import { paymentAttemptStorageKey } from '../billing/paymentAttempt';
+import { helpStorageKey } from '../help/helpStorage';
+import { resources } from '../../i18n/resources';
+import { accountKey, configurationsKey, referralsKey, billingPaymentsKey } from './queryKeys';
 
 vi.mock('../../lib/accessApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/accessApi')>();
@@ -1887,4 +1890,89 @@ test('refetches account and configurations through TanStack Query when focus ret
   await waitFor(() => expect(loadAccount).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(loadConfigurations).toHaveBeenCalledTimes(2));
   focusManager.setFocused(undefined);
+});
+
+
+test.each([
+  ['enabled trial', true], ['disabled policy', false], ['exhausted capacity', false], ['unlimited capacity', true],
+  ['inactive grant', false], ['other selected grant', false], ['inconsistent quantity', false], ['invalid trial interval', false], ['paid current period', false], ['paid trial tail', true], ['unknown history', false]
+] as const)('P33 trial invitation copy follows exact predicate: %s', async (kind, expected) => {
+  let current = commercialAccount(kind === 'paid current period' || kind === 'paid trial tail' ? 'active_paid' : 'trial');
+  current = { ...current, referrals: { enabled: kind !== 'disabled policy', can_create: false, active_count: 0, limit: 3, remaining_count: 3 } };
+  if (kind === 'exhausted capacity') current.referrals = { ...current.referrals, active_count: 3, remaining_count: 0 };
+  if (kind === 'unlimited capacity') current.referrals = { ...current.referrals, limit: 0, remaining_count: null };
+  if (kind === 'inactive grant') current.grants = current.grants.map((grant) => ({ ...grant, status: 'revoked' }));
+  if (kind === 'other selected grant') current.grants = [...current.grants, { ...current.grants[0]!, id: 'synthetic-other', configuration_limit_management: 'admin' }];
+  if (kind === 'inconsistent quantity') current.billing = { ...current.billing!, slot_quantity: 3 };
+  if (kind === 'invalid trial interval') current.billing = { ...current.billing!, quantity_period_end: new Date(Date.now() - 1000).toISOString() };
+  vi.mocked(loadAccount).mockResolvedValue(current);
+  if (kind === 'paid current period') vi.mocked(loadBillingPayments).mockResolvedValue([currentPaidPayment()]);
+  if (kind === 'paid trial tail') vi.mocked(loadBillingPayments).mockResolvedValue([billingPayment('synthetic-future', 'succeeded', {
+    target_period_start: new Date(Date.now() + 86400000).toISOString(), target_period_end: new Date(Date.now() + 32 * 86400000).toISOString()
+  })]);
+  if (kind === 'unknown history') vi.mocked(loadBillingPayments).mockRejectedValue(new AccessApiError(503));
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Help' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Access and payment' }));
+  fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Доступ и оплата' });
+  const phrase = resources.ru.helpTrialInvitationBenefits;
+  if (expected) expect(await within(dialog).findByText(phrase)).toBeTruthy();
+  else expect(within(dialog).queryByText(phrase)).toBeNull();
+  expect(createBillingPayment).not.toHaveBeenCalled();
+});
+
+test('P33 resolved Help survives background account, configuration, referral and billing-history refetches', async () => {
+  const current = { ...commercialAccount('trial'), referrals: { ...account.referrals, enabled: true, can_create: true } };
+  vi.mocked(loadAccount).mockResolvedValue(current);
+  const { queryClient } = renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Help' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Access and payment' }));
+  const card = await screen.findByRole('dialog', { name: 'Access and payment' });
+  expect(await within(card).findByText(resources.en.helpTrialQuantityBenefits)).toBeTruthy();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  vi.mocked(loadAccount).mockImplementationOnce(async () => { await gate; return current; });
+  vi.mocked(loadConfigurations).mockImplementationOnce(async () => { await gate; return configurations; });
+  vi.mocked(loadReferrals).mockImplementationOnce(async () => { await gate; return []; });
+  vi.mocked(loadBillingPayments).mockImplementationOnce(async () => { await gate; return []; });
+  const keys = [accountKey, configurationsKey, referralsKey, billingPaymentsKey];
+  try {
+    act(() => { for (const queryKey of keys) void queryClient.refetchQueries({ queryKey, exact: true }); });
+    await waitFor(() => { for (const key of keys) expect(queryClient.getQueryState(key)?.fetchStatus).toBe('fetching'); });
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
+    expect(screen.getByRole('dialog', { name: 'Access and payment' })).toBe(card);
+    expect(within(card).getByText(resources.en.helpTrialQuantityBenefits)).toBeTruthy();
+    expect(screen.queryByText(resources.en.helpPaused)).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(false);
+  } finally { await act(async () => { release(); await gate; }); }
+});
+
+test('P33 unresolved referral data and a pending referral mutation still suspend Help', async () => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { ...account.referrals, enabled: true, can_create: true } });
+  let releaseQuery!: (value: ReferralInviteSummary[]) => void;
+  vi.mocked(loadReferrals).mockReturnValueOnce(new Promise((resolve) => { releaseQuery = resolve; }));
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Help' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Routing' }));
+  expect(await screen.findByText(resources.en.helpPaused)).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Routing' })).toBeNull();
+  await act(async () => { releaseQuery([]); });
+  await screen.findByRole('dialog', { name: 'Routing' });
+  let releaseMutation!: (value: Awaited<ReturnType<typeof createReferral>>) => void;
+  vi.mocked(createReferral).mockReturnValueOnce(new Promise((resolve) => { releaseMutation = resolve; }));
+  fireEvent.click(screen.getByRole('button', { name: resources.en.createReferral }));
+  expect(await screen.findByText(resources.en.helpPaused)).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Routing' })).toBeNull();
+  await act(async () => { releaseMutation({ invite: referral('synthetic-help-invite'), invite_token: 'synthetic-help-token' }); });
+  await screen.findByRole('dialog', { name: 'Routing' });
+});
+
+test('P33 Review has no Help UI or Help persistence activity', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(reviewAccount);
+  vi.mocked(loadConfigurations).mockResolvedValue([reviewConfiguration()]);
+  renderApp('/account');
+  await screen.findByRole('button', { name: 'Download WireGuard configuration' });
+  expect(screen.queryByRole('button', { name: 'Help' })).toBeNull();
+  expect(localStorage.getItem(helpStorageKey(reviewAccount.user_id))).toBeNull();
 });

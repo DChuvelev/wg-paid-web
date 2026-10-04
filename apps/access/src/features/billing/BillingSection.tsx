@@ -11,6 +11,7 @@ import {
   updateBillingPendingRetirements
 } from '../../lib/accessApi';
 import { accountKey, billingPaymentKey, billingPaymentsKey, configurationsKey } from '../account/queryKeys';
+import { selectConfigurationEntitlement } from '../account/entitlement';
 import { BillingControls } from './BillingControls';
 import { billingProjectionIsCoherent, classifyCurrentQuantityPeriod, selectBillingConfigurations } from './billingIntent';
 import { PendingPaymentCard } from './PendingPaymentCard';
@@ -18,6 +19,8 @@ import { clearPaymentAttemptForUser, readPaymentAttemptForUser, type PaymentAtte
 import { isPendingPayment, paymentPollingInterval, paymentPollWindowMs, pendingPaymentAllowsRetirementReselection, resolvePendingPayments } from './paymentState';
 import { RetirementPicker } from './RetirementPicker';
 import styles from './Billing.module.css';
+import { useCommercialHelp, useHelpAnchor, useHelpBlocker } from '../help/helpContext';
+import type { TranslationKey } from '../../i18n/resources';
 
 interface Props {
   account: AccountMeResponse;
@@ -219,11 +222,39 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
   const formatDateTime = (value: string) => new Date(value).toLocaleString(locale === 'ru' ? 'ru-RU' : 'en-US');
   const money = (kopeks: number, currency: string) => new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', { style: 'currency', currency }).format(kopeks / 100);
 
-  if (!account.billing) return <section className={styles.section}><h2>{t('billing')}</h2><p>{t('billingUnavailable')}</p></section>;
   const billing = account.billing;
-  const billingConfigurations = selectBillingConfigurations(billing, configurations);
-  const coherent = billingProjectionIsCoherent(billing, billingConfigurations);
-  const currentPeriodPresentation = classifyCurrentQuantityPeriod(billing, history.isSuccess ? history.data : undefined);
+  const billingConfigurations = billing ? selectBillingConfigurations(billing, configurations) : [];
+  const coherent = Boolean(billing && billingProjectionIsCoherent(billing, billingConfigurations));
+  const currentPeriodPresentation = billing ? classifyCurrentQuantityPeriod(billing, history.isSuccess ? history.data : undefined) : 'unknown';
+  const helpResolved = coherent && history.isSuccess && !payment.isFetching && !payment.isError;
+  const helpBusy = create.isPending || retirementMutation.isPending || refreshState === 'checking' || editingRetirements
+    || Boolean(attempt?.state === 'active' && !paymentId) || pendingResolution.kind === 'ambiguous' || Boolean(paymentId && payment.isPending);
+  const now = Date.now();
+  const quantityStart = Date.parse(billing?.quantity_period_start ?? '');
+  const quantityEnd = Date.parse(billing?.quantity_period_end ?? '');
+  const genuineTrial = helpResolved && currentPeriodPresentation === 'trial' && Number.isFinite(quantityStart) && Number.isFinite(quantityEnd) && quantityStart <= now && now < quantityEnd;
+  const paidEnd = Date.parse(billing?.current_period_end ?? '');
+  const genuinePaid = helpResolved && currentPeriodPresentation === 'paid' && Number.isFinite(paidEnd) && paidEnd > now;
+  const helpGrant = account.grants.find((grant) => grant.id === billing?.access_grant_id);
+  const grantEnd = helpGrant?.valid_until === null ? Infinity : Date.parse(helpGrant?.valid_until ?? '');
+  const referralCapacity = account.referrals.limit === 0 || (Number.isInteger(account.referrals.remaining_count) && (account.referrals.remaining_count ?? 0) > 0);
+  const trialInvitations = account.account_surface === 'commercial' && genuineTrial && !helpBusy
+    && account.referrals.enabled && referralCapacity && !account.referrals.can_create
+    && selectConfigurationEntitlement(account.grants)?.grantId === billing?.access_grant_id
+    && helpGrant?.status === 'active' && helpGrant.configuration_limit_management === 'billing' && grantEnd > now;
+  const helpBodies: TranslationKey[] = ['helpBody_billing', genuineTrial ? 'helpTrialState' : genuinePaid ? 'helpPaidState' : 'helpUnknownState'];
+  if (genuineTrial) helpBodies.push('helpTrialQuantityBenefits');
+  if (trialInvitations) helpBodies.push('helpTrialInvitationBenefits');
+  const currentHelpAnchor = useHelpAnchor('billing', { bodyKeys: helpBodies, values: {
+    endDate: genuineTrial ? formatDate(billing!.quantity_period_end) : genuinePaid ? formatDate(billing!.current_period_end) : '', quantity: billing?.slot_quantity ?? 0
+  } });
+  const nextHelpAnchor = useHelpAnchor('billingNextPeriod');
+  const retirementHelpAnchor = useHelpAnchor('billingRetirement');
+  const historyHelpAnchor = useHelpAnchor('billingHistory', { initial: false });
+  useCommercialHelp({ resolved: helpResolved, scope: billing?.access_grant_id ?? '', count: billingConfigurations.length, paid: genuinePaid,
+    succeededPayments: history.data?.filter((item) => item.status === 'succeeded' && item.succeeded_at !== null).length ?? 0 });
+  useHelpBlocker(helpBusy || history.isPending);
+  if (!billing) return <section {...currentHelpAnchor} className={styles.section}><h2>{t('billing')}</h2><p>{t('billingUnavailable')}</p></section>;
   const statusKey = `billingStatus_${billing.status}` as const;
   const retryUncertain = Boolean(attempt?.state === 'active' && !attempt.payment_id && pendingResolution.kind === 'none' && !paymentId);
   const controlsAvailable = history.isSuccess && pendingResolution.kind === 'none' && !paymentId;
@@ -255,7 +286,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
     <section className={styles.section} aria-labelledby="billing-title">
       <h2 id="billing-title">{t('billing')}</h2>
       <div className={styles.projectionGrid}>
-        <article className={styles.card}>
+        <article {...currentHelpAnchor} className={styles.card}>
           {currentPeriodPresentation === 'trial' ? (
             <>
               <h3>{t('billingCurrentTrialTitle')}</h3>
@@ -280,7 +311,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
           )}
         </article>
         {pendingExists ? (
-          <article className={styles.card}>
+          <article {...nextHelpAnchor} className={styles.card}>
             <h3>{t('billingNextTitle')}</h3>
             <strong>{t('billingNextSummary', {
               amount: money(billing.pending_monthly_amount_kopeks!, billing.currency),
@@ -288,7 +319,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
             })}</strong>
             <p>{t('billingPeriodRange', { start: formatDate(billing.pending_period_start!), end: formatDate(billing.pending_period_end!) })}</p>
             {coherent && retirementConfigurations.length ? (
-              <div className={styles.scheduledRetirements}>
+              <div {...retirementHelpAnchor} className={styles.scheduledRetirements}>
                 <strong>{t('billingScheduledRetirements', { date: formatDateTime(billing.pending_period_start!) })}</strong>
                 <ul>{retirementConfigurations.map((configuration) => <li key={configuration.configuration_id}>{configuration.label?.trim() || t('billingConfiguration', { number: configuration.ordinal })}{configuration.label?.trim() ? ` · ${t('billingConfiguration', { number: configuration.ordinal })}` : ''}</li>)}</ul>
                 {retirementPolicy === 'safe' ? <p className={styles.notice}>{t('paymentRetirementSafe')}</p> : null}
@@ -344,7 +375,7 @@ export function BillingSection({ account, configurations, onUnauthorized }: Prop
       ) : null}
       {retirementMessage ? <p className={retirementMutation.isError ? styles.error : styles.selectionValid} role={retirementMutation.isError ? 'alert' : 'status'}>{retirementMessage}</p> : null}
 
-      <details><summary>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{formatDate(item.created_at)} · {paymentStatus(item.status)} · {money(item.amount_kopeks, item.currency)} · {t('billingPaymentQuantity', { before: item.quantity_before, after: item.quantity_after })}</li>)}</ul></details>
+      <details><summary {...historyHelpAnchor}>{t('paymentHistory')}</summary><ul>{history.data?.map((item) => <li key={item.payment_id}>{formatDate(item.created_at)} · {paymentStatus(item.status)} · {money(item.amount_kopeks, item.currency)} · {t('billingPaymentQuantity', { before: item.quantity_before, after: item.quantity_after })}</li>)}</ul></details>
       {!showPendingPayment ? <button className={styles.refresh} disabled={refreshState === 'checking'} type="button" onClick={() => void refresh()}>{t('refresh')}</button> : null}
       {refreshMessage ? <p className={refreshState === 'error' ? styles.error : undefined} role="status">{refreshMessage}</p> : null}
     </section>

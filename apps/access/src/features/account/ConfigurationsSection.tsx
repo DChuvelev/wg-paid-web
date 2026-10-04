@@ -7,6 +7,7 @@ import { ConfigurationList } from './ConfigurationList';
 import { selectConfigurationEntitlement } from './entitlement';
 import { routingExitsKey } from './queryKeys';
 import styles from './Account.module.css';
+import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
 
 interface ConfigurationsSectionProps {
   account: AccountMeResponse;
@@ -45,6 +46,9 @@ export function ConfigurationsSection({ account, configurations, onChanged, onEr
   const error = mutation.error instanceof AccessApiError && mutation.error.status === 403
     ? t('sessionValidationFailed')
     : mutation.isError ? t('createConfigurationFailed') : null;
+  const summaryAnchor = useHelpAnchor('configurations', { values: { count: entitlement?.configurationCount ?? configurations.length } });
+  const addAnchor = useHelpAnchor('addConfiguration', { available: Boolean(entitlement?.canCreate), discoveryUsable: Boolean(entitlement?.canCreate), bodyKeys: ['helpBody_addConfiguration', 'helpConfigurationCount'], values: { count: entitlement?.configurationCount ?? 0, limit: entitlement?.configurationLimit ?? 0 } });
+  useHelpBlocker(mutation.isPending || routingExitsQuery.isPending);
 
   useEffect(() => {
     if (routingExitsQuery.error) onError(routingExitsQuery.error);
@@ -52,7 +56,7 @@ export function ConfigurationsSection({ account, configurations, onChanged, onEr
 
   return (
     <section>
-      <p className={styles.summary}>
+      <p {...summaryAnchor} className={styles.summary}>
         {entitlement
           ? t('configurationCount', { count: entitlement.configurationCount, limit: entitlement.configurationLimit })
           : t('configurationsUnavailable')}
@@ -60,7 +64,7 @@ export function ConfigurationsSection({ account, configurations, onChanged, onEr
       <div className={styles.sectionHeader}>
         <h2>{t('configurations')}</h2>
         {entitlement?.canCreate ? (
-          <button className={`${styles.button} ${styles.primary}`} type="button" disabled={mutation.isPending} onClick={() => mutation.mutate(entitlement.grantId)}>
+          <button {...addAnchor} className={`${styles.button} ${styles.primary}`} type="button" disabled={mutation.isPending} onClick={() => mutation.mutate(entitlement.grantId)}>
             {t('addConfiguration')}
           </button>
         ) : null}
