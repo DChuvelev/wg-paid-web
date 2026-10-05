@@ -530,6 +530,9 @@ test('unpaid empty review configurations show payment and never poll configurati
   expect(screen.queryByRole('region', { name: 'Payment confirmed' })).toBeNull();
   expect(screen.getByText('Includes access to the original Secret Studio sample and sound-effects library.')).toBeTruthy();
   expect(screen.getByText('299 ₽ / month')).toBeTruthy();
+  const legalFooter = screen.getByRole('contentinfo', { name: 'Legal information' });
+  expect(within(legalFooter).getByText('ИНН 771003639432 · ОГРНИП 308774627600140')).toBeTruthy();
+  expect(within(legalFooter).getByRole('link', { name: '+7 (993) 905-06-75' }).getAttribute('href')).toBe('tel:+79939050675');
   expect(screen.getByText(/test store.*No real money/i)).toBeTruthy();
   expect(screen.getByText('After payment is confirmed, access will be activated automatically. Your account will show the technical details needed to connect to the studio server. Once connected, you will have access to the Secret Studio sample and sound-effects library.')).toBeTruthy();
   const purchase = screen.getByRole('region', { name: 'Access to Secret Studio server resources' });
@@ -1498,6 +1501,11 @@ test('valid catalog renders only backend location names and applies the selected
   renderApp('/account');
   const routing = (await screen.findAllByRole('region', { name: 'Routing' }))[0]!;
   const select = await within(routing).findByRole('combobox', { name: 'Forced location' });
+  const placeholder = select.querySelector('option[value=""]') as HTMLOptionElement;
+  expect(placeholder.disabled).toBe(true);
+  expect(placeholder.hidden).toBe(true);
+  expect(Array.from((select as HTMLSelectElement).options).filter((option) => !option.disabled).map((option) => option.value)).toEqual(['1', '2', '3', '4', '5']);
+  expect(within(routing).getByText('Automatic location selection')).toBeTruthy();
   expect(within(select).getByRole('option', { name: 'Location Alpha' })).toBeTruthy();
   expect(within(select).getByRole('option', { name: 'Location Epsilon' })).toBeTruthy();
 
@@ -1508,6 +1516,25 @@ test('valid catalog renders only backend location names and applies the selected
     'configuration-1',
     { mode: 'forced', selector: 3 }
   ));
+});
+
+test('invitations Help highlights the whole interactive section and excludes permanent Help', async () => {
+  vi.mocked(loadAccount).mockResolvedValue({ ...account, referrals: { ...account.referrals, enabled: true, can_create: true, active_count: 1, remaining_count: 2 } });
+  vi.mocked(loadReferrals).mockResolvedValue([referral('synthetic-section-invite')]);
+  renderApp('/account');
+  const section = await screen.findByRole('region', { name: 'Referrals' });
+  expect(section.getAttribute('data-help-anchor')).toBe('invitations');
+  expect(within(section).getByRole('heading', { name: 'Referrals' })).toBeTruthy();
+  expect(within(section).getByText(/Active invitations: 1/)).toBeTruthy();
+  expect(within(section).getByRole('button', { name: resources.en.createReferral })).toBeTruthy();
+  await waitFor(() => expect(within(section).getAllByRole('listitem')).toHaveLength(1));
+  expect(section.contains(screen.getByRole('button', { name: 'Help' }))).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Invitations' }));
+  await screen.findByRole('dialog', { name: 'Invitations' });
+  expect(section.className).toContain('highlight');
+  fireEvent.click(within(section).getByRole('button', { name: resources.en.createReferral }));
+  await waitFor(() => expect(createReferral).toHaveBeenCalledTimes(1));
 });
 
 test('an active forced Configuration can directly request a different catalog location', async () => {

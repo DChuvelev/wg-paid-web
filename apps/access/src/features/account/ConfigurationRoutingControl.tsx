@@ -123,7 +123,7 @@ export function ConfigurationRoutingControl({ configuration, exits, onUnauthoriz
               value={selectedSelector}
               onChange={(event) => setSelectedSelector(event.target.value)}
             >
-              <option value="">{t('routingChooseLocation')}</option>
+              <option value="" disabled hidden>{t('routingChooseLocation')}</option>
               {exits.map((exit) => <option key={exit.selector} value={exit.selector}>{exit.display_name}</option>)}
             </select>
           </label>

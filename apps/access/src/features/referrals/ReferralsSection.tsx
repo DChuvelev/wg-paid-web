@@ -147,9 +147,9 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
   useHelpBlocker(query.isPending || create.isPending || reissue.isPending || revoke.isPending);
 
   return (
-    <section {...(capability.can_create ? {} : helpAnchor)} className={styles.section} aria-labelledby="referrals-title">
+    <section {...helpAnchor} className={styles.section} aria-labelledby="referrals-title">
       <div className={styles.heading}><div><h2 id="referrals-title">{t('referrals')}</h2><p>{t('referralCount', { count: capability.active_count })} · {capability.limit === 0 ? t('unlimited') : t('referralRemaining', { count: capability.remaining_count ?? 0 })}</p></div>
-        <button {...(capability.can_create ? helpAnchor : {})} type="button" disabled={!capability.can_create || create.isPending} onClick={() => create.mutate()}>{t('createReferral')}</button>
+        <button type="button" disabled={!capability.can_create || create.isPending} onClick={() => create.mutate()}>{t('createReferral')}</button>
       </div>
       {query.isPending ? <p>{t('loadingReferrals')}</p> : null}
       {query.isError || create.isError || reissue.isError || revoke.isError ? <p className={styles.error} role="alert">{t('referralActionFailed')}</p> : null}

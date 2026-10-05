@@ -1,14 +1,15 @@
 // Canonical offer edition. Russian is authoritative; English is its presentation translation.
+import { studioVkUrl } from './publicLinks';
 export const merchant = {
   name: 'ИНДИВИДУАЛЬНЫЙ ПРЕДПРИНИМАТЕЛЬ ЧУВЕЛЕВ ДМИТРИЙ МИХАЙЛОВИЧ',
   shortName: 'ИП Чувелев Дмитрий Михайлович',
   inn: '771003639432',
   ogrnip: '308774627600140',
   address: '125009, Россия, г. Москва, Газетный пер., д. 13/15, кв. 84',
-  phone: '+7 916 685-30-46',
-  tel: '+79166853046',
+  phone: '+7 (993) 905-06-75',
+  tel: '+79939050675',
   email: 'silver-arrow@yandex.ru',
-  vk: 'https://vk.ru/clubsecretstudio'
+  vk: studioVkUrl
 } as const;
 
 export const publicOffer = {

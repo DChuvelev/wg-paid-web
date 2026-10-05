@@ -6,6 +6,7 @@ import type { AccountSurfaceProps } from './PilotAccountPage';
 import { ReviewPaymentSection } from './ReviewPaymentSection';
 import { reviewProjection } from './reviewProjection';
 import styles from './ReviewAccount.module.css';
+import { LegalContact } from '../legal/LegalContact';
 
 export function ReviewAccountPage(props: AccountSurfaceProps) {
   const { locale, t } = useLocale();
@@ -34,7 +35,7 @@ export function ReviewAccountPage(props: AccountSurfaceProps) {
   };
 
   return (
-    <AppShell title={t('reviewTitle')} description={t('reviewLead')}>
+    <AppShell title={t('reviewTitle')} description={t('reviewLead')} legalFooter={<LegalContact />}>
       {billing?.status === 'active_paid' ? (
         <section className={styles.paidSummary} aria-labelledby="review-paid-title">
           <h2 id="review-paid-title">{t('reviewPaymentConfirmed')}</h2>

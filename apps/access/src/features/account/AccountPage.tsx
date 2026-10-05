@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AccountMeResponse } from '@wg-paid/api';
 import { useLocation, useNavigate } from 'react-router';
@@ -10,9 +10,9 @@ import { CommercialAccountPage } from './CommercialAccountPage';
 import { configurationPollingInterval, hasTransitionalConfiguration } from './profileState';
 import { PilotAccountPage } from './PilotAccountPage';
 import { accessRootKey, accountKey, configurationsKey } from './queryKeys';
-import { ReviewAccountPage } from './ReviewAccountPage';
 import { reviewProjection } from './reviewProjection';
 import styles from './Account.module.css';
+const ReviewAccountPage = lazy(() => import('./ReviewAccountPage').then((module) => ({ default: module.ReviewAccountPage })));
 
 function isUnauthorized(error: unknown) { return error instanceof AccessApiError && error.status === 401; }
 
@@ -64,6 +64,6 @@ export function AccountPage() {
   };
   if (accountQuery.data.account_surface === 'pilot') return <PilotAccountPage {...common} />;
   if (accountQuery.data.account_surface === 'commercial') return <CommercialAccountPage {...common} />;
-  if (accountQuery.data.account_surface === 'review') return <ReviewAccountPage {...common} />;
+  if (accountQuery.data.account_surface === 'review') return <Suspense fallback={<AppShell title={t('account')}><p>{t('loadingAccount')}</p></AppShell>}><ReviewAccountPage {...common} /></Suspense>;
   return <AppShell title={t('account')}><p className={styles.error} role="alert">{t('accountSurfaceUnsupported')}</p></AppShell>;
 }

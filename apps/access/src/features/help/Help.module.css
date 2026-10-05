@@ -16,6 +16,7 @@
 .close { float: right; }
 .progress { font-size: .8rem; color: #52627a; }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; position: sticky; bottom: 0; background: #fff; padding-top: .25rem; }
+.scrollHint { position: absolute; bottom: 100%; left: 0; right: 0; padding: 1.2rem .5rem .3rem; background: linear-gradient(transparent, #fff 75%); color: #52627a; font-size: .8rem; text-align: center; pointer-events: none; }
 .backdrop { position: fixed; inset: 0; z-index: 38; background: rgb(0 0 0 / 58%); pointer-events: none; }
 .highlight { position: relative; z-index: 39; background: #fff; outline: 3px solid #527bb6; outline-offset: 5px; border-radius: .3rem; scroll-margin-block: 25dvh; }
 @media (max-width: 600px) { .card { padding: .75rem max(.75rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left)); } .offer, .overview { bottom: max(.5rem, env(safe-area-inset-bottom)); right: .5rem; width: calc(100vw - 1rem); } }

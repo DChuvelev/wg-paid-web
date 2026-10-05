@@ -9,6 +9,8 @@ interface Props { step: HelpStep; anchor: HelpAnchor; mode: HelpMode; intro: boo
 export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNext, onClose, onOverview, onDelivered }: Props) {
   const { t, locale } = useLocale();
   const arrowRef = useRef<SVGSVGElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
   const delivered = useRef(false);
   const onDeliveredRef = useRef(onDelivered); onDeliveredRef.current = onDelivered;
   const [settled, setSettled] = useState(false);
@@ -21,6 +23,20 @@ export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNe
   const role = useRole(context, { role: 'dialog' });
   const { getFloatingProps } = useInteractions([dismiss, role]);
   const updateViewport = useCallback(() => { setViewport({ width: window.visualViewport?.width ?? window.innerWidth, height: window.visualViewport?.height ?? window.innerHeight, top: window.visualViewport?.offsetTop ?? 0 }); void update(); }, [update]);
+  useEffect(() => {
+    const card = refs.floating.current;
+    const content = contentRef.current;
+    if (!card || !content) return;
+    const measure = () => setMoreBelow(card.scrollHeight - card.clientHeight - card.scrollTop > 8);
+    measure();
+    card.addEventListener('scroll', measure, { passive: true });
+    content.addEventListener('toggle', measure, true);
+    const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    resize?.observe(card); resize?.observe(content);
+    const mutation = new MutationObserver(measure);
+    mutation.observe(content, { childList: true, subtree: true, characterData: true, attributes: true });
+    return () => { card.removeEventListener('scroll', measure); content.removeEventListener('toggle', measure, true); resize?.disconnect(); mutation.disconnect(); };
+  }, [refs.floating, step.topic, intro, locale, viewport, settled, isPositioned]);
 
   useEffect(() => {
     if (anchor.informational) {
@@ -64,10 +80,13 @@ export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNe
       <button className={styles.close} type="button" aria-label={t('helpClose')} onClick={onClose}>×</button>
       {!intro ? <p className={styles.progress} aria-live="polite">{t('helpStep', { current: index + 1, total })}</p> : null}
       <h2 id={headingId}>{t(intro ? 'helpPaymentIntroTitle' : topicTitle(step, mode))}</h2>
+      <div ref={contentRef}>
       <div id={bodyId}>{(intro ? ['helpPaymentIntroBody' as const] : topicBodies(step, anchor)).map((key) => <p key={key}>{t(key, anchor.values)}</p>)}</div>
       {!intro && step.topic === 'returnToAccount' ? <CopyAddress /> : null}
       {!intro && step.topic === 'configurationName' ? <ApplicationDownloads /> : null}
+      </div>
       <nav aria-label={t('helpNavigation')} className={styles.actions}>
+        {moreBelow ? <span className={styles.scrollHint} data-help-scroll-hint aria-hidden="true">{t('helpMoreBelow')}</span> : null}
         {index > 0 && !intro ? <button type="button" onClick={onBack}>{t('helpBack')}</button> : null}
         <button type="button" onClick={onNext}>{t(!intro && index === total - 1 ? 'helpDone' : 'helpNext')}</button>
         {onOverview ? <button type="button" onClick={onOverview}>{t('helpTopics')}</button> : null}

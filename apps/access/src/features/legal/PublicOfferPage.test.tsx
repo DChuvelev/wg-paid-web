@@ -11,13 +11,13 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-test('fresh /#offer opens the complete Russian offer without authentication or login', () => {
+test('fresh /#offer opens the complete Russian offer without authentication or login', async () => {
   window.history.replaceState(null, '', '/#offer');
   window.localStorage.setItem(localeStorageKey, 'ru');
   const fetch = vi.spyOn(globalThis, 'fetch');
   render(<BrowserRouter><App /></BrowserRouter>);
 
-  expect(screen.getByRole('heading', { level: 1, name: publicOffer.ru.title })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: publicOffer.ru.title })).toBeTruthy();
   expect(screen.queryByRole('textbox', { name: 'Email' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Отправить ссылку для входа' })).toBeNull();
   expect(document.querySelector('form')).toBeNull();
@@ -39,20 +39,20 @@ test('fresh /#offer opens the complete Russian offer without authentication or l
   for (const paragraph of publicOffer.ru.text.split('\n\n')) {
     expect(within(offer).getByText(paragraph)).toBeTruthy();
   }
-  expect(within(offer).getByRole('link', { name: '+7 916 685-30-46' }).getAttribute('href')).toBe('tel:+79166853046');
+  expect(within(offer).getByRole('link', { name: '+7 (993) 905-06-75' }).getAttribute('href')).toBe('tel:+79939050675');
   expect(within(offer).getByRole('link', { name: 'silver-arrow@yandex.ru' }).getAttribute('href')).toBe('mailto:silver-arrow@yandex.ru');
   expect(within(offer).getByRole('link', { name: 'https://vk.ru/clubsecretstudio' }).getAttribute('href')).toBe('https://vk.ru/clubsecretstudio');
 });
 
-test('common Access footer navigates to the offer and RU/EN switching preserves it', () => {
+test('common Access footer navigates to the offer and RU/EN switching preserves it', async () => {
   renderApp('/');
   const footer = screen.getByRole('contentinfo', { name: 'Legal information' });
-  expect(within(footer).getByText('ИП Чувелев Дмитрий Михайлович')).toBeTruthy();
-  expect(within(footer).getByText('ИНН 771003639432 · ОГРНИП 308774627600140')).toBeTruthy();
+  expect(footer.textContent).not.toMatch(/Чувелев|771003639432|308774627600140|Газетный|silver-arrow|993|916/);
+  expect(footer.querySelectorAll('a')).toHaveLength(2);
   expect(within(footer).getByRole('link', { name: 'Secret Studio on VKontakte' }).getAttribute('rel')).toBe('noopener noreferrer');
   expect(within(footer).getByRole('link', { name: 'Public Offer' }).getAttribute('href')).toBe('/#offer');
   fireEvent.click(within(footer).getByRole('link', { name: 'Public Offer' }));
-  expect(screen.getByRole('heading', { level: 1, name: publicOffer.en.title })).toBeTruthy();
+  expect(await screen.findByRole('heading', { level: 1, name: publicOffer.en.title })).toBeTruthy();
   expect(screen.getByText('The Russian-language version of this offer is authoritative. This English translation is provided for convenience.')).toBeTruthy();
   const offer = screen.getByRole('article');
   for (const paragraph of publicOffer.en.text.split('\n\n')) {

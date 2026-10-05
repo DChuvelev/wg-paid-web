@@ -31,6 +31,37 @@ function content(props: Parameters<typeof Fixture>[0] = {}, user = 'synthetic-us
   return <LocaleProvider><AccountHelp userId={user}><Fixture {...props} /></AccountHelp></LocaleProvider>;
 }
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 500));
+
+test('scroll hint tracks overflow, bottom position, step changes and expanded content', async () => {
+  const stylesheet = document.createElement('style');
+  stylesheet.textContent = readFileSync('apps/access/src/features/help/Help.module.css', 'utf8').replace(/\.([a-zA-Z][\w-]*)/g, (selector, name: string) => styles[name] ? `.${styles[name]}` : selector);
+  document.head.append(stylesheet);
+  let height = 200;
+  const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => height);
+  const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
+  try {
+    createHelpPersistence('synthetic-user').initial('completed'); render(content()); await showOverview();
+    fireEvent.click(screen.getByRole('button', { name: 'Your device' }));
+    const card = await screen.findByRole('dialog', { name: 'Your device' });
+    expect(document.querySelector('[data-help-scroll-hint]')).toBeNull();
+    height = 500;
+    fireEvent(card.querySelector('details')!, new Event('toggle'));
+    await waitFor(() => expect(screen.getByText('More below ↓')).toBeTruthy());
+    expect(getComputedStyle(screen.getByText('More below ↓')).pointerEvents).toBe('none');
+    expect(getComputedStyle(card.querySelector('nav')!).position).toBe('sticky');
+    card.scrollTop = 298; fireEvent.scroll(card);
+    await waitFor(() => expect(document.querySelector('[data-help-scroll-hint]')).toBeNull());
+    card.scrollTop = 0; fireEvent.scroll(card);
+    await waitFor(() => expect(screen.getByText('More below ↓')).toBeTruthy());
+    height = 200; await next();
+    await screen.findByRole('dialog', { name: 'Routing' });
+    expect(document.querySelector('[data-help-scroll-hint]')).toBeNull();
+    height = 450; fireEvent.click(screen.getByRole('button', { name: 'RU' }));
+    await waitFor(() => expect(screen.getByText('Ещё ниже ↓')).toBeTruthy());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  } finally { scrollHeight.mockRestore(); clientHeight.mockRestore(); stylesheet.remove(); }
+});
 async function showOverview() { fireEvent.click(screen.getByRole('button', { name: 'Help' })); return screen.findByRole('dialog', { name: 'Help' }); }
 async function next() { fireEvent.click(screen.getByRole('button', { name: 'Next' })); await settle(); }
 
