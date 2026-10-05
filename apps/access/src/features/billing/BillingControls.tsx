@@ -79,6 +79,13 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
   const money = (kopeks: number) => new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
     style: 'currency', currency: billing.currency, maximumFractionDigits: 0
   }).format(kopeks / 100);
+  const monthlyAmount = (quantity: number) => billing.monthly_amount_kopeks + (quantity - billing.slot_quantity) * billing.extra_slot_monthly_kopeks;
+  const selectQuantity = (quantity: number) => {
+    setTargetQuantity(quantity); setApplyNow(false); setFutureChoice(null);
+    setRetireConfigurationIds(action === 'renew' && billing.status !== 'expired' && quantity < billing.slot_quantity
+      ? configurations.map((item) => item.configuration_id) : []);
+    setRetireNewConfigurationOrdinals([]); setError('');
+  };
   const boundary = billing.pending_period_start
     ? new Date(billing.pending_period_start).toLocaleDateString(locale === 'ru' ? 'ru-RU' : 'en-US')
     : '';
@@ -114,7 +121,7 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
     <form {...helpAnchor} className={styles.controls} onSubmit={submit}>
       {actions.length >= 2 ? (
         <fieldset disabled={disabled}>
-          <legend>{t('billingQuantityManaged')}</legend>
+          <legend>{t('billingChooseAction')}</legend>
           <div className={styles.actionChoices}>
             {actions.map((item) => (
               <label key={item}>
@@ -132,7 +139,6 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
           <div className={styles.topUpOptions}>
             {topUpTargets.map((target) => {
               const delta = (target - billing.pending_slot_quantity!) * billing.extra_slot_monthly_kopeks;
-              const labelKey = target === billing.slot_quantity ? 'billingTopUpKeepAll' : 'billingTopUpKeep';
               return (
                 <button
                   aria-pressed={targetQuantity === target}
@@ -148,15 +154,22 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
                     setError('');
                   }}
                 >
-                  {t(labelKey, { amount: money(delta), configurations: configurationQuantity(target, locale) })}
+                  {t('billingTopUpKeep', { amount: money(delta), devices: configurationQuantity(target - billing.pending_slot_quantity!, locale), total: target })}
                 </button>
               );
             })}
           </div>
         </fieldset>
+      ) : action === 'renew' ? (
+        <fieldset disabled={disabled}>
+          <legend>{t('billingTargetQuantity')}</legend>
+          <div className={styles.actionChoices}>{Array.from({ length: billing.max_slot_quantity - billing.min_slot_quantity + 1 }, (_, index) => billing.min_slot_quantity + index).map((quantity) =>
+            <label key={quantity}><input type="radio" name="next-device-quantity" checked={targetQuantity === quantity} onChange={() => selectQuantity(quantity)} />
+              <span>{configurationQuantity(quantity, locale)} · {money(monthlyAmount(quantity))}</span></label>)}</div>
+        </fieldset>
       ) : (
         <label className={styles.quantityField}>
-          <span>{t('billingTargetQuantity')}</span>
+          <span>{t('billingQuantityManaged')}</span>
           <input
             disabled={disabled}
             inputMode="numeric"
@@ -209,6 +222,7 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
           disabled={disabled}
           newConfigurationCount={mixedRetirementCount ? newConfigurationCount : 0}
           required={requiredRetirements}
+          keep={action === 'renew' && !mixedRetirementCount && newConfigurationCount === 0}
           selectedConfigurationIds={retireConfigurationIds}
           selectedNewOrdinals={retireNewConfigurationOrdinals}
           onChange={(ids, ordinals) => { setRetireConfigurationIds(ids); setRetireNewConfigurationOrdinals(ordinals); setError(''); }}
@@ -219,7 +233,7 @@ export function BillingControls({ billing, configurations, disabled, onSubmit }:
       <button type="submit" disabled={disabled || !intent.ok}>
         {action === 'top_up_next' && topUpDelta !== null
           ? t('billingTopUpSubmit', { amount: money(topUpDelta) })
-          : t('billingSubmitPayment')}
+          : action === 'renew' ? t('billingRenewSubmit', { amount: money(monthlyAmount(targetQuantity)) }) : t('billingSubmitPayment')}
       </button>
     </form>
   );

@@ -94,14 +94,13 @@ export function ConfigurationRoutingControl({ configuration, exits, onUnauthoriz
   const errorKey = mutation.error instanceof AccessApiError && mutation.error.status === 403
     ? 'sessionValidationFailed' as const
     : 'routingUpdateFailed' as const;
-  const helpAnchor = useHelpAnchor('routing', { instance: configuration.configuration_id, bodyKeys: ['helpBody_routing', exits || forcedActive ? 'helpRoutingManual' : 'helpRoutingUnavailable'] });
+  const helpAnchor = useHelpAnchor('routing', { instance: configuration.configuration_id, available: Boolean(exits || forcedActive), bodyKeys: ['helpBody_routing'] });
   useHelpBlocker(mutation.isPending || selectedSelector !== '');
 
   return (
     <section {...helpAnchor} className={styles.routing} aria-label={t('routingTitle')}>
       <div className={styles.routingHeading}>
         <h4>{t('routingTitle')}</h4>
-        <p>{t('routingAppliesToConfiguration')}</p>
       </div>
       <p className={styles.routingStatus} role="status">
         {forcedActive

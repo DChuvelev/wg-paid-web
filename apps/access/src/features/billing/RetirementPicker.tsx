@@ -7,6 +7,7 @@ interface Props {
   configurations: Array<ConfigurationSummary>;
   disabled?: boolean;
   newConfigurationCount?: number;
+  keep?: boolean;
   required: number;
   selectedConfigurationIds: Array<string>;
   selectedNewOrdinals: Array<number>;
@@ -17,13 +18,15 @@ export function RetirementPicker({
   configurations,
   disabled = false,
   newConfigurationCount = 0,
+  keep = false,
   required,
   selectedConfigurationIds,
   selectedNewOrdinals,
   onChange
 }: Props) {
   const { t } = useLocale();
-  const selected = selectedConfigurationIds.length + selectedNewOrdinals.length;
+  const selected = keep ? configurations.length - selectedConfigurationIds.length : selectedConfigurationIds.length + selectedNewOrdinals.length;
+  const expected = keep ? configurations.length - required : required;
   const helpAnchor = useHelpAnchor('billingRetirement', { available: required > 0 });
   const toggleExisting = (id: string, checked: boolean) => onChange(
     checked ? [...selectedConfigurationIds, id] : selectedConfigurationIds.filter((item) => item !== id),
@@ -36,17 +39,17 @@ export function RetirementPicker({
 
   return (
     <fieldset {...helpAnchor} className={styles.retirementPicker} disabled={disabled}>
-      <legend>{t('billingRetirementLegend')}</legend>
-      <p className={selected === required ? styles.selectionValid : styles.warning} role="status">
-        {t('billingRetirementCount', { required, selected })}
+      <legend>{t(keep ? 'billingKeepLegend' : 'billingRetirementLegend')}</legend>
+      <p className={selected === expected ? styles.selectionValid : styles.warning} role="status">
+        {t('billingRetirementCount', { required: expected, selected })}
       </p>
       <div className={styles.retirementChoices}>
         {configurations.map((configuration) => (
           <label key={configuration.configuration_id}>
             <input
-              checked={selectedConfigurationIds.includes(configuration.configuration_id)}
+              checked={keep ? !selectedConfigurationIds.includes(configuration.configuration_id) : selectedConfigurationIds.includes(configuration.configuration_id)}
               type="checkbox"
-              onChange={(event) => toggleExisting(configuration.configuration_id, event.target.checked)}
+              onChange={(event) => toggleExisting(configuration.configuration_id, keep ? !event.target.checked : event.target.checked)}
             />
             <span>
               <strong>{configuration.label?.trim() || t('billingConfiguration', { number: configuration.ordinal })}</strong>

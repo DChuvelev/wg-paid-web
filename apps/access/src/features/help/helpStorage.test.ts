@@ -4,7 +4,7 @@ import { createHelpPersistence, helpStorageKey, parseHelpState } from './helpSto
 test('unseen, offered, skipped and completed are user scoped; manual state is not stored', () => {
   const a = createHelpPersistence('synthetic-a'); const b = createHelpPersistence('synthetic-b');
   expect(a.read().initial).toBeUndefined(); a.initial('offered'); a.initial('skipped'); a.initial('completed');
-  expect(a.read().initial).toEqual({ revision: 1, status: 'completed' }); expect(b.read().initial).toBeUndefined();
+  expect(a.read().initial).toEqual({ revision: 2, status: 'completed' }); expect(b.read().initial).toBeUndefined();
   expect(localStorage.getItem(a.key)).not.toMatch(/cursor|email|token|payment|configuration_id/);
 });
 test.each(['invalid', '{}', '{"schema":1,"discoveries":null}', '{"schema":1,"initial":{"revision":-1,"status":"bad"},"discoveries":{"invitations":"yes"}}'])('corrupt storage never blocks: %s', (raw) => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { arrow, autoUpdate, flip, FloatingArrow, FloatingFocusManager, FloatingPortal, offset, shift, size, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react';
 import { useLocale } from '../../i18n/localeContext';
-import { appDownloadLinks, detectPlatform, platformOrder } from './appDownloadLinks';
+import { ApplicationDownloads } from './ApplicationDownloads';
 import { topicBodies, topicTitle, type HelpAnchor, type HelpMode, type HelpStep } from './helpModel';
 import styles from './Help.module.css';
 
@@ -23,6 +23,10 @@ export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNe
   const updateViewport = useCallback(() => { setViewport({ width: window.visualViewport?.width ?? window.innerWidth, height: window.visualViewport?.height ?? window.innerHeight, top: window.visualViewport?.offsetTop ?? 0 }); void update(); }, [update]);
 
   useEffect(() => {
+    if (anchor.informational) {
+      refs.setPositionReference({ getBoundingClientRect: () => new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0) });
+      setSettled(true); void update(); return;
+    }
     refs.setReference(anchor.element);
     anchor.element.classList.add(styles.highlight!);
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -36,7 +40,7 @@ export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNe
     } else if (rect.top < 16 || rect.bottom > height - 180) anchor.element.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
     const timer = window.setTimeout(() => { setSettled(true); void update(); }, reduced ? 0 : 300);
     return () => { window.clearTimeout(timer); anchor.element.classList.remove(styles.highlight!); };
-  }, [anchor.element, refs, update]);
+  }, [anchor.element, anchor.informational, refs, update]);
   useEffect(() => {
     window.addEventListener('resize', updateViewport); window.visualViewport?.addEventListener('resize', updateViewport); window.visualViewport?.addEventListener('scroll', updateViewport);
     return () => { window.removeEventListener('resize', updateViewport); window.visualViewport?.removeEventListener('resize', updateViewport); window.visualViewport?.removeEventListener('scroll', updateViewport); };
@@ -52,24 +56,23 @@ export function HelpCard({ step, anchor, mode, intro, index, total, onBack, onNe
     bottom: useTop ? undefined : Math.max(8, window.innerHeight - viewport.height - viewport.top + 8), maxHeight: Math.max(120, viewport.height * 0.45) };
   const headingId = 'account-help-card-title';
   const bodyId = 'account-help-card-body';
-  return <FloatingPortal preserveTabOrder={false}><FloatingFocusManager context={context} modal={false} guards={false} initialFocus={mode === 'discovery' ? -1 : 0} disabled={!settled || !isPositioned}
+  const informationalStyle = { position: 'fixed' as const, left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+  return <FloatingPortal preserveTabOrder={false}><div className={styles.backdrop} data-help-backdrop aria-hidden="true" /><FloatingFocusManager context={context} modal={false} guards={false} initialFocus={mode === 'discovery' ? -1 : 0} disabled={!settled || !isPositioned}
     closeOnFocusOut={false} returnFocus={false}>
-    <section data-account-help-ui {...getFloatingProps({ ref: refs.setFloating, style: { ...(mobile ? mobileStyle : floatingStyles), visibility: settled && isPositioned ? 'visible' : 'hidden' }, className: styles.card,
+    <section data-account-help-ui {...getFloatingProps({ ref: refs.setFloating, style: { ...(mobile ? mobileStyle : anchor.informational ? informationalStyle : floatingStyles), visibility: settled && isPositioned ? 'visible' : 'hidden' }, className: styles.card,
       'aria-modal': false, 'aria-labelledby': headingId, 'aria-describedby': bodyId })}>
       <button className={styles.close} type="button" aria-label={t('helpClose')} onClick={onClose}>×</button>
       {!intro ? <p className={styles.progress} aria-live="polite">{t('helpStep', { current: index + 1, total })}</p> : null}
       <h2 id={headingId}>{t(intro ? 'helpPaymentIntroTitle' : topicTitle(step, mode))}</h2>
       <div id={bodyId}>{(intro ? ['helpPaymentIntroBody' as const] : topicBodies(step, anchor)).map((key) => <p key={key}>{t(key, anchor.values)}</p>)}</div>
-      {!intro && step.topic === 'account' ? <CopyAddress /> : null}
-      {!intro && step.topic === 'protocols' ? <details><summary>{t('helpApps')}</summary>{Object.entries(appDownloadLinks).map(([app, links]) => <div key={app}><h3>{app}</h3><ul>{platformOrder().map((platform) => <li key={platform}><a href={links[platform]} target="_blank" rel="noopener noreferrer">{t(platform === 'android' ? 'helpGooglePlay' : platform === 'ios' ? 'helpAppStore' : 'helpOfficialDownload')}</a></li>)}</ul></div>)}</details> : null}
-      {!intro && step.topic === 'delivery' && detectPlatform() !== 'desktop' ? <p>{t('helpSamePhoneImport')}</p> : null}
+      {!intro && step.topic === 'returnToAccount' ? <CopyAddress /> : null}
+      {!intro && step.topic === 'configurationName' ? <ApplicationDownloads /> : null}
       <nav aria-label={t('helpNavigation')} className={styles.actions}>
         {index > 0 && !intro ? <button type="button" onClick={onBack}>{t('helpBack')}</button> : null}
         <button type="button" onClick={onNext}>{t(!intro && index === total - 1 ? 'helpDone' : 'helpNext')}</button>
-        {mode === 'initial' ? <button type="button" onClick={onClose}>{t('helpSkip')}</button> : null}
         {onOverview ? <button type="button" onClick={onOverview}>{t('helpTopics')}</button> : null}
       </nav>
-      {!mobile ? <FloatingArrow ref={arrowRef} context={context} fill="white" /> : null}
+      {!mobile && !anchor.informational ? <FloatingArrow ref={arrowRef} context={context} fill="white" /> : null}
     </section>
   </FloatingFocusManager></FloatingPortal>;
 }

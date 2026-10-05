@@ -1,4 +1,5 @@
 import { StrictMode } from 'react';
+import { readFileSync } from 'node:fs';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { LocaleProvider } from '../../i18n/LocaleProvider';
@@ -9,6 +10,7 @@ import { AccountHelp, HelpEntry } from './AccountHelp';
 import { useCommercialHelp, useHelpAnchor, useHelpBlocker } from './helpContext';
 import { createHelpPersistence, helpStorageKey } from './helpStorage';
 import type { HelpTopicId } from './helpModel';
+import styles from './Help.module.css';
 
 beforeEach(() => { localStorage.setItem(localeStorageKey, 'en'); });
 function Target({ topic, instance, ready = false, available = true, usable = false }: { topic: HelpTopicId; instance?: string; ready?: boolean; available?: boolean; usable?: boolean }) {
@@ -33,21 +35,56 @@ async function showOverview() { fireEvent.click(screen.getByRole('button', { nam
 async function next() { fireEvent.click(screen.getByRole('button', { name: 'Next' })); await settle(); }
 
 test('initial offer requires consent, is comprehensive and finishes without performing actions', async () => {
-  render(content()); expect(screen.queryByRole('dialog')).toBeNull();
+  render(content({ add: true })); expect(screen.queryByRole('dialog')).toBeNull();
   fireEvent.click(await screen.findByRole('button', { name: 'Show me around' }));
-  await screen.findByRole('dialog', { name: 'Welcome to your Secret Studio account' });
-  const titles = ['Your name', 'Access and payment', 'Configurations are for your devices', 'Give the device a useful name', 'Routing', 'Choose a connection method', 'Connect your device', 'Help is always available'];
+  await screen.findByRole('dialog', { name: 'What should we call you?' });
+  expect(screen.queryByRole('button', { name: 'Back to topics' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+  const titles = ['Access and payment', 'Your device', 'Routing', 'How to return to your account'];
   for (const title of titles) { await next(); await screen.findByRole('dialog', { name: title }); }
+  expect(screen.getByRole('dialog', { name: 'How to return to your account' }).textContent).toContain(resources.en.helpBody_returnToAccount);
+  expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy();
+  expect(document.querySelector('[data-help-anchor="account"]')?.className).not.toContain('highlight');
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   expect(createHelpPersistence('synthetic-user').read().initial?.status).toBe('completed');
+  expect(createHelpPersistence('synthetic-user').read().discoveries.addConfiguration).toBe(1);
+  await act(settle); expect(screen.queryByRole('dialog')).toBeNull();
 }, 15000);
 test('Skip suppresses the revision but manual overview/direct jump/replay remain available', async () => {
   const view = render(content()); fireEvent.click(await screen.findByRole('button', { name: 'Not now' })); view.unmount(); render(content());
   await act(settle); expect(screen.queryByRole('button', { name: 'Show me around' })).toBeNull();
-  await showOverview(); expect(screen.getByRole('button', { name: 'Payment history' })).toBeTruthy();
+  await showOverview(); expect(screen.queryByRole('button', { name: 'Payment history' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Routing' })); await screen.findByRole('dialog', { name: 'Routing' });
   fireEvent.click(screen.getByRole('button', { name: 'Back to topics' })); fireEvent.click(screen.getByRole('button', { name: 'Walk through the account' }));
-  await screen.findByRole('dialog', { name: 'Your Secret Studio account' });
+  await screen.findByRole('dialog', { name: 'What should we call you?' });
+});
+test('P33 completion receives the revised tour once and the contextual backdrop stays nonblocking', async () => {
+  const stylesheet = document.createElement('style');
+  const helpCss = readFileSync('apps/access/src/features/help/Help.module.css', 'utf8');
+  stylesheet.textContent = helpCss.replace(/\.([a-zA-Z][\w-]*)/g, (selector, name: string) => styles[name] ? `.${styles[name]}` : selector);
+  document.head.append(stylesheet);
+  try {
+  localStorage.setItem(helpStorageKey('synthetic-user'), JSON.stringify({ schema: 1, initial: { revision: 1, status: 'completed' }, discoveries: {} }));
+  render(content()); fireEvent.click(await screen.findByRole('button', { name: 'Show me around' }));
+  await screen.findByRole('dialog', { name: 'What should we call you?' });
+  const backdrop = document.querySelector('[data-help-backdrop]');
+  expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
+  const target = screen.getByRole('button', { name: 'userName target' });
+  expect(target.parentElement?.className).toContain('highlight');
+  const card = screen.getByRole('dialog', { name: 'What should we call you?' });
+  expect(getComputedStyle(backdrop!).pointerEvents).toBe('none');
+  expect(getComputedStyle(backdrop!).position).toBe('fixed');
+  const dim = Number(getComputedStyle(backdrop!).backgroundColor.match(/,\s*([\d.]+)\)$/)?.[1]);
+  expect(dim).toBeGreaterThanOrEqual(0.55); expect(dim).toBeLessThanOrEqual(0.60);
+  expect(Number(getComputedStyle(target.parentElement!).zIndex)).toBeGreaterThan(Number(getComputedStyle(backdrop!).zIndex));
+  expect(Number(getComputedStyle(card).zIndex)).toBeGreaterThan(Number(getComputedStyle(backdrop!).zIndex));
+  expect(getComputedStyle(card).overflowY).toBe('auto');
+  const clicked = vi.fn(); target.addEventListener('click', clicked); fireEvent.click(target); expect(clicked).toHaveBeenCalledOnce();
+  target.focus(); expect(document.activeElement).toBe(target);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await waitFor(() => expect(document.querySelector('[data-help-backdrop]')).toBeNull());
+  expect(createHelpPersistence('synthetic-user').read().initial).toEqual({ revision: 2, status: 'skipped' });
+  } finally { stylesheet.remove(); }
 });
 test('first observed invitations use neutral discovery and automatic cards do not steal focus', async () => {
   createHelpPersistence('synthetic-user').initial('completed'); render(content({ invitations: true }));
@@ -93,7 +130,7 @@ test('manual overview reflects current capabilities with neutral titles after ea
   expect(screen.queryByRole('button', { name: 'Invitations' })).toBeNull();
   view.rerender(content({ invitations: true, add: true, count: 3 }));
   const overview = screen.getByRole('dialog', { name: 'Help' });
-  expect(overview.textContent).toContain('Invitations'); expect(overview.textContent).toContain('Additional configurations');
+  expect(overview.textContent).toContain('Invitations'); expect(overview.textContent).not.toContain('Additional configurations');
   expect(overview.textContent).not.toContain('now available');
   fireEvent.click(screen.getByRole('button', { name: 'Invitations' })); await screen.findByRole('dialog', { name: 'Invitations' });
 });
@@ -103,7 +140,7 @@ test('quantity and invitations from one paid transition form one session with in
   await screen.findByRole('dialog', { name: 'Payment confirmed. What’s now available' });
   expect(screen.queryByText('Step 1 of 2')).toBeNull();
   expect(createHelpPersistence('synthetic-user').read().discoveries).toEqual({});
-  await next(); await screen.findByRole('dialog', { name: 'You have additional configurations' });
+  await next(); await screen.findByRole('dialog', { name: 'Your device' });
   expect(screen.getByText('Step 1 of 2')).toBeTruthy();
   await waitFor(() => expect(createHelpPersistence('synthetic-user').read().discoveries.commercialConfigurationQuantityIncrease).toBe(1));
   expect(createHelpPersistence('synthetic-user').read().discoveries.invitations).toBeUndefined();
@@ -113,7 +150,7 @@ test('paid-to-paid payment progression still delivers all discoveries without a 
   createHelpPersistence('synthetic-user').initial('completed');
   const view = render(content({ paid: true, succeededPayments: 1 })); await act(settle);
   view.rerender(content({ count: 2, paid: true, succeededPayments: 2, invitations: true }));
-  await screen.findByRole('dialog', { name: 'You have additional configurations' });
+  await screen.findByRole('dialog', { name: 'Your device' });
   expect(screen.queryByText(resources.en.helpPaymentIntroTitle)).toBeNull();
   expect(screen.queryByText(resources.en.helpPaymentIntroBody)).toBeNull();
   expect(screen.getByText('Step 1 of 2')).toBeTruthy();
@@ -123,12 +160,12 @@ test('paid-to-paid payment progression still delivers all discoveries without a 
 });
 test('closing session leaves unshown discoveries unacknowledged', async () => {
   createHelpPersistence('synthetic-user').initial('completed'); const view = render(content()); await act(settle);
-  view.rerender(content({ count: 2, invitations: true })); await screen.findByRole('dialog', { name: 'You have additional configurations' });
+  view.rerender(content({ count: 2, invitations: true })); await screen.findByRole('dialog', { name: 'Your device' });
   fireEvent.click(screen.getByRole('button', { name: 'Close' })); expect(createHelpPersistence('synthetic-user').read().discoveries.invitations).toBeUndefined();
 });
 test('transition during a walkthrough waits until it ends; new targets are not injected', async () => {
   createHelpPersistence('synthetic-user').initial('completed'); const view = render(content()); await act(settle); await showOverview();
-  fireEvent.click(screen.getByRole('button', { name: 'Walk through the account' })); await screen.findByRole('dialog', { name: 'Your Secret Studio account' });
+  fireEvent.click(screen.getByRole('button', { name: 'Walk through the account' })); await screen.findByRole('dialog', { name: 'What should we call you?' });
   view.rerender(content({ invitations: true, extra: true })); await act(settle);
   expect(screen.queryByRole('dialog', { name: 'Invitations are now available' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Close' })); await screen.findByRole('dialog', { name: 'Invitations are now available' });
@@ -149,20 +186,20 @@ test('blocked/QR/edit state suspends presentation and resumes without losing a t
 });
 test('missing target advances safely and identity change discards the old run', async () => {
   createHelpPersistence('synthetic-user').initial('completed'); const view = render(content()); await showOverview();
-  fireEvent.click(screen.getByRole('button', { name: 'Give the device a useful name' })); await screen.findByRole('dialog', { name: 'Give the device a useful name' });
+  fireEvent.click(screen.getByRole('button', { name: 'Your device' })); await screen.findByRole('dialog', { name: 'Your device' });
   view.rerender(content({ naming: false })); await screen.findByRole('dialog', { name: 'Routing' });
   view.rerender(content({}, 'another-user')); expect(screen.queryByRole('dialog')).toBeNull();
   expect(localStorage.getItem(helpStorageKey('another-user'))).toBeNull();
 });
 test('StrictMode mounts do not duplicate offers or fabricate historical quantity', async () => {
   render(<StrictMode>{content({ count: 3 })}</StrictMode>); await screen.findByRole('button', { name: 'Show me around' });
-  expect(screen.getAllByRole('button', { name: 'Show me around' })).toHaveLength(1); expect(screen.queryByText('You have additional configurations')).toBeNull();
+  expect(screen.getAllByRole('button', { name: 'Show me around' })).toHaveLength(1); expect(screen.queryByText('Your device')).toBeNull();
 });
 
 test('language change keeps the topic, Escape restores focus and links stay safe', async () => {
   createHelpPersistence('synthetic-user').initial('completed'); render(content()); await showOverview();
-  fireEvent.click(screen.getByRole('button', { name: 'Choose a connection method' })); await screen.findByRole('dialog', { name: 'Choose a connection method' });
-  fireEvent.click(screen.getByRole('button', { name: 'RU' })); await screen.findByRole('dialog', { name: 'Выберите способ подключения' });
+  fireEvent.click(screen.getByRole('button', { name: 'Your device' })); await screen.findByRole('dialog', { name: 'Your device' });
+  fireEvent.click(screen.getByRole('button', { name: 'RU' })); await screen.findByRole('dialog', { name: 'Ваше устройство' });
   for (const link of screen.getAllByRole('link', { hidden: true })) { expect(link.getAttribute('rel')).toBe('noopener noreferrer'); expect(link.getAttribute('href')).toMatch(/^https:/); }
   fireEvent.keyDown(document, { key: 'Escape' }); await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Помощь' }));

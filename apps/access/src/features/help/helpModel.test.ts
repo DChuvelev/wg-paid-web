@@ -12,16 +12,16 @@ const baseline: CapabilitySnapshot = { invitations: false, addConfiguration: fal
 test('first walkthrough includes naming/routing, follows DOM and excludes only manual utilities/unavailable topics', () => {
   const anchors = [anchor('account'), anchor('billing'), anchor('billingPendingPayment'), anchor('billingHistory'), anchor('configurations'),
     anchor('configurationName', { instance: 'one' }), anchor('routing', { instance: 'one' }), anchor('protocols', { instance: 'one' }), anchor('delivery', { instance: 'one' }), anchor('invitations', { available: false }), anchor('help')];
-  expect(orderedSteps(anchors.reverse(), 'initial').map((step) => step.topic)).toEqual(['account', 'billing', 'billingPendingPayment', 'configurations', 'configurationName', 'routing', 'protocols', 'delivery', 'help']);
-  expect(orderedSteps(anchors, 'manual').map((step) => step.topic)).toContain('billingHistory');
+  expect(orderedSteps(anchors.reverse(), 'initial').map((step) => step.topic)).toEqual(['billing', 'configurationName', 'routing', 'returnToAccount']);
+  expect(orderedSteps(anchors, 'manual').map((step) => step.topic)).not.toContain('billingHistory');
 });
 test('representative prefers ready card, supports fallback, and locked selection explains concepts once', () => {
   const first = anchor('configurationName', { instance: 'first' }); const ready = anchor('configurationName', { instance: 'second', readyVariant: true });
   expect(representative([first])).toBe('first'); expect(representative([first, ready])).toBe('second');
-  expect(orderedSteps([first, ready], 'manual', 'first').map((step) => step.anchorKey)).toEqual([first.key]);
+  expect(orderedSteps([first, ready], 'manual', 'first').map((step) => step.anchorKey)).toEqual([first.key, 'return-to-account']);
 });
 test('missing/disconnected targets are omitted', () => {
-  const target = anchor('routing'); target.element.remove(); expect(orderedSteps([target], 'initial')).toEqual([]);
+  const target = anchor('routing'); target.element.remove(); expect(orderedSteps([target], 'initial').map((step) => step.topic)).toEqual(['returnToAccount']);
 });
 
 test.each([
@@ -30,7 +30,7 @@ test.each([
 ] as const)('%s first visit includes every meaningful rendered topic in its natural position', (_surface, ids) => {
   const anchors = ids.map((id) => anchor(id));
   anchors.push(anchor('billingHistory'));
-  expect(orderedSteps(anchors, 'initial').map((step) => step.topic)).toEqual(ids);
+  expect(orderedSteps(anchors, 'initial').map((step) => step.topic)).toEqual(ids.filter((id) => ['userName', 'billing', 'configurationName', 'routing', 'invitations'].includes(id)).concat(['returnToAccount'] as never[]));
 });
 test('first observation has neutral discoveries and does not invent historical quantity', () => {
   const current = { ...baseline, invitations: true, addConfiguration: true, commercial: { ...baseline.commercial!, count: 3 } };
@@ -58,7 +58,7 @@ test('discovery revalidates capability/target and ordinary titles remain neutral
 
 test('deferred quantity discovery retains genuine runtime evidence and revalidates it before display', () => {
   const current = { ...baseline, commercial: { ...baseline.commercial!, count: 2 } };
-  const candidates = detectDiscoveries(baseline, current, {}); const targets = [anchor('configurations')];
+  const candidates = detectDiscoveries(baseline, current, {}); const targets = [anchor('configurations'), anchor('configurationName')];
   expect(discoverySteps(candidates, targets, current.commercial)).toHaveLength(1);
   expect(discoverySteps(candidates, targets, baseline.commercial)).toEqual([]);
   expect(discoverySteps(candidates, targets, { ...current.commercial, scope: 'other' })).toEqual([]);
@@ -68,4 +68,10 @@ test('reviewed application links remain HTTPS and platform ordering never hides 
   for (const links of Object.values(appDownloadLinks)) for (const url of Object.values(links)) expect(new URL(url).protocol).toBe('https:');
   expect(detectPlatform('Android')).toBe('android'); expect(detectPlatform('iPhone')).toBe('ios');
   expect(platformOrder('android')).toEqual(['android', 'ios', 'desktop']);
+});
+test('several device discoveries use one consolidated device card while Invitations remain separate', () => {
+  const current = { ...baseline, invitations: true, addConfiguration: true, commercial: { ...baseline.commercial!, count: 2 } };
+  const candidates = detectDiscoveries(baseline, current, {});
+  const targets = [anchor('configurations'), anchor('configurationName'), anchor('addConfiguration', { discoveryUsable: true }), anchor('invitations', { discoveryUsable: true })];
+  expect(discoverySteps(candidates, targets, current.commercial).map((step) => step.topic)).toEqual(['configurationName', 'invitations']);
 });

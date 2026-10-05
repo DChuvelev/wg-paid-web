@@ -1,16 +1,22 @@
 import type { Locale } from './resources';
 
+export function deviceQuantityForAccess(quantity: number, locale: Locale) {
+  if (locale === 'en') return configurationQuantity(quantity, locale);
+  const absolute = Math.abs(quantity);
+  return `${quantity} ${absolute % 10 === 1 && absolute % 100 !== 11 ? 'устройства' : 'устройств'}`;
+}
+
 export function configurationQuantity(quantity: number, locale: Locale) {
-  if (locale === 'en') return `${quantity} ${quantity === 1 ? 'configuration' : 'configurations'}`;
+  if (locale === 'en') return `${quantity} ${quantity === 1 ? 'device' : 'devices'}`;
   const absolute = Math.abs(quantity);
   const lastTwo = absolute % 100;
   const last = absolute % 10;
   const noun = lastTwo >= 11 && lastTwo <= 14
-    ? 'конфигураций'
+    ? 'устройств'
     : last === 1
-      ? 'конфигурация'
+      ? 'устройство'
       : last >= 2 && last <= 4
-        ? 'конфигурации'
-        : 'конфигураций';
+        ? 'устройства'
+        : 'устройств';
   return `${quantity} ${noun}`;
 }

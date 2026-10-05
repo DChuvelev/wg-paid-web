@@ -141,9 +141,9 @@ export function ReferralsSection({ capability, onUnauthorized }: Props) {
     copyTimers.current.set(inviteId, timer);
   };
   const actionable = query.data?.filter(isActionable) ?? [];
-  const helpAnchor = useHelpAnchor('invitations', { available: capability.can_create || actionable.length > 0,
+  const helpAnchor = useHelpAnchor('invitations', { available: capability.can_create,
     discoveryUsable: capability.enabled && capability.can_create,
-    bodyKeys: [capability.can_create ? 'helpBody_invitations' : 'helpInvitationManage', 'helpInvitationLink', ...(actionable.some((invite) => invite.can_reissue_share_link) ? ['helpInvitationReissue' as const] : [])] });
+    bodyKeys: ['helpBody_invitations'] });
   useHelpBlocker(query.isPending || create.isPending || reissue.isPending || revoke.isPending);
 
   return (

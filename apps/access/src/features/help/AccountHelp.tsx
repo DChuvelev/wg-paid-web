@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { lazy, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocale } from '../../i18n/localeContext';
 import { createHelpRegistry, HelpContext, useHelpAnchor } from './helpContext';
 import { createHelpPersistence, type HelpStoredState } from './helpStorage';
@@ -44,7 +44,8 @@ function HelpController({ userId }: { userId: string }) {
   const current = run?.steps[run.index];
   const quantityRelevant = !current?.quantityBaseline || !snapshot.commercial?.resolved
     || (snapshot.commercial.scope === current.quantityBaseline.scope && snapshot.commercial.count > current.quantityBaseline.count);
-  const target = current && quantityRelevant ? snapshot.anchors.find((anchor) => anchor.key === current.anchorKey && anchor.available !== false && anchor.element.isConnected) : undefined;
+  const target = useMemo(() => current?.informational ? { key: current.anchorKey, topic: current.topic, element: document.body, informational: true }
+    : current && quantityRelevant ? snapshot.anchors.find((anchor) => anchor.key === current.anchorKey && anchor.available !== false && anchor.element.isConnected) : undefined, [current, quantityRelevant, snapshot.anchors]);
   const presentationBlocked = snapshot.blocked || (run?.mode === 'discovery' && snapshot.commercial?.resolved === false);
 
   const close = () => {
@@ -143,6 +144,9 @@ function HelpController({ userId }: { userId: string }) {
   const delivered = () => {
     const discovery = current?.discovery ?? (current?.topic === 'invitations' || current?.topic === 'addConfiguration' ? current.topic : undefined);
     if (discovery && !run?.intro) setStored(persistence.acknowledge(discovery));
+    if (current?.topic === 'configurationName' && !run?.intro && snapshot.anchors.some((anchor) => anchor.topic === 'addConfiguration' && anchor.discoveryUsable)) {
+      setStored(persistence.acknowledge('addConfiguration'));
+    }
   };
   const introAnchor = snapshot.anchors.find((anchor) => anchor.topic === 'billing');
   const shownTarget = run?.intro ? introAnchor : current?.discovery === 'commercialConfigurationQuantityIncrease' && target && snapshot.commercial?.resolved

@@ -278,7 +278,7 @@ const currentPaidPayment = () => billingPayment('current-paid', 'succeeded', {
 
 test('pilot keeps the legacy cabinet and does not mount billing or referrals when disabled', async () => {
   renderApp('/account');
-  await screen.findByText('Configurations: 2 / 3');
+  await screen.findByText('Devices: 2 / 3');
   expect(screen.queryByText('Access and billing')).toBeNull();
   expect(screen.queryByText('Referrals')).toBeNull();
   expect(loadBillingPayments).not.toHaveBeenCalled();
@@ -546,7 +546,7 @@ test('empty Pilot configurations do not enable review preparation polling', asyn
   vi.mocked(loadConfigurations).mockResolvedValue([]);
   renderApp('/account');
 
-  await screen.findByText('No configurations yet.');
+  await screen.findByText('No devices yet.');
   expect(loadConfigurations).toHaveBeenCalledTimes(1);
   await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
   expect(loadConfigurations).toHaveBeenCalledTimes(1);
@@ -564,7 +564,7 @@ test.each([
   renderApp('/account');
 
   expect(await screen.findByText('The WireGuard configuration is currently unavailable.')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Download WireGuard configuration' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Download WireGuard configuration file' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Open the sample library' })).toBeNull();
   expect(document.body.textContent).not.toMatch(/amnezia|profile|10\.253\.0\.2|review-grant/i);
 });
@@ -799,7 +799,7 @@ test('plain q3 trial presents only current trial semantics and no one-option act
 
   const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
   expect(within(billing).getByRole('heading', { name: 'Current trial period' })).toBeTruthy();
-  expect(within(billing).getByText('3 configurations')).toBeTruthy();
+  expect(within(billing).getByText('3 devices')).toBeTruthy();
   expect(within(billing).getByText(/Trial ends/)).toBeTruthy();
   expect(within(billing).queryByText(/Access is paid through/)).toBeNull();
   expect(within(billing).queryByText(/499/)).toBeNull();
@@ -815,28 +815,26 @@ test('new billing presentation copy switches completely between English and Russ
   fireEvent.click(screen.getByRole('button', { name: 'RU' }));
   const billing = (await screen.findByRole('heading', { name: 'Доступ и оплата' })).closest('section')!;
   expect(within(billing).getByRole('heading', { name: 'Текущий пробный период' })).toBeTruthy();
-  expect(within(billing).getByText('3 конфигурации')).toBeTruthy();
+  expect(within(billing).getByText('3 устройства')).toBeTruthy();
   expect(within(billing).getByText(/Пробный период закончится/)).toBeTruthy();
   expect(within(billing).queryByText('Current trial period')).toBeNull();
-  expect(within(billing).queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(within(billing).queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
 });
 
-test('trial q3 to paid q1 validity-gates the CTA until exactly two retirements are selected', async () => {
+test('trial q3 to paid q1 validity-gates the CTA until exactly one device is kept', async () => {
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', { slot_quantity: 3, monthly_amount_kopeks: 49900 }));
   vi.mocked(loadConfigurations).mockResolvedValue([...configurations, configurationThree]);
   vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('trial-q1', 'pending'));
   renderApp('/account');
 
-  const quantity = await screen.findByRole('spinbutton', { name: /Number of configurations/ });
-  fireEvent.change(quantity, { target: { value: '1' } });
-  const submit = screen.getByRole('button', { name: 'Continue to payment' }) as HTMLButtonElement;
-  expect(screen.getByText('Select exactly 2. Selected: 0.')).toBeTruthy();
+  await screen.findByRole('radio', { name: /^1 device ·/ });
+  fireEvent.click(screen.getByRole('radio', { name: /^1 devices? ·/ }));
+  const submit = screen.getByRole('button', { name: /Continue to payment|Pay for the next period/  }) as HTMLButtonElement;
+  expect(screen.getByRole('group', { name: 'Which devices should stay?' })).toBeTruthy();
+  expect(screen.getByText('Select exactly 1. Selected: 0.')).toBeTruthy();
   expect(submit.disabled).toBe(true);
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Configuration #7' }));
-  expect(screen.getByText('Select exactly 2. Selected: 1.')).toBeTruthy();
-  expect(submit.disabled).toBe(true);
-  fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
-  expect(screen.getByText('Select exactly 2. Selected: 2.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Device #11' }));
+  expect(screen.getByText('Select exactly 1. Selected: 1.')).toBeTruthy();
   expect(submit.disabled).toBe(false);
   fireEvent.click(submit);
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
@@ -863,9 +861,9 @@ test('active-paid q3 remains a trial tail when succeeded coverage starts only in
   const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
   expect(await within(billing).findByRole('heading', { name: 'Current trial period' })).toBeTruthy();
   expect(within(billing).queryByText(/Access is paid through/)).toBeNull();
-  expect(within(billing).getByText(/1 configuration.*299/)).toBeTruthy();
-  expect(within(billing).getByText('Laptop · Configuration #9')).toBeTruthy();
-  expect(within(billing).getByText('Configuration #11')).toBeTruthy();
+  expect(within(billing).getByText(/1 device.*299/)).toBeTruthy();
+  expect(within(billing).getByText('Laptop · Device #9')).toBeTruthy();
+  expect(within(billing).getByText('Device #11')).toBeTruthy();
 });
 
 test('genuinely paid current q3 at max remains paid when add-now capability is false', async () => {
@@ -878,7 +876,7 @@ test('genuinely paid current q3 at max remains paid when add-now capability is f
 
   const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
   expect(await within(billing).findByText('Access paid')).toBeTruthy();
-  expect(within(billing).getByText(/3 configurations.*499/)).toBeTruthy();
+  expect(within(billing).getAllByText(/3 devices.*499/).length).toBeGreaterThan(0);
   expect(within(billing).getByText(/Access is paid through/)).toBeTruthy();
   expect(within(billing).queryByRole('heading', { name: 'Current trial period' })).toBeNull();
 });
@@ -894,7 +892,7 @@ test('active-paid current presentation stays neutral while payment history is un
 
   const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
   expect(within(billing).getByRole('heading', { name: 'Current access' })).toBeTruthy();
-  expect(within(billing).getByText('3 configurations')).toBeTruthy();
+  expect(within(billing).getByText('3 devices')).toBeTruthy();
   expect(within(billing).queryByText('Access paid')).toBeNull();
   expect(within(billing).queryByRole('heading', { name: 'Current trial period' })).toBeNull();
   await act(async () => rejectHistory(new AccessApiError(503)));
@@ -911,9 +909,9 @@ test.each([
   if (status === 'expired') vi.mocked(loadConfigurations).mockResolvedValue([]);
   renderApp('/account');
   expect(await screen.findByText(label)).toBeTruthy();
-  expect(screen.getByText(/2 configurations/)).toBeTruthy();
-  expect(screen.getByText(/399/)).toBeTruthy();
-  expect(await screen.findByRole('button', { name: 'Continue to payment' })).toBeTruthy();
+  expect(screen.getAllByText(/2 devices/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/399/).length).toBeGreaterThan(0);
+  expect(await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeTruthy();
 });
 
 test('renders the paid next-period projection and updates exact billing-owned retirements', async () => {
@@ -932,15 +930,15 @@ test('renders the paid next-period projection and updates exact billing-owned re
   const billing = (await screen.findByRole('heading', { name: 'Access and billing' })).closest('section')!;
   expect(within(billing).getByText('Next paid period')).toBeTruthy();
   expect(within(billing).queryByText(/next month is already paid/i)).toBeNull();
-  expect(within(billing).getByText('Laptop · Configuration #9')).toBeTruthy();
-  expect(within(billing).getByText(/these configurations will be disabled/i).textContent).toContain('2/1/2026');
+  expect(within(billing).getByText('Laptop · Device #9')).toBeTruthy();
+  expect(within(billing).getByText(/these devices will be disabled/i).textContent).toContain('2/1/2026');
 
   const changeSelection = within(billing).getByRole('button', { name: 'Change selection' }) as HTMLButtonElement;
   await waitFor(() => expect(changeSelection.disabled).toBe(false));
   fireEvent.click(changeSelection);
   fireEvent.click(within(billing).getByRole('checkbox', { name: /Laptop/ }));
-  fireEvent.click(within(billing).getByRole('checkbox', { name: 'Configuration #7' }));
-  fireEvent.click(within(billing).getByRole('button', { name: 'Save scheduled configurations' }));
+  fireEvent.click(within(billing).getByRole('checkbox', { name: 'Device #7' }));
+  fireEvent.click(within(billing).getByRole('button', { name: 'Save scheduled devices' }));
   await waitFor(() => expect(updateBillingPendingRetirements).toHaveBeenCalledWith(['configuration-1']));
   await waitFor(() => expect(loadAccount).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(loadConfigurations).toHaveBeenCalledTimes(2));
@@ -958,11 +956,13 @@ test('builds a keep-paid add-now request with separate existing and prospective 
   vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('add-now-payment', 'pending', { confirmation_url: null }));
   renderApp('/account');
   expect(await screen.findByRole('radio', { name: 'Add devices now' })).toBeTruthy();
+  expect(screen.getByRole('group', { name: 'Choose an action' })).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Choose device quantity' })).toBeNull();
   expect(screen.getByRole('radio', { name: /Increase next month/ })).toBeTruthy();
   fireEvent.click(await screen.findByRole('radio', { name: /Keep the already-paid lower quantity/ }));
   fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
-  fireEvent.click(screen.getByRole('checkbox', { name: /Future new configuration 1/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Future new device 1/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Continue to payment|Pay for the next period/  }));
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), {
     action: 'add_now',
     target_quantity: 3,
@@ -976,8 +976,8 @@ test('builds a keep-paid add-now request with separate existing and prospective 
 test('fails closed when billing ownership cannot be mapped to current configurations', async () => {
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', { access_grant_id: 'different-grant' }));
   renderApp('/account');
-  expect(await screen.findByText(/Billing quantity and configuration data do not agree/i)).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(await screen.findByText(/Billing quantity and device data do not agree/i)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
 });
 
 test('past-due commercial account has no payment action and cannot POST', async () => {
@@ -998,10 +998,10 @@ test('trial first-payment increase explains immediate availability and submits n
   vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('trial-increase', 'pending', { confirmation_url: null }));
   renderApp('/account');
 
-  const quantity = await screen.findByRole('spinbutton', { name: /Number of configurations/ });
-  fireEvent.change(quantity, { target: { value: '3' } });
-  expect(screen.getByText(/Extra configurations become available immediately after successful payment/)).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  await screen.findByRole('radio', { name: /^1 device ·/ });
+  fireEvent.click(screen.getByRole('radio', { name: /^3 devices? ·/ }));
+  expect(screen.getByText(/Extra devices become available immediately after successful payment/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Continue to payment|Pay for the next period/  }));
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), {
     action: 'renew',
     target_quantity: 3,
@@ -1030,7 +1030,7 @@ test('paid preserved-trial-tail top-up explains immediate availability when add-
   })]);
   renderApp('/account');
 
-  fireEvent.click(await screen.findByRole('button', { name: /Keep 3 configurations.*200/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /Add 2 devices.*3 in total.*200/ }));
   expect(screen.getByText(/remaining trial time is free/i)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: /Pay additional.*200/ }));
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
@@ -1054,16 +1054,16 @@ test('top-up-next uses the shared picker only for exact existing boundary retire
   vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('top-up-q3', 'pending'));
   renderApp('/account');
 
-  expect(await screen.findByRole('button', { name: /Keep 2 configurations.*100/ })).toBeTruthy();
-  expect(screen.getByRole('button', { name: /Keep all 3 configurations.*200/ })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: /Add 1 device.*2 in total.*100/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Add 2 devices.*3 in total.*200/ })).toBeTruthy();
   expect(createBillingPayment).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: /Keep 2 configurations.*100/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Add 1 device.*2 in total.*100/ }));
   expect(screen.queryByText(/remaining trial time is free/i)).toBeNull();
   expect(screen.getByText('Select exactly 1. Selected: 0.')).toBeTruthy();
   expect((screen.getByRole('button', { name: /Pay additional.*100/ }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
   expect((screen.getByRole('button', { name: /Pay additional.*100/ }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: /Keep all 3 configurations.*200/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Add 2 devices.*3 in total.*200/ }));
   expect(screen.queryByText(/Select exactly/)).toBeNull();
   const submitQ3 = screen.getByRole('button', { name: /Pay additional.*200/ }) as HTMLButtonElement;
   expect(submitQ3.disabled).toBe(false);
@@ -1086,7 +1086,7 @@ test('pending max quantity offers no top-up-next action', async () => {
   renderApp('/account');
   await screen.findByText('Next paid period');
   expect(screen.queryByRole('radio', { name: /Increase next month/ })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
 });
 
 test('reload retries the exact top-up-next target and retirement selection with the same key', async () => {
@@ -1106,7 +1106,7 @@ test('reload retries the exact top-up-next target and retirement selection with 
     .mockRejectedValueOnce(new AccessApiError(503))
     .mockResolvedValueOnce(billingPayment('top-up-resumed', 'pending', { confirmation_url: null }));
   const firstRender = renderApp('/account');
-  fireEvent.click(await screen.findByRole('button', { name: /Keep 2 configurations.*100/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /Add 1 device.*2 in total.*100/ }));
   fireEvent.click(screen.getByRole('checkbox', { name: /Laptop/ }));
   fireEvent.click(screen.getByRole('button', { name: /Pay additional.*100/ }));
   await screen.findByRole('button', { name: 'Retry same payment' });
@@ -1130,7 +1130,7 @@ test('stores the idempotency attempt before POST and retries an uncertain create
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce(billingPayment('payment-1', 'pending', { confirmation_url: null }));
   renderApp('/account');
-  const button = await screen.findByRole('button', { name: 'Continue to payment' });
+  const button = await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  });
   fireEvent.click(button);
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(1));
   const first = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
@@ -1146,8 +1146,8 @@ test('stores the idempotency attempt before POST and retries an uncertain create
     retire_new_configuration_ordinals: []
   });
   const retry = await screen.findByRole('button', { name: 'Retry same payment' });
-  const lockedQuantity = retry.closest('section')!.querySelector<HTMLInputElement>('input[type="number"]')!;
-  expect(lockedQuantity.disabled).toBe(true);
+  const lockedQuantity = retry.closest('section')!.querySelector<HTMLInputElement>('input[name="next-device-quantity"]')!;
+  expect(lockedQuantity.closest('fieldset')?.disabled).toBe(true);
   fireEvent.click(retry);
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   expect(vi.mocked(createBillingPayment).mock.calls[0]?.[0]).toBe(vi.mocked(createBillingPayment).mock.calls[1]?.[0]);
@@ -1162,7 +1162,7 @@ test.each([502, 409, 422])('HTTP %s create failure requires explicit abandonment
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(status)).mockResolvedValueOnce(billingPayment('payment-new', 'pending', { confirmation_url: null }));
   const firstRender = renderApp('/account');
-  const paymentButton = await screen.findByRole('button', { name: 'Continue to payment' });
+  const paymentButton = await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  });
   fireEvent.click(paymentButton);
   await screen.findByText(/request failed and was not accepted/i);
   expect(screen.queryByText(/result is uncertain/i)).toBeNull();
@@ -1182,7 +1182,7 @@ test.each([502, 409, 422])('HTTP %s create failure requires explicit abandonment
   fireEvent.click(screen.getByRole('button', { name: 'Abandon failed attempt' }));
   await screen.findByText(/failed attempt was reset/i);
   expect(sessionStorage.getItem(paymentAttemptStorageKey)).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+  fireEvent.click(screen.getByRole('button', { name: /Continue to payment|Pay for the next period/  }));
   await waitFor(() => expect(createBillingPayment).toHaveBeenCalledTimes(2));
   const newKey = vi.mocked(createBillingPayment).mock.calls[1]?.[0];
   expect(newKey).not.toBe(failedAttempt.idempotency_key);
@@ -1192,7 +1192,7 @@ test('reload resumes a stored uncertain attempt with the exact same key', async 
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   vi.mocked(createBillingPayment).mockRejectedValueOnce(new AccessApiError(503)).mockResolvedValueOnce(billingPayment('resumed-payment', 'pending', { confirmation_url: null }));
   const firstRender = renderApp('/account');
-  fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  }));
   await screen.findByRole('button', { name: 'Retry same payment' });
   const stored = JSON.parse(sessionStorage.getItem(paymentAttemptStorageKey)!);
   expect(stored.state).toBe('active');
@@ -1223,16 +1223,16 @@ test('history loading and failure both prevent a new payment POST', async () => 
   vi.mocked(loadBillingPayments).mockImplementation(() => new Promise((resolve) => { resolveHistory = resolve; }));
   const first = renderApp('/account');
   expect(await screen.findByText('Checking for unfinished payments…')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
   await act(async () => resolveHistory([]));
-  expect(await screen.findByRole('button', { name: 'Continue to payment' })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeTruthy();
   first.unmount();
 
   vi.mocked(loadBillingPayments).mockRejectedValue(new AccessApiError(503));
   renderApp('/account');
   expect(await screen.findByText('Payment history is unavailable. A new payment cannot be created until it is checked.')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -1248,10 +1248,10 @@ test('one pending payment resumes only from its authoritative item URL', async (
   renderApp('/account');
   await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledWith('resume-existing'));
   expect(await screen.findByRole('heading', { name: 'Unfinished payment' })).toBeTruthy();
-  expect(screen.getByText(/200.*keep 3 configurations next period/i)).toBeTruthy();
+  expect(screen.getByText(/200.*keep 3 devices next period/i)).toBeTruthy();
   const resume = await screen.findByRole('link', { name: 'Continue payment' });
   expect((resume as HTMLAnchorElement).href).toBe('https://checkout.example/resume-existing');
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
   expect(sessionStorage.getItem(paymentAttemptStorageKey) ?? '').not.toContain('checkout.example');
   const historyCalls = vi.mocked(loadBillingPayments).mock.calls.length;
@@ -1272,7 +1272,7 @@ test('pending without a checkout URL stays in processing and never creates a rep
   expect(screen.getByText('The payment has not been completed yet.')).toBeTruthy();
   expect(screen.getByText(/provider will eventually close or cancel it/i)).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Continue payment' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -1290,7 +1290,7 @@ test('multiple pending payments block both resume and new payment creation', asy
   expect(screen.getByText('More than one unfinished payment exists. Refresh or check payment history; no success is assumed.')).toBeTruthy();
   expect(loadBillingPayment).not.toHaveBeenCalled();
   expect(createBillingPayment).not.toHaveBeenCalled();
-  expect(screen.queryByRole('button', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Continue to payment|Pay for the next period/  })).toBeNull();
   expect((screen.getByRole('button', { name: 'Change selection' }) as HTMLButtonElement).disabled).toBe(true);
 });
 
@@ -1313,9 +1313,9 @@ test('safe unfinished q3 top-up keeps retirement reselection available', async (
 
   const resume = await screen.findByRole('link', { name: 'Continue payment' });
   expect((resume as HTMLAnchorElement).href).toBe('https://checkout.example/safe-q3');
-  expect(screen.getByText(/200.*keep 3 configurations next period/i)).toBeTruthy();
+  expect(screen.getByText(/200.*keep 3 devices next period/i)).toBeTruthy();
   expect(screen.queryByRole('button', { name: /Pay additional|Continue to payment/ })).toBeNull();
-  expect(screen.getByText(/You can still change which configurations/)).toBeTruthy();
+  expect(screen.getByText(/You can still change which devices/)).toBeTruthy();
   expect((screen.getByRole('button', { name: 'Change selection' }) as HTMLButtonElement).disabled).toBe(false);
 });
 
@@ -1367,7 +1367,7 @@ test('an open retirement editor becomes non-submittable when the pending payment
   await waitFor(() => expect(loadBillingPayment).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(changeSelection.disabled).toBe(false));
   fireEvent.click(changeSelection);
-  const save = screen.getByRole('button', { name: 'Save scheduled configurations' }) as HTMLButtonElement;
+  const save = screen.getByRole('button', { name: 'Save scheduled devices' }) as HTMLButtonElement;
   expect(save.disabled).toBe(false);
 
   fireEvent.click(screen.getByRole('button', { name: 'Check status' }));
@@ -1398,7 +1398,7 @@ test('terminal canceled refresh removes unfinished state and restores ordinary a
   await waitFor(() => expect(checkStatus.disabled).toBe(false));
   fireEvent.click(checkStatus);
   await waitFor(() => expect(screen.queryByRole('heading', { name: 'Unfinished payment' })).toBeNull());
-  expect(await screen.findByRole('button', { name: /Keep 2 configurations.*100/ })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: /Add 1 device.*2 in total.*100/ })).toBeTruthy();
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -1408,7 +1408,7 @@ test('Refresh reports checking, unchanged, changed, and error states', async () 
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount());
   vi.mocked(loadBillingPayments).mockResolvedValueOnce([original]).mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
   renderApp('/account');
-  await screen.findByRole('button', { name: 'Continue to payment' });
+  await screen.findByRole('button', { name: /Continue to payment|Pay for the next period/  });
   fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
   expect(await screen.findByText('Checking…')).toBeTruthy();
   await act(async () => resolveRefresh([original]));
@@ -1458,7 +1458,7 @@ test('routing catalog loading does not block Configuration cards and exposes no 
   vi.mocked(loadRoutingExits).mockImplementation(() => new Promise(() => {}));
   renderApp('/account');
 
-  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(await screen.findByText('Device #7')).toBeTruthy();
   expect(screen.getAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
   expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
   expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
@@ -1468,7 +1468,7 @@ test('routing catalog failure keeps cards visible and exposes no fabricated loca
   vi.mocked(loadRoutingExits).mockRejectedValue(new AccessApiError(503));
   renderApp('/account');
 
-  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(await screen.findByText('Device #7')).toBeTruthy();
   expect(await screen.findAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
   expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
   expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
@@ -1488,7 +1488,7 @@ test('malformed routing catalog exposes no fabricated locations', async () => {
   });
   renderApp('/account');
 
-  expect(await screen.findByText('Configuration #7')).toBeTruthy();
+  expect(await screen.findByText('Device #7')).toBeTruthy();
   expect(screen.getAllByText('Locations are temporarily unavailable.')).toHaveLength(2);
   expect(screen.queryByRole('combobox', { name: 'Forced location' })).toBeNull();
   expect(document.body.textContent).not.toMatch(/Exit 1|selector 1|cs1|egress1|vpn1/i);
@@ -1502,7 +1502,7 @@ test('valid catalog renders only backend location names and applies the selected
   expect(within(select).getByRole('option', { name: 'Location Epsilon' })).toBeTruthy();
 
   fireEvent.change(select, { target: { value: '3' } });
-  fireEvent.click(within(routing).getByRole('button', { name: 'Apply' }));
+  fireEvent.click(within(routing).getByRole('button', { name: 'Choose location for 30 minutes' }));
 
   await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
     'configuration-1',
@@ -1522,7 +1522,7 @@ test('an active forced Configuration can directly request a different catalog lo
   expect(await within(routing).findByText(/Location Beta · .* min remaining/)).toBeTruthy();
   const select = within(routing).getByRole('combobox', { name: 'Forced location' });
   fireEvent.change(select, { target: { value: '5' } });
-  fireEvent.click(within(routing).getByRole('button', { name: 'Apply' }));
+  fireEvent.click(within(routing).getByRole('button', { name: 'Choose location for 30 minutes' }));
 
   await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
     'configuration-1',
@@ -1560,7 +1560,7 @@ test('Return to Automatic remains available while the routing catalog is unavail
   expect(within(routing).getByText('Selected location unavailable.')).toBeTruthy();
   expect(within(routing).queryByRole('combobox')).toBeNull();
 
-  fireEvent.click(within(routing).getByRole('button', { name: 'Return to Automatic' }));
+  fireEvent.click(within(routing).getByRole('button', { name: 'Return to automatic mode' }));
   await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledWith(
     'configuration-1',
     { mode: 'automatic' }
@@ -1574,7 +1574,7 @@ test('a pending routing mutation is single-flight and preserves the last known s
   const routing = (await screen.findAllByRole('region', { name: 'Routing' }))[0]!;
   const select = await within(routing).findByRole('combobox', { name: 'Forced location' });
   fireEvent.change(select, { target: { value: '4' } });
-  const apply = within(routing).getByRole('button', { name: 'Apply' });
+  const apply = within(routing).getByRole('button', { name: 'Choose location for 30 minutes' });
   await waitFor(() => expect((apply as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(apply);
   await waitFor(() => expect(updateConfigurationRouting).toHaveBeenCalledTimes(1));
@@ -1582,7 +1582,7 @@ test('a pending routing mutation is single-flight and preserves the last known s
   fireEvent.click(apply);
 
   expect(updateConfigurationRouting).toHaveBeenCalledTimes(1);
-  expect(within(routing).getByText('Automatic routing is active.')).toBeTruthy();
+  expect(within(routing).getByText('Automatic location selection')).toBeTruthy();
 
   resolveMutation({
     ...configurations[0]!,
@@ -1600,11 +1600,11 @@ test('routing mutation failure stays local and preserves both Configuration stat
   const first = routingCards[0]!;
   const second = routingCards[1]!;
   fireEvent.change(await within(first).findByRole('combobox'), { target: { value: '2' } });
-  fireEvent.click(within(first).getByRole('button', { name: 'Apply' }));
+  fireEvent.click(within(first).getByRole('button', { name: 'Choose location for 30 minutes' }));
 
   expect((await within(first).findByRole('alert')).textContent).toBe('Unable to update routing.');
-  expect(within(first).getByText('Automatic routing is active.')).toBeTruthy();
-  expect(within(second).getByText('Automatic routing is active.')).toBeTruthy();
+  expect(within(first).getByText('Automatic location selection')).toBeTruthy();
+  expect(within(second).getByText('Automatic location selection')).toBeTruthy();
   expect(within(second).queryByRole('alert')).toBeNull();
 });
 
@@ -1628,7 +1628,7 @@ test('forced countdown uses forced_until, updates by minute boundary, and refetc
   const callsBeforeExpiry = vi.mocked(loadConfigurations).mock.calls.length;
 
   await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
-  expect(within(routing).getByText('Automatic routing is active.')).toBeTruthy();
+  expect(within(routing).getByText('Automatic location selection')).toBeTruthy();
   await waitFor(() => expect(loadConfigurations).toHaveBeenCalledTimes(callsBeforeExpiry + 1));
 });
 
@@ -1644,19 +1644,19 @@ test('routing catalog 401 follows the existing session-expired path', async () =
 test('renders each logical configuration once with both variants, backend ordinal, and one common quota', async () => {
   renderApp('/account');
 
-  await screen.findByText('Configurations: 2 / 3');
+  await screen.findByText('Devices: 2 / 3');
   expect(screen.getByText('Secret Studio')).toBeTruthy();
-  expect(screen.getByText('Configuration #7')).toBeTruthy();
-  expect(screen.getByText('Configuration #9 · Laptop')).toBeTruthy();
-  expect(screen.getAllByRole('listitem')).toHaveLength(2);
-  expect(screen.getByRole('button', { name: 'Download WireGuard config' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Download AmneziaWG config' })).toBeTruthy();
-  expect(screen.getAllByText('Configurations: 2 / 3')).toHaveLength(1);
+  expect(screen.getByText('Device #7')).toBeTruthy();
+  expect(screen.getByText('Laptop')).toBeTruthy();
+  expect(within(screen.getByRole('list', { name: 'Your devices' })).getAllByRole('listitem')).toHaveLength(2);
+  expect(screen.getByRole('button', { name: 'Download WireGuard configuration file' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Download AmneziaWG configuration file' })).toBeTruthy();
+  expect(screen.getAllByText('Devices: 2 / 3')).toHaveLength(1);
   expect(screen.queryByRole('link', { name: /Download .* config/ })).toBeNull();
   expect(screen.queryByRole('button', { name: /disable|revoke/i })).toBeNull();
   expect(screen.queryByRole('button', { name: /reissue/i })).toBeNull();
 
-  fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
   await waitFor(() => expect(vi.mocked(createConfiguration)).toHaveBeenCalledWith('grant-1'));
 });
 
@@ -1664,19 +1664,19 @@ test('billing-managed commercial grant never exposes generic Add configuration',
   vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial'));
   renderApp('/account');
   await screen.findByRole('heading', { name: 'Current trial period' });
-  expect(screen.queryByRole('button', { name: 'Add configuration' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Add device' })).toBeNull();
 });
 
 test('admin-managed pilot grant still exposes generic Add configuration when authorized', async () => {
   renderApp('/account');
-  expect(await screen.findByRole('button', { name: 'Add configuration' })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: 'Add device' })).toBeTruthy();
 });
 
 test('requests a temporary config download URL and navigates to it', async () => {
   vi.mocked(createProfileConfigDownload).mockResolvedValue('#config-download');
   renderApp('/account');
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard config' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration file' }));
 
   await waitFor(() => expect(createProfileConfigDownload).toHaveBeenCalledWith('wg-1'));
   await waitFor(() => expect(window.location.hash).toBe('#config-download'));
@@ -1685,16 +1685,16 @@ test('requests a temporary config download URL and navigates to it', async () =>
 test('AmneziaWG uses the same temporary URL and browser navigation flow', async () => {
   vi.mocked(createProfileConfigDownload).mockResolvedValue('#awg-config-download');
   renderApp('/account');
-  fireEvent.click(await screen.findByRole('button', { name: 'Download AmneziaWG config' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Download AmneziaWG configuration file' }));
   await waitFor(() => expect(createProfileConfigDownload).toHaveBeenCalledWith('awg-1'));
   await waitFor(() => expect(window.location.hash).toBe('#awg-config-download'));
 });
 
 test('suppresses download and QR actions for both unavailable or not-ready variants', async () => {
   renderApp('/account');
-  await screen.findByText('Configuration #9 · Laptop');
+  await screen.findByText('Laptop');
   for (const protocol of ['WireGuard', 'AmneziaWG']) {
-    const variant = screen.getByRole('region', { name: `${protocol} · Configuration #9` });
+    const variant = screen.getByRole('region', { name: `${protocol} · Device #9` });
     expect(within(variant).queryByRole('button', { name: /Download .* config/ })).toBeNull();
     expect(within(variant).queryByRole('button', { name: /Show .* QR/ })).toBeNull();
   }
@@ -1704,7 +1704,7 @@ test('shows an error when the temporary config download cannot be created', asyn
   vi.mocked(createProfileConfigDownload).mockRejectedValue(new AccessApiError(503));
   renderApp('/account');
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard config' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration file' }));
 
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to download the configuration.');
   expect(screen.getByTestId('location').textContent).toBe('/account');
@@ -1715,7 +1715,7 @@ test('config download 401 follows the existing session-expired path', async () =
   const { queryClient } = renderApp('/account');
   const removeQueries = vi.spyOn(queryClient, 'removeQueries');
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard config' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Download WireGuard configuration file' }));
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
   expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access'] });
@@ -1726,13 +1726,13 @@ test('opens the WireGuard QR in the page dialog and closes it without navigation
   const showQr = await screen.findByRole('button', { name: 'Show WireGuard QR' });
 
   fireEvent.click(showQr);
-  const dialog = screen.getByRole('dialog', { name: 'QR code for WireGuard · Configuration #7' });
+  const dialog = screen.getByRole('dialog', { name: 'QR code for WireGuard · Device #7' });
   expect(screen.getByText('Loading QR code…')).toBeTruthy();
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
     '/v2/account/profiles/wg-1/qr.svg',
     expect.objectContaining({ credentials: 'same-origin' })
   ));
-  const image = await screen.findByRole('img', { name: 'QR code for WireGuard · Configuration #7' });
+  const image = await screen.findByRole('img', { name: 'QR code for WireGuard · Device #7' });
   expect(image.getAttribute('src')).toBe('blob:profile-qr');
   expect(createObjectUrlMock).toHaveBeenCalledTimes(1);
   expect(createObjectUrlMock.mock.calls[0]![0].type).toBe('image/svg+xml');
@@ -1746,13 +1746,13 @@ test('opens the WireGuard QR in the page dialog and closes it without navigation
   expect(revokeObjectUrlMock).toHaveBeenCalledWith('blob:profile-qr');
 
   fireEvent.click(showQr);
-  await screen.findByRole('img', { name: 'QR code for WireGuard · Configuration #7' });
+  await screen.findByRole('img', { name: 'QR code for WireGuard · Device #7' });
   fireEvent.click(screen.getByRole('button', { name: 'Close QR code' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(showQr);
 
   fireEvent.click(showQr);
-  await screen.findByRole('img', { name: 'QR code for WireGuard · Configuration #7' });
+  await screen.findByRole('img', { name: 'QR code for WireGuard · Device #7' });
   fireEvent.click(screen.getByRole('dialog').parentElement!);
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(showQr);
@@ -1761,7 +1761,7 @@ test('opens the WireGuard QR in the page dialog and closes it without navigation
 test('AmneziaWG QR uses its own profile ID and identifies its protocol', async () => {
   renderApp('/account');
   fireEvent.click(await screen.findByRole('button', { name: 'Show AmneziaWG QR' }));
-  expect(await screen.findByRole('dialog', { name: 'QR code for AmneziaWG · Configuration #7' })).toBeTruthy();
+  expect(await screen.findByRole('dialog', { name: 'QR code for AmneziaWG · Device #7' })).toBeTruthy();
   await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
     '/v2/account/profiles/awg-1/qr.svg',
     expect.objectContaining({ credentials: 'same-origin' })
@@ -1775,7 +1775,7 @@ test('shows a localized QR error without rendering a broken image', async () => 
   fireEvent.click(await screen.findByRole('button', { name: 'Show WireGuard QR' }));
 
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to load the QR code.');
-  expect(screen.queryByRole('img', { name: 'QR code for WireGuard · Configuration #7' })).toBeNull();
+  expect(screen.queryByRole('img', { name: 'QR code for WireGuard · Device #7' })).toBeNull();
   expect(createObjectUrlMock).not.toHaveBeenCalled();
   expect(screen.getByTestId('location').textContent).toBe('/account');
 });
@@ -1793,8 +1793,8 @@ test('hides Add configuration when the common quota denies creation', async () =
   });
   renderApp('/account');
 
-  await screen.findByText('Configurations: 3 / 3');
-  expect(screen.queryByRole('button', { name: 'Add configuration' })).toBeNull();
+  await screen.findByText('Devices: 3 / 3');
+  expect(screen.queryByRole('button', { name: 'Add device' })).toBeNull();
 });
 
 test('configuration creation 401 clears account state and replace-navigates to login', async () => {
@@ -1802,8 +1802,8 @@ test('configuration creation 401 clears account state and replace-navigates to l
   const { queryClient } = renderApp('/account');
   const removeQueries = vi.spyOn(queryClient, 'removeQueries');
 
-  await screen.findByText('Configurations: 2 / 3');
-  fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
+  await screen.findByText('Devices: 2 / 3');
+  fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/'));
   expect(removeQueries).toHaveBeenCalledWith({ queryKey: ['access'] });
@@ -1813,8 +1813,8 @@ test('configuration creation 403 shows the session-validation message', async ()
   vi.mocked(createConfiguration).mockRejectedValue(new AccessApiError(403));
   renderApp('/account');
 
-  await screen.findByText('Configurations: 2 / 3');
-  fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
+  await screen.findByText('Devices: 2 / 3');
+  fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
 
   expect((await screen.findByRole('alert')).textContent).toBe('Session validation failed. Sign in again.');
 });
@@ -1836,7 +1836,7 @@ test('non-401 logout failure keeps the account page and shows its error', async 
   vi.mocked(logout).mockRejectedValue(new AccessApiError(500));
   renderApp('/account');
 
-  await screen.findByText('Configurations: 2 / 3');
+  await screen.findByText('Devices: 2 / 3');
   fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
 
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to sign out.');
@@ -1863,25 +1863,26 @@ test('loads, saves, changes, and clears the optional display name, including an 
 
 test('adds, edits, and clears only the selected configuration label by slot ID', async () => {
   renderApp('/account');
-  await screen.findByText('Configuration #7');
-  fireEvent.click(screen.getByRole('button', { name: 'Add name' }));
-  const input = screen.getByLabelText('Configuration name: configuration-1');
+  await screen.findByText('Device #7');
+  fireEvent.click(screen.getByRole('button', { name: 'Name device' }));
+  const input = screen.getByLabelText('Device name: Device #7');
   fireEvent.change(input, { target: { value: 'My phone' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[1]!);
   await waitFor(() => expect(updateConfigurationLabel).toHaveBeenCalledWith('configuration-1', 'My phone'));
-  expect(screen.getByText('Configuration #7 · My phone')).not.toBeNull();
-  expect(screen.getByText('Configuration #9 · Laptop')).not.toBeNull();
+  expect(screen.getByText('My phone')).not.toBeNull();
+  expect(screen.getByText('Laptop')).not.toBeNull();
 
   fireEvent.click(screen.getAllByRole('button', { name: 'Edit name' })[0]!);
+  expect(screen.getByLabelText('Device name: My phone')).toBeTruthy();
   fireEvent.click(screen.getAllByRole('button', { name: 'Clear' })[1]!);
   await waitFor(() => expect(updateConfigurationLabel).toHaveBeenLastCalledWith('configuration-1', null));
-  expect(screen.getByText('Configuration #7')).not.toBeNull();
-  expect(screen.getByText('Configuration #9 · Laptop')).not.toBeNull();
+  expect(screen.getByText('Device #7')).not.toBeNull();
+  expect(screen.getByText('Laptop')).not.toBeNull();
 });
 
 test('refetches account and configurations through TanStack Query when focus returns', async () => {
   renderApp('/account');
-  await screen.findByText('Configurations: 2 / 3');
+  await screen.findByText('Devices: 2 / 3');
   expect(loadAccount).toHaveBeenCalledTimes(1);
   expect(loadConfigurations).toHaveBeenCalledTimes(1);
 
@@ -1894,9 +1895,9 @@ test('refetches account and configurations through TanStack Query when focus ret
 
 
 test.each([
-  ['enabled trial', true], ['disabled policy', false], ['exhausted capacity', false], ['unlimited capacity', true],
-  ['inactive grant', false], ['other selected grant', false], ['inconsistent quantity', false], ['invalid trial interval', false], ['paid current period', false], ['paid trial tail', true], ['unknown history', false]
-] as const)('P33 trial invitation copy follows exact predicate: %s', async (kind, expected) => {
+  'enabled trial', 'disabled policy', 'exhausted capacity', 'unlimited capacity',
+  'inactive grant', 'other selected grant', 'inconsistent quantity', 'invalid trial interval', 'paid current period', 'paid trial tail', 'unknown history'
+] as const)('P33A billing keeps a concise truthful current-state topic: %s', async (kind) => {
   let current = commercialAccount(kind === 'paid current period' || kind === 'paid trial tail' ? 'active_paid' : 'trial');
   current = { ...current, referrals: { enabled: kind !== 'disabled policy', can_create: false, active_count: 0, limit: 3, remaining_count: 3 } };
   if (kind === 'exhausted capacity') current.referrals = { ...current.referrals, active_count: 3, remaining_count: 0 };
@@ -1917,8 +1918,8 @@ test.each([
   fireEvent.click(screen.getByRole('button', { name: 'RU' }));
   const dialog = await screen.findByRole('dialog', { name: 'Доступ и оплата' });
   const phrase = resources.ru.helpTrialInvitationBenefits;
-  if (expected) expect(await within(dialog).findByText(phrase)).toBeTruthy();
-  else expect(within(dialog).queryByText(phrase)).toBeNull();
+  expect(within(dialog).queryByText(phrase)).toBeNull();
+  expect(within(dialog).getAllByText(/пробный доступ|Доступ оплачен|Актуальное состояние доступа/)).toHaveLength(1);
   expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
@@ -1929,7 +1930,7 @@ test('P33 resolved Help survives background account, configuration, referral and
   fireEvent.click(await screen.findByRole('button', { name: 'Help' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Access and payment' }));
   const card = await screen.findByRole('dialog', { name: 'Access and payment' });
-  expect(await within(card).findByText(resources.en.helpTrialQuantityBenefits)).toBeTruthy();
+  expect(await within(card).findByText(resources.en.helpMoreDevices)).toBeTruthy();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   vi.mocked(loadAccount).mockImplementationOnce(async () => { await gate; return current; });
@@ -1942,7 +1943,7 @@ test('P33 resolved Help survives background account, configuration, referral and
     await waitFor(() => { for (const key of keys) expect(queryClient.getQueryState(key)?.fetchStatus).toBe('fetching'); });
     await act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
     expect(screen.getByRole('dialog', { name: 'Access and payment' })).toBe(card);
-    expect(within(card).getByText(resources.en.helpTrialQuantityBenefits)).toBeTruthy();
+    expect(within(card).getByText(resources.en.helpMoreDevices)).toBeTruthy();
     expect(screen.queryByText(resources.en.helpPaused)).toBeNull();
     expect(within(card).getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(false);
   } finally { await act(async () => { release(); await gate; }); }
@@ -1966,6 +1967,125 @@ test('P33 unresolved referral data and a pending referral mutation still suspend
   expect(screen.queryByRole('dialog', { name: 'Routing' })).toBeNull();
   await act(async () => { releaseMutation({ invite: referral('synthetic-help-invite'), invite_token: 'synthetic-help-token' }); });
   await screen.findByRole('dialog', { name: 'Routing' });
+});
+
+test('P33A reviewed Commercial state has exactly six approved Russian Help topics', async () => {
+  const end = new Date(Date.now() + 86400000).toISOString();
+  const current = commercialAccount('active_paid', { slot_quantity: 1, monthly_amount_kopeks: 29900,
+    pending_slot_quantity: 1, pending_period_start: end, pending_period_end: new Date(Date.now() + 31 * 86400000).toISOString(), pending_monthly_amount_kopeks: 29900 });
+  current.referrals = { ...account.referrals, enabled: true, can_create: true };
+  vi.mocked(loadAccount).mockResolvedValue(current);
+  vi.mocked(loadConfigurations).mockResolvedValue([configurations[0]!]);
+  vi.mocked(loadBillingPayments).mockResolvedValue([billingPayment('synthetic-next-paid', 'succeeded', { target_period_start: end, target_period_end: current.billing!.pending_period_end })]);
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'RU' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Показать кабинет' }, { timeout: 3000 }));
+  const titles = ['Как к вам обращаться?', 'Доступ и оплата', 'Ваше устройство', 'Маршрутизация', 'Приглашения', 'Как вернуться в личный кабинет'];
+  for (const [index, title] of titles.entries()) {
+    const dialog = await screen.findByRole('dialog', { name: title });
+    expect(within(dialog).getByText(`Шаг ${index + 1} из 6`)).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'К темам' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Пропустить' })).toBeNull();
+    const body = dialog.querySelector('#account-help-card-body')!.textContent;
+    if (index === 0) expect(body).toBe(resources.ru.helpBody_userName);
+    if (index === 1) {
+      expect(body).toBe(`Сейчас у вас пробный доступ до ${new Date(current.billing!.quantity_period_end).toLocaleDateString('ru-RU')} для 1 устройства.Следующий оплаченный период — 1 устройство.Если хотите использовать больше устройств, их можно добавить ниже.`);
+      const target = document.querySelector('[data-help-anchor="billing"]')! as HTMLElement;
+      expect(within(target).getByText('Текущий пробный период')).toBeTruthy();
+      expect(within(target).getByText('Следующий оплаченный период')).toBeTruthy();
+      expect(within(target).getByRole('group', { name: 'Выберите действие' })).toBeTruthy();
+      expect(within(target).getByRole('spinbutton', { name: /^Выберите количество устройств/ })).toBeTruthy();
+      expect(within(target).queryByText('История платежей')).toBeNull();
+    }
+    if (index === 2) expect(body).toBe(resources.ru.helpBody_configurationName);
+    if (index === 3) expect(body).toBe(resources.ru.helpBody_routing);
+    if (index === 4) expect(body).toBe(resources.ru.helpBody_invitations);
+    if (index === 5) {
+      expect(body).toBe(resources.ru.helpBody_returnToAccount);
+      expect(document.querySelector('[data-help-anchor="account"]')?.className).not.toContain('highlight');
+      expect(within(dialog).getByRole('button', { name: 'Скопировать адрес' })).toBeTruthy();
+    }
+    fireEvent.click(within(dialog).getByRole('button', { name: index === 5 ? 'Готово' : 'Далее' }));
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Помощь' }));
+  const overview = await screen.findByRole('dialog', { name: 'Помощь' });
+  expect(within(overview).getAllByRole('listitem').map((item) => item.textContent)).toEqual(titles);
+  expect(screen.getByText('История платежей').hasAttribute('data-help-anchor')).toBe(false);
+}, 15000);
+
+test('P33A three devices expose one application disclosure after the complete customer device list', async () => {
+  const third = { ...configurationThree, label: 'Family phone', variants: configurations[0]!.variants.map((variant) => ({ ...variant, profile_id: 'synthetic-third-' + variant.protocol })) };
+  vi.mocked(loadConfigurations).mockResolvedValue([{ ...configurations[0]!, variants: [...configurations[0]!.variants].reverse() }, configurations[1]!, third]);
+  renderApp('/account');
+  const list = await screen.findByRole('list', { name: 'Your devices' });
+  const devices = within(list).getAllByRole('listitem');
+  expect(devices).toHaveLength(3);
+  expect(within(devices[0]!).getByRole('heading', { name: 'Device #7' })).toBeTruthy();
+  expect(within(devices[0]!).getByRole('button', { name: 'Name device' })).toBeTruthy();
+  expect(within(devices[1]!).getByRole('heading', { name: 'Laptop' })).toBeTruthy();
+  expect(within(devices[1]!).getByRole('button', { name: 'Edit name' })).toBeTruthy();
+  for (const device of devices) {
+    const core = device.querySelector('[data-help-anchor="configuration-name"]')! as HTMLElement;
+    const routing = device.querySelector('[data-help-anchor="configuration-routing"]')!;
+    expect(core).toBeTruthy();
+    expect(routing).toBeTruthy();
+    expect(core.contains(routing)).toBe(false);
+    expect(within(core).getByRole('heading', { name: 'WireGuard' })).toBeTruthy();
+    expect(within(core).getByRole('heading', { name: 'AmneziaWG' })).toBeTruthy();
+    const headings = within(device).getAllByRole('heading').map((item) => item.textContent);
+    expect(headings.slice(1)).toEqual(['WireGuard', 'AmneziaWG', 'Routing']);
+    expect(device.textContent).not.toMatch(/Tunnel IP|Profile ID|Status: Active/);
+    if (device !== devices[1]) expect(device.textContent).toContain('Download configuration file');
+    else expect(device.textContent).toContain('Status: provisioning');
+  }
+  const disclosure = screen.getByText('Download an application to connect');
+  expect(screen.getAllByText('Download an application to connect')).toHaveLength(1);
+  expect(list.compareDocumentPosition(disclosure) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test.each([1, 2, 3])('P33A next-period device choice %i preserves the authoritative price and renewal payload', async (quantity) => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', { slot_quantity: 1, monthly_amount_kopeks: 29900 }));
+  vi.mocked(loadConfigurations).mockResolvedValue([configurations[0]!]);
+  vi.mocked(createBillingPayment).mockResolvedValue(billingPayment('synthetic-device-choice', 'pending', { confirmation_url: null }));
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'RU' }));
+  const choices = await screen.findByRole('group', { name: 'Выберите количество устройств на следующий период:' });
+  const labels = within(choices).getAllByRole('radio').map((input) => input.parentElement!.textContent);
+  expect(labels[0]).toMatch(/1 устройство.*299/);
+  expect(labels[1]).toMatch(/2 устройства.*399/);
+  expect(labels[2]).toMatch(/3 устройства.*499/);
+  fireEvent.click(within(choices).getByRole('radio', { name: new RegExp(`^${quantity} устройств`) }));
+  fireEvent.click(screen.getByRole('button', { name: /^Оплатить следующий период/ }));
+  await waitFor(() => expect(createBillingPayment).toHaveBeenCalledWith(expect.any(String), {
+    action: 'renew', target_quantity: quantity, apply_now: false, future_choice: null,
+    retire_configuration_ids: [], retire_new_configuration_ordinals: []
+  }));
+});
+
+test('P33A paid next-period top-up shows device delta, resulting total and unchanged amounts in Russian', async () => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('active_paid', { slot_quantity: 3, monthly_amount_kopeks: 49900,
+    pending_slot_quantity: 1, pending_period_start: new Date(Date.now() + 86400000).toISOString(), pending_period_end: new Date(Date.now() + 31 * 86400000).toISOString(),
+    pending_monthly_amount_kopeks: 29900, retirement_configuration_ids: ['configuration-2', 'configuration-3'], can_renew: false }));
+  vi.mocked(loadConfigurations).mockResolvedValue([...configurations, configurationThree]);
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'RU' }));
+  expect(await screen.findByText('Хотите использовать больше устройств в следующем периоде?')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Добавить 1 устройство — всего 2 · доплатить 100/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Добавить 2 устройства — всего 3 · доплатить 200/ })).toBeTruthy();
+  expect(screen.queryByText(/сохранить.*конфигурац/i)).toBeNull();
+});
+
+test.each(['unavailable action', 'pending payment'] as const)('P33A Billing Help does not promise unavailable device controls: %s', async (kind) => {
+  vi.mocked(loadAccount).mockResolvedValue(commercialAccount('trial', { can_renew: kind !== 'unavailable action' }));
+  if (kind === 'pending payment') vi.mocked(loadBillingPayments).mockResolvedValue([billingPayment('synthetic-unfinished', 'pending', {
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  })]);
+  renderApp('/account');
+  fireEvent.click(await screen.findByRole('button', { name: 'Help' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Access and payment' }));
+  const card = await screen.findByRole('dialog', { name: 'Access and payment' });
+  expect(card.textContent).not.toContain(resources.en.helpMoreDevices);
+  expect(createBillingPayment).not.toHaveBeenCalled();
 });
 
 test('P33 Review has no Help UI or Help persistence activity', async () => {

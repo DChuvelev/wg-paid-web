@@ -8,6 +8,7 @@ import { selectConfigurationEntitlement } from './entitlement';
 import { routingExitsKey } from './queryKeys';
 import styles from './Account.module.css';
 import { useHelpAnchor, useHelpBlocker } from '../help/helpContext';
+import { ApplicationDownloads } from '../help/ApplicationDownloads';
 
 interface ConfigurationsSectionProps {
   account: AccountMeResponse;
@@ -71,6 +72,7 @@ export function ConfigurationsSection({ account, configurations, onChanged, onEr
       </div>
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
       <ConfigurationList configurations={configurations} routingExits={routingExits} onUnauthorized={onError} />
+      <ApplicationDownloads />
     </section>
   );
 }

@@ -55,15 +55,14 @@ function ConfigurationNameEditor({ configuration, onUnauthorized }: { configurat
   useEffect(() => setDraft(configuration.label ?? ''), [configuration.label]);
 
   const save = () => mutation.mutate(draft.trim() || null);
-  const helpAnchor = useHelpAnchor('configurationName', { instance: configuration.configuration_id, readyVariant: configuration.variants.some((variant) => variant.status === 'active' && variant.ready) });
   useHelpBlocker(editing || mutation.isPending);
   const clear = () => mutation.mutate(null);
 
   if (!editing) {
     return (
-      <div {...helpAnchor} className={styles.profileNameAction}>
+      <div className={styles.profileNameAction}>
         <button className={styles.textButton} type="button" onClick={() => { setFeedbackKey(null); setEditing(true); }}>
-          {configuration.label ? t('editName') : t('addName')}
+          {configuration.label ? t('editName') : t('deviceAddName')}
         </button>
         {feedbackKey ? <span className={styles.success} role="status">{t(feedbackKey)}</span> : null}
       </div>
@@ -71,11 +70,11 @@ function ConfigurationNameEditor({ configuration, onUnauthorized }: { configurat
   }
 
   return (
-    <div {...helpAnchor} className={styles.profileNameEditor}>
+    <div className={styles.profileNameEditor}>
       <label>
           <span>{t('configurationName')}</span>
         <input
-          aria-label={`${t('configurationName')}: ${configuration.configuration_id}`}
+          aria-label={`${t('configurationName')}: ${configuration.label?.trim() || t('configurationNumber', { number: configuration.ordinal })}`}
           autoFocus
           maxLength={160}
           placeholder={t('configurationNameExample')}
@@ -170,24 +169,18 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
 
   return (
     <>
-      <ul className={styles.profiles}>
+      <ul className={styles.profiles} aria-label={t('configurations')}>
       {configurations.map((configuration) => {
         const configurationName = t('configurationNumber', { number: configuration.ordinal });
         return (
           <li className={styles.profile} key={configuration.configuration_id}>
+          <ConfigurationHelpArea instance={configuration.configuration_id} readyVariant={configuration.variants.some((variant) => variant.status === 'active' && variant.ready)}>
             <h3 className={styles.profileTitle}>
-              {configurationName}{configuration.label ? ` · ${configuration.label}` : null}
+              {configuration.label?.trim() || configurationName}
             </h3>
             <ConfigurationNameEditor configuration={configuration} onUnauthorized={onUnauthorized} />
-            <ConfigurationRoutingControl
-              configuration={configuration}
-              exits={routingExits}
-              onUnauthorized={onUnauthorized}
-            />
-            <ConfigurationHelpArea topic="protocols" instance={configuration.configuration_id} className={styles.variantList} bodyKeys={[
-              'helpBody_protocols', ...(configuration.variants.some((variant) => variant.status !== 'active' || !variant.ready) ? ['helpProtocolsReadiness' as const] : [])
-            ]}>
-              {configuration.variants.map((variant: ConfigurationVariantSummary) => {
+            <div className={styles.variantList}>
+              {[...configuration.variants].sort((first, second) => first.protocol === second.protocol ? 0 : first.protocol === 'wireguard' ? -1 : 1).map((variant: ConfigurationVariantSummary) => {
                 const protocolName = variant.protocol === 'wireguard' ? 'WireGuard' : 'AmneziaWG';
                 const qrHref = `/v2/account/profiles/${encodeURIComponent(variant.profile_id)}/qr.svg`;
                 const qrLabel = `${protocolName} · ${configurationName}`;
@@ -195,14 +188,12 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                 return (
                   <section className={styles.variant} key={variant.profile_id} aria-label={`${protocolName} · ${configurationName}`}>
                     <h4>{protocolName}</h4>
-                    <p className={styles.details}>
-                      <span>{t('status', { status: localizedStatus(variant.status, t) })}</span>
-                      {variant.tunnel_ip ? <span>{t('tunnelIp', { ip: variant.tunnel_ip })}</span> : null}
-                      <span className={styles.profileId}>{t('profileId', { id: variant.profile_id })}</span>
-                    </p>
+                    {!canDeliver ? <p className={styles.details}>
+                      <span>{t('status', { status: variant.status === 'active' && !variant.ready ? t('statusProvisioning') : localizedStatus(variant.status, t) })}</span>
+                    </p> : null}
                     {canDeliver ? (
                       <>
-                        <ConfigurationHelpArea topic="delivery" instance={configuration.configuration_id} className={styles.actions}>
+                        <div className={styles.actions}>
                           <button
                             aria-label={t('downloadProtocolConfig', { protocol: protocolName })}
                             className={styles.linkButton}
@@ -224,7 +215,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                           >
                             {t('showQr')}
                           </button>
-                        </ConfigurationHelpArea>
+                        </div>
                         {downloadErrorProfileId === variant.profile_id ? (
                           <p className={styles.error} role="alert">{t('configDownloadFailed')}</p>
                         ) : null}
@@ -233,7 +224,9 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
                   </section>
                 );
               })}
-            </ConfigurationHelpArea>
+            </div>
+          </ConfigurationHelpArea>
+            <ConfigurationRoutingControl configuration={configuration} exits={routingExits} onUnauthorized={onUnauthorized} />
           </li>
         );
       })}
@@ -266,7 +259,7 @@ export function ConfigurationList({ configurations, routingExits, onUnauthorized
   );
 }
 
-function ConfigurationHelpArea({ topic, instance, className, children, bodyKeys }: { topic: 'protocols' | 'delivery'; instance: string; className?: string; children: ReactNode; bodyKeys?: TranslationKey[] }) {
-  const anchor = useHelpAnchor(topic, { instance, bodyKeys });
-  return <div {...anchor} className={className}>{children}</div>;
+function ConfigurationHelpArea({ instance, readyVariant, children }: { instance: string; readyVariant: boolean; children: ReactNode }) {
+  const anchor = useHelpAnchor('configurationName', { instance, readyVariant });
+  return <div {...anchor}>{children}</div>;
 }
