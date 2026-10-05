@@ -8,7 +8,7 @@ export const merchant = {
   address: '125009, Россия, г. Москва, Газетный пер., д. 13/15, кв. 84',
   phone: '+7 (993) 905-06-75',
   tel: '+79939050675',
-  email: 'silver-arrow@yandex.ru',
+  email: 'info@secret-studio.ru',
   vk: studioVkUrl
 } as const;
 
@@ -73,7 +73,7 @@ export const publicOffer = {
 
 Пользователь вправе отказаться от исполнения договора в порядке, предусмотренном законодательством Российской Федерации.
 
-Для обращения по вопросу возврата необходимо направить сообщение на адрес silver-arrow@yandex.ru, указав адрес электронной почты аккаунта и сведения, позволяющие идентифицировать платёж.
+Для обращения по вопросу возврата необходимо направить сообщение на адрес info@secret-studio.ru, указав адрес электронной почты аккаунта и сведения, позволяющие идентифицировать платёж.
 
 Если оплаченный доступ не был предоставлен по вине Исполнителя и проблема не была устранена, пользователь вправе потребовать возврат уплаченной суммы.
 
@@ -181,7 +181,7 @@ The Service Provider does not receive or store the user’s bank card details.
 
 The user may withdraw from the agreement in accordance with the procedure provided for by the legislation of the Russian Federation.
 
-To request a refund, send a message to silver-arrow@yandex.ru stating the account email address and information that identifies the payment.
+To request a refund, send a message to info@secret-studio.ru stating the account email address and information that identifies the payment.
 
 If paid access was not provided through the Service Provider’s fault and the problem was not resolved, the user may request a refund of the amount paid.
 

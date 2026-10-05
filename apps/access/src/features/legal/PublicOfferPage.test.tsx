@@ -40,7 +40,7 @@ test('fresh /#offer opens the complete Russian offer without authentication or l
     expect(within(offer).getByText(paragraph)).toBeTruthy();
   }
   expect(within(offer).getByRole('link', { name: '+7 (993) 905-06-75' }).getAttribute('href')).toBe('tel:+79939050675');
-  expect(within(offer).getByRole('link', { name: 'silver-arrow@yandex.ru' }).getAttribute('href')).toBe('mailto:silver-arrow@yandex.ru');
+  expect(within(offer).getByRole('link', { name: 'info@secret-studio.ru' }).getAttribute('href')).toBe('mailto:info@secret-studio.ru');
   expect(within(offer).getByRole('link', { name: 'https://vk.ru/clubsecretstudio' }).getAttribute('href')).toBe('https://vk.ru/clubsecretstudio');
 });
 
