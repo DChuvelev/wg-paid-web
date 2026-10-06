@@ -9,7 +9,9 @@
 .headerActions nav a { display: inline-flex; align-items: center; min-height: 2.6rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: #40516c; background: transparent; font-weight: 650; text-decoration: none; }
 .headerActions nav a:hover { background: #e8eef8; }
 .headerActions nav a[aria-current="page"] { color: #173e79; background: #dce8fa; }
-.dashboard { display: grid; gap: 1.25rem; }
+/* Keep wide panel content inside the centered shell instead of growing the grid track. */
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.dashboard > * { min-width: 0; }
 .sectionCard, .userCard, .grantCard, .loginCard { border: 1px solid #d7dfeb; background: #fff; box-shadow: 0 0.65rem 2rem rgb(29 47 78 / 7%); }
 .sectionCard { scroll-margin-top: 1rem; padding: clamp(1rem, 2.5vw, 1.75rem); border-radius: 1rem; }
 .sectionHeading, .userHeader, .grantHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
