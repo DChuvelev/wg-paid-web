@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HashRouter } from 'react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -5,7 +6,7 @@ import type { AdminBulkInviteSummary, AdminInviteSummary, AdminProtocolLimitUpda
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
-  AdminApiError, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers,
+  AdminApiError, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers, loadInvitationSources,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
   revokeBulkInviteCampaign, updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
 } from './lib/adminApi';
@@ -15,7 +16,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   return {
     ...actual,
     checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
-    loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
+    loadInvitationSources: vi.fn(), loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
     reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
     updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn(), updateReferralPolicy: vi.fn()
   };
@@ -177,6 +178,7 @@ async function openDeleteDialog() {
 }
 
 beforeEach(() => {
+  vi.mocked(loadInvitationSources).mockResolvedValue([]);
   window.history.replaceState(null, '', '/#/users');
   vi.mocked(checkAdminSession).mockResolvedValue(true);
   vi.mocked(loginAdmin).mockResolvedValue();
@@ -1436,4 +1438,84 @@ describe('user deletion lifecycle', () => {
     expect(screen.getByRole('button', { name: 'Set limit' })).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Delete user' })).not.toBeNull();
   });
+
+});
+
+describe('Users attribution filtering', () => {
+  test('combines server attribution modes with Users search/sort and keeps lookup drafts out of Users requests', async () => {
+    const userSource = { origin: 'user' as const, source_id: '00000000-0000-4000-8000-000000000001', label: 'Inviter', secondary_label: 'inviter@example.test', created_at: '2026-01-01T00:00:00Z' };
+    const campaignSource = { ...userSource, origin: 'campaign' as const, source_id: '00000000-0000-4000-8000-000000000002', label: 'Campaign X', secondary_label: null };
+    vi.mocked(loadInvitationSources).mockImplementation(async (options) => options.origin === 'user' ? [userSource] : [campaignSource]);
+    await renderDashboard();
+    const panel = within(document.getElementById('users')!);
+    fireEvent.change(panel.getByLabelText('Email or display name contains'), { target: { value: 'Mitya' } });
+    fireEvent.click(panel.getByRole('button', { name: 'Sort by Invited by' }));
+    const base = { query: 'Mitya', limit: 100, offset: 0, sortBy: 'invited_by_label', sortDir: 'asc' };
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith(base, expect.any(AbortSignal)));
+    const origin = panel.getByLabelText('Invited by');
+    for (const mode of ['admin', 'user', 'campaign'] as const) {
+      fireEvent.change(origin, { target: { value: mode } });
+      await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({ ...base, invited_by_origin: mode }, expect.any(AbortSignal)));
+      // The returned dataset is authoritative even when its rows do not locally match attribution.
+      expect(await panel.findByText(makeUser().email)).toBeInTheDocument();
+      if (mode === 'admin') continue;
+      const input = panel.getByRole('combobox', { name: mode === 'user' ? 'Search inviter' : 'Search campaign' });
+      fireEvent.focus(input);
+      const option = await panel.findByRole('option', { name: mode === 'user' ? /inviter@example.test/ : 'Campaign X' });
+      fireEvent.click(option);
+      const params = mode === 'user' ? { invited_by_user_id: userSource.source_id } : { invited_by_campaign_id: campaignSource.source_id };
+      await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({ ...base, invited_by_origin: mode, ...params }, expect.any(AbortSignal)));
+      const count = vi.mocked(loadUsers).mock.calls.length;
+      fireEvent.change(input, { target: { value: 'new lookup draft' } });
+      await waitFor(() => expect(loadInvitationSources).toHaveBeenLastCalledWith({ origin: mode, query: 'new lookup draft', limit: 20 }, expect.any(AbortSignal)));
+      expect(loadUsers).toHaveBeenCalledTimes(count);
+    }
+    fireEvent.click(panel.getByRole('button', { name: 'Clear attribution filter' }));
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith(base, expect.any(AbortSignal)));
+    expect(panel.getByLabelText('Email or display name contains')).toHaveValue('Mitya');
+  });
+
+  test('resets attribution batching and scroll, discards cached extra pages, preserves load-more params and cancels old requests', async () => {
+    const batch = Array.from({ length: 100 }, (_, index) => ({ ...makeUser(), user_id: `batch-${index}`, email: `batch-${index}@example.test` }));
+    const extra = { ...makeUser(), user_id: 'extra', email: 'extra@example.test' };
+    let resolveOld!: (rows: Array<AdminUserSummary>) => void;
+    vi.mocked(loadUsers).mockImplementation(async (options) => options.invited_by_origin === 'campaign'
+      ? new Promise((resolve) => { resolveOld = resolve; }) : options.offset === 0 ? batch : [extra]);
+    renderAdmin();
+    await screen.findByText(batch[0]!.email);
+    const panel = within(document.getElementById('users')!);
+    const list = panel.getByLabelText('Users list');
+    Object.defineProperties(list, {
+      clientHeight: { configurable: true, value: 500 }, scrollHeight: { configurable: true, value: 2000 },
+      scrollTop: { configurable: true, writable: true, value: 1550 }
+    });
+    fireEvent.scroll(list);
+    await panel.findByText(extra.email);
+    expect(panel.getByText('Loaded 101')).toBeInTheDocument();
+    const origin = panel.getByLabelText('Invited by');
+    fireEvent.change(origin, { target: { value: 'user' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith({ query: '', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc', invited_by_origin: 'user' }, expect.any(AbortSignal)));
+    expect(list.scrollTop).toBe(0);
+    await panel.findByText('Loaded 100');
+    expect(panel.queryByText(extra.email)).toBeNull();
+    list.scrollTop = 1550;
+    fireEvent.scroll(list);
+    await panel.findByText(extra.email);
+    expect(loadUsers).toHaveBeenLastCalledWith({ query: '', limit: 100, offset: 100, sortBy: 'created_at', sortDir: 'desc', invited_by_origin: 'user' }, expect.any(AbortSignal));
+    fireEvent.change(origin, { target: { value: 'campaign' } });
+    await waitFor(() => expect(loadUsers).toHaveBeenLastCalledWith(expect.objectContaining({ invited_by_origin: 'campaign', offset: 0 }), expect.any(AbortSignal)));
+    const oldSignal = vi.mocked(loadUsers).mock.lastCall?.[1];
+    fireEvent.change(origin, { target: { value: 'all' } });
+    expect(panel.queryByText(extra.email)).toBeNull();
+    await panel.findByText('Loaded 100');
+    expect(oldSignal?.aborted).toBe(true);
+    expect(loadUsers).toHaveBeenLastCalledWith({ query: '', limit: 100, offset: 0, sortBy: 'created_at', sortDir: 'desc' }, expect.any(AbortSignal));
+    await act(async () => resolveOld([extra]));
+    expect(panel.queryByText(extra.email)).toBeNull();
+    fireEvent.change(origin, { target: { value: 'user' } });
+    expect(panel.queryByText(extra.email)).toBeNull();
+    await panel.findByText('Loaded 100');
+    expect(loadUsers).toHaveBeenLastCalledWith(expect.objectContaining({ invited_by_origin: 'user', offset: 0 }), expect.any(AbortSignal));
+  }, 20000);
+
 });

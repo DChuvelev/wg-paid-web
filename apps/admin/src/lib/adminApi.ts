@@ -6,6 +6,7 @@ import {
   adminListInvitesV2AdminInvitesGet,
   adminListPlansV2AdminPlansGet,
   adminListUsersV2AdminUsersGet,
+  adminInvitationSourcesV2AdminInvitationSourcesGet,
   adminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePost,
   adminReviewAccessV2AdminReviewAccessPost,
   adminReviewAccessResetV2AdminReviewAccessResetPost,
@@ -38,6 +39,8 @@ import {
   type AdminUserDeleteResponse,
   type AdminUserMetadataUpdateResponse,
   type AdminUserReferralPolicyResponse,
+  type AdminInvitationSourceOption,
+  type AdminInvitationSourcesV2AdminInvitationSourcesGetData,
   type AdminUserSummary
 } from '@wg-paid/api';
 
@@ -160,6 +163,15 @@ export async function loadRuntimeConnections(signal?: AbortSignal): Promise<Admi
   );
 }
 
+export async function loadInvitationSources(
+  query: AdminInvitationSourcesV2AdminInvitationSourcesGetData['query'],
+  signal?: AbortSignal
+): Promise<Array<AdminInvitationSourceOption>> {
+  return requireData(await adminInvitationSourcesV2AdminInvitationSourcesGet({
+    ...requestOptions(signal), query
+  }), 'Unable to load invitation sources.');
+}
+
 export function adminProfileConfigUrl(profileId: string) {
   return `/v2/admin/profiles/${encodeURIComponent(profileId)}/config`;
 }
@@ -223,7 +235,8 @@ type AdminUserListQuery = NonNullable<AdminListUsersV2AdminUsersGetData['query']
 export type AdminUserSortBy = NonNullable<AdminUserListQuery['sort_by']>;
 export type AdminUserSortDir = NonNullable<AdminUserListQuery['sort_dir']>;
 
-export interface LoadUsersOptions {
+export interface LoadUsersOptions extends Pick<AdminUserListQuery,
+  'invited_by_origin' | 'invited_by_user_id' | 'invited_by_campaign_id'> {
   query?: string;
   limit: number;
   offset: number;
@@ -232,13 +245,14 @@ export interface LoadUsersOptions {
 }
 
 export async function loadUsers(
-  { query = '', limit, offset, sortBy, sortDir }: LoadUsersOptions,
+  { query = '', limit, offset, sortBy, sortDir, ...attribution }: LoadUsersOptions,
   signal?: AbortSignal
 ): Promise<Array<AdminUserSummary>> {
   return requireData(await adminListUsersV2AdminUsersGet({
     ...requestOptions(signal),
     query: {
       ...(query ? { query } : {}),
+      ...attribution,
       limit,
       offset,
       sort_by: sortBy,

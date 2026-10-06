@@ -1,25 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { AdminUserMetadataUpdateResponse, AdminUserSummary, ConfigurationSummary, ConfigurationVariantSummary, GrantProtocolLimitSummary, GrantSummary, ProfileSummary } from '@wg-paid/api';
+import { invitedBy } from '../invitationSources/invitationSourceDomain';
 import { CopyableId } from '../../components/CopyableId';
 import { StatusBadge } from '../../components/StatusBadge';
 import { configurationsForGrant, consumesQuota, formatDate, wireGuardLimit } from './userDomain';
 import { adminProfileConfigUrl, AdminApiError, updateAdminNote, updateReferralPolicy } from '../../lib/adminApi';
 import styles from '../../app/Admin.module.css';
-
-function invitedBy(user: AdminUserSummary) {
-  const label = user.invited_by_label?.trim();
-  switch (user.invited_by_origin) {
-    case 'admin':
-      return label && label.toLocaleLowerCase() !== 'admin' ? `Admin · ${label}` : 'Admin';
-    case 'user':
-      return `User · ${label || 'Unknown'}`;
-    case 'campaign':
-      return `Campaign · ${label || 'Unknown'}`;
-    default:
-      return '—';
-  }
-}
 
 interface GrantCardProps {
   deleting: boolean;

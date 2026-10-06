@@ -4446,6 +4446,130 @@
         }
       }
     },
+    "/v2/admin/invitation-sources": {
+      "get": {
+        "tags": [
+          "domain-v2-auth"
+        ],
+        "summary": "Admin Invitation Sources",
+        "operationId": "admin_invitation_sources_v2_admin_invitation_sources_get",
+        "parameters": [
+          {
+            "name": "origin",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "user",
+                "campaign"
+              ],
+              "type": "string",
+              "title": "Origin"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          },
+          {
+            "name": "wg_admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Session"
+            }
+          },
+          {
+            "name": "wg_admin_csrf",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Wg Admin Csrf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminInvitationSourceOption"
+                  },
+                  "title": "Response Admin Invitation Sources V2 Admin Invitation Sources Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/admin/runtime/connections": {
       "get": {
         "tags": [
@@ -4565,6 +4689,61 @@
                 }
               ],
               "title": "Query"
+            }
+          },
+          {
+            "name": "invited_by_origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "admin",
+                    "user",
+                    "campaign"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invited By Origin"
+            }
+          },
+          {
+            "name": "invited_by_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invited By User Id"
+            }
+          },
+          {
+            "name": "invited_by_campaign_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Invited By Campaign Id"
             }
           },
           {
@@ -5470,6 +5649,52 @@
         ],
         "title": "AdminConfigurationCreateResponse"
       },
+      "AdminInvitationSourceOption": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "enum": [
+              "user",
+              "campaign"
+            ],
+            "title": "Origin"
+          },
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "secondary_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondary Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "origin",
+          "source_id",
+          "label",
+          "secondary_label",
+          "created_at"
+        ],
+        "title": "AdminInvitationSourceOption"
+      },
       "AdminInviteLimitUpdateRequest": {
         "properties": {
           "profile_limit": {
@@ -6247,6 +6472,57 @@
             ],
             "title": "Display Name"
           },
+          "invited_by_origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "user",
+                  "campaign"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By Origin"
+          },
+          "invited_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By User Id"
+          },
+          "invited_by_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By Label"
+          },
+          "invited_by_campaign_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By Campaign Id"
+          },
           "configuration_id": {
             "type": "string",
             "format": "uuid",
@@ -6365,6 +6641,10 @@
           "user_id",
           "email",
           "display_name",
+          "invited_by_origin",
+          "invited_by_user_id",
+          "invited_by_label",
+          "invited_by_campaign_id",
           "configuration_id",
           "configuration_ordinal",
           "configuration_label",

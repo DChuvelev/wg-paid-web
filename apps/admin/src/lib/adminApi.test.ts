@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const sdk = vi.hoisted(() => ({
-  createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
+  invitationSources: vi.fn(), createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
   reviewAccess: vi.fn(), resetReview: vi.fn(), revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
+  adminInvitationSourcesV2AdminInvitationSourcesGet: sdk.invitationSources,
   adminCreateBulkInviteV2AdminBulkInvitesPost: sdk.createBulkInvite,
   adminCreateInviteV2AdminInvitesPost: sdk.createInvite,
   adminDeleteUserV2AdminUsersUserIdDelete: sdk.deleteUser,
@@ -42,6 +43,7 @@ import {
   loadRuntimeConnections,
   loadInvites,
   loadUsers,
+  loadInvitationSources,
   reissueInviteShareLink,
   resendAdminInvite,
   revokeBulkInviteCampaign,
@@ -204,5 +206,36 @@ describe('admin CSRF cookie handling', () => {
       message: 'Runtime unavailable.', status: 503
     }));
     expect(adminProfileConfigUrl('profile/with space')).toBe('/v2/admin/profiles/profile%2Fwith%20space/config');
+  });
+});
+
+
+describe('P34 attribution API adapters', () => {
+  test.each([
+    {},
+    { invited_by_origin: 'admin' as const },
+    { invited_by_origin: 'user' as const },
+    { invited_by_origin: 'campaign' as const },
+    { invited_by_origin: 'user' as const, invited_by_user_id: '00000000-0000-4000-8000-000000000001' },
+    { invited_by_origin: 'campaign' as const, invited_by_campaign_id: '00000000-0000-4000-8000-000000000002' }
+  ])('preserves exact attribution parameters together with search/sort/pagination: %j', async (attribution) => {
+    sdk.listUsers.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
+    await loadUsers({ ...attribution, query: 'Person', limit: 100, offset: 100, sortBy: 'invited_by_label', sortDir: 'desc' });
+    expect(sdk.listUsers).toHaveBeenLastCalledWith({ credentials: 'same-origin', query: {
+      ...attribution, query: 'Person', limit: 100, offset: 100, sort_by: 'invited_by_label', sort_dir: 'desc'
+    } });
+  });
+
+  test.each(['user', 'campaign'] as const)('uses generated lookup for %s with bounded query and AbortSignal', async (origin) => {
+    sdk.invitationSources.mockResolvedValue({ data: [], response: new Response(null, { status: 200 }) });
+    const controller = new AbortController();
+    await expect(loadInvitationSources({ origin, query: 'Петр Ков', limit: 20 }, controller.signal)).resolves.toEqual([]);
+    expect(sdk.invitationSources).toHaveBeenLastCalledWith({ credentials: 'same-origin', signal: controller.signal,
+      query: { origin, query: 'Петр Ков', limit: 20 } });
+  });
+
+  test('preserves lookup error status for the existing session-expired flow', async () => {
+    sdk.invitationSources.mockResolvedValue({ error: { detail: 'Session expired' }, response: new Response(null, { status: 401 }) });
+    await expect(loadInvitationSources({ origin: 'user', limit: 20 })).rejects.toMatchObject({ status: 401, message: 'Session expired' });
   });
 });

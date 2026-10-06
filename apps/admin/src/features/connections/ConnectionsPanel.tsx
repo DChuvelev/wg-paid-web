@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { InvitedByFilter } from '../invitationSources/InvitedByFilter';
+import type { InvitationSourceFilter } from '../invitationSources/invitationSourceDomain';
 import { isUnauthorized, loadRuntimeConnections } from '../../lib/adminApi';
 import {
   type ConnectionSort,
@@ -8,6 +10,7 @@ import {
   type RuntimeStatus,
   formatTimestamp,
   groupRuntimeConnections,
+  filterRuntimeConnections,
   runtimeConnectionsKey,
   selectors
 } from './connectionsDomain';
@@ -48,6 +51,7 @@ const protocolOptions: Array<{ label: string; value: RuntimeProtocol }> = [
 
 export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelProps) {
   const queryClient = useQueryClient();
+  const [attribution, setAttribution] = useState<InvitationSourceFilter>({ origin: 'all' });
   const [view, setView] = useState<'table' | 'selectors'>('table');
   const [search, setSearch] = useState('');
   const [statuses, setStatuses] = useState<Set<RuntimeStatus>>(() => new Set());
@@ -75,11 +79,11 @@ export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelP
   const snapshot = query.data;
   const hasSnapshot = snapshot !== undefined && snapshot.generated_at !== null;
   const hasRows = hasSnapshot && snapshot.rows.length > 0;
-  const groups = useMemo(() => groupRuntimeConnections(
-    snapshot?.rows ?? [],
-    { protocols, search, selectors: selectedSelectors, statuses },
-    sort
-  ), [protocols, search, selectedSelectors, snapshot?.rows, sort, statuses]);
+  const filters = useMemo(() => ({ attribution, protocols, search, selectors: selectedSelectors, statuses }),
+    [attribution, protocols, search, selectedSelectors, statuses]);
+  const filteredRows = useMemo(() => filterRuntimeConnections(snapshot?.rows ?? [], filters), [snapshot?.rows, filters]);
+  const groups = useMemo(() => groupRuntimeConnections(snapshot?.rows ?? [], filters, sort, filteredRows),
+    [snapshot?.rows, filters, sort, filteredRows]);
 
   const changeSort = (key: ConnectionSortKey) => {
     setSort((current) => current.key === key
@@ -124,55 +128,62 @@ export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelP
       {snapshot && !hasSnapshot ? <p className={styles.waitingState} role="status">Waiting for the first telemetry snapshot.</p> : null}
       {hasSnapshot && !hasRows ? <p className={styles.emptyState}>Snapshot received; it contains no runtime connection rows.</p> : null}
 
+      {hasSnapshot ? (
+        <div className={styles.filters} aria-label="Connection filters">
+          <label className={styles.searchFilter}>
+            <span>Search user or configuration</span>
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </label>
+          <fieldset>
+            <legend>Status</legend>
+            <div>{statusOptions.map((option) => (
+              <label key={option.value}><input
+                checked={statuses.has(option.value)}
+                type="checkbox"
+                onChange={(event) => setStatuses(toggled(statuses, option.value, event.target.checked))}
+              />{option.label}</label>
+            ))}</div>
+          </fieldset>
+          <fieldset>
+            <legend>Selector</legend>
+            <div>{selectors.map((selector) => (
+              <label key={selector}><input
+                checked={selectedSelectors.has(selector)}
+                type="checkbox"
+                onChange={(event) => setSelectedSelectors(toggled(selectedSelectors, selector, event.target.checked))}
+              />{selector}</label>
+            ))}</div>
+          </fieldset>
+          <fieldset>
+            <legend>Protocol</legend>
+            <div>{protocolOptions.map((option) => (
+              <label key={option.value}><input
+                checked={protocols.has(option.value)}
+                type="checkbox"
+                onChange={(event) => setProtocols(toggled(protocols, option.value, event.target.checked))}
+              />{option.label}</label>
+            ))}</div>
+          </fieldset>
+          <div className={styles.attributionFilter}><InvitedByFilter value={attribution} onChange={setAttribution} onSessionExpired={onSessionExpired} /></div>
+          <small>No selection means all values.</small>
+        </div>
+      ) : null}
+
       {hasRows ? (
         <>
           <p className={styles.counterNote}>RX/TX totals are current protocol runtime counters. They are not monthly traffic, billing usage, or quota.</p>
           {view === 'table' ? (
             <>
-              <div className={styles.filters} aria-label="Connection filters">
-                <label className={styles.searchFilter}>
-                  <span>Search user or configuration</span>
-                  <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
-                </label>
-                <fieldset>
-                  <legend>Status</legend>
-                  <div>{statusOptions.map((option) => (
-                    <label key={option.value}><input
-                      checked={statuses.has(option.value)}
-                      type="checkbox"
-                      onChange={(event) => setStatuses(toggled(statuses, option.value, event.target.checked))}
-                    />{option.label}</label>
-                  ))}</div>
-                </fieldset>
-                <fieldset>
-                  <legend>Selector</legend>
-                  <div>{selectors.map((selector) => (
-                    <label key={selector}><input
-                      checked={selectedSelectors.has(selector)}
-                      type="checkbox"
-                      onChange={(event) => setSelectedSelectors(toggled(selectedSelectors, selector, event.target.checked))}
-                    />{selector}</label>
-                  ))}</div>
-                </fieldset>
-                <fieldset>
-                  <legend>Protocol</legend>
-                  <div>{protocolOptions.map((option) => (
-                    <label key={option.value}><input
-                      checked={protocols.has(option.value)}
-                      type="checkbox"
-                      onChange={(event) => setProtocols(toggled(protocols, option.value, event.target.checked))}
-                    />{option.label}</label>
-                  ))}</div>
-                </fieldset>
-                <small>No selection means all values.</small>
-              </div>
               {groups.length ? (
                 <ConnectionsTable groups={groups} sort={sort} onSort={changeSort} />
               ) : (
                 <p className={styles.emptyState}>No runtime connection rows match the current filters.</p>
               )}
             </>
-          ) : <SelectorLoadView rows={snapshot.rows} />}
+          ) : <>
+            {!filteredRows.length ? <p className={styles.emptyState}>No runtime connection rows match the current filters.</p> : null}
+            <SelectorLoadView rows={filteredRows} />
+          </>}
         </>
       ) : null}
     </section>

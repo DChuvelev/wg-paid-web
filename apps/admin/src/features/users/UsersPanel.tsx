@@ -12,6 +12,8 @@ import {
   setWireGuardLimit
 } from '../../lib/adminApi';
 import { RetirementDialog, type RetirementSelection } from './RetirementDialog';
+import { InvitedByFilter } from '../invitationSources/InvitedByFilter';
+import { attributionParams, type InvitationSourceFilter } from '../invitationSources/invitationSourceDomain';
 import { UserCard } from './UserCard';
 import { representativeProfileId, wireGuardLimit } from './userDomain';
 import styles from '../../app/Admin.module.css';
@@ -53,6 +55,8 @@ interface DeletionOperation {
 
 export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const queryClient = useQueryClient();
+  const [attribution, setAttribution] = useState<InvitationSourceFilter>({ origin: 'all' });
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [draftQuery, setDraftQuery] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<AdminUserSortBy>('created_at');
@@ -67,7 +71,23 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   const pendingLimitIds = useRef(new Set<string>());
   const pendingDeleteIds = useRef(new Set<string>());
   const hasPolling = retirements.size > 0 || deletions.size > 0;
-  const usersKey = ['admin', 'users', searchQuery, sortBy, sortDir] as const;
+  const sourceId = 'selection' in attribution ? attribution.selection?.source_id ?? null : null;
+  const usersKey = ['admin', 'users', searchQuery, sortBy, sortDir, attribution.origin, sourceId] as const;
+
+  const changeAttribution = (next: InvitationSourceFilter) => {
+    const nextId = 'selection' in next ? next.selection?.source_id ?? null : null;
+    if (next.origin !== attribution.origin || nextId !== sourceId) {
+      // A returned filter must begin at offset 0, including a previously cached multi-page filter.
+      queryClient.removeQueries({
+        queryKey: ['admin', 'users', searchQuery, sortBy, sortDir, next.origin, nextId], exact: true
+      });
+      if (viewportRef.current) viewportRef.current.scrollTop = 0;
+      setRetirements(new Map());
+      setDeletions(new Map());
+      setStatus('');
+    }
+    setAttribution(next);
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -85,6 +105,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
     queryKey: usersKey,
     queryFn: ({ pageParam, signal }) => loadUsers({
       query: searchQuery,
+      ...attributionParams(attribution),
       limit: userBatchSize,
       offset: pageParam,
       sortBy,
@@ -359,9 +380,11 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
           <span>Email or display name contains</span>
           <input autoComplete="off" type="text" value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} />
         </label>
+        <InvitedByFilter value={attribution} onChange={changeAttribution} onSessionExpired={onSessionExpired} />
       </div>
       <p className={styles.statusLine} role="status" aria-live="polite">{status || defaultStatus}</p>
       <div
+        ref={viewportRef}
         className={styles.userListViewport}
         aria-busy={usersQuery.isFetching}
         aria-label="Users list"

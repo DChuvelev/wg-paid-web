@@ -49,9 +49,9 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('7a5d635e34905f93dc0e1ab9a2a50e2d198e7d45647185aa6d09deed44fa54cf');
-    expect(Object.keys(document.paths)).toHaveLength(71);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ operations: 80, schemas: 91 });
+      .toBe('e93337317b4dc7e1a81d547759e513ea0c9754a426f16625d4bdfaf96f2a10df');
+    expect(Object.keys(document.paths)).toHaveLength(72);
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ paths: 72, operations: 81, schemas: 92 });
     expect(document.paths['/v2/admin/review-access/reset'].post.operationId)
       .toBe('admin_review_access_reset_v2_admin_review_access_reset_post');
     expect(document.components.schemas.AdminReviewResetResponse.properties.state.enum)
@@ -242,7 +242,8 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminRuntimeConnectionsResponse.properties.rows.items)
       .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionRow' });
     expect(Object.keys(schemas.AdminRuntimeConnectionRow.properties)).toEqual([
-      'user_id', 'email', 'display_name', 'configuration_id', 'configuration_ordinal',
+      'user_id', 'email', 'display_name', 'invited_by_origin', 'invited_by_user_id',
+      'invited_by_label', 'invited_by_campaign_id', 'configuration_id', 'configuration_ordinal',
       'configuration_label', 'profile_id', 'protocol', 'profile_label', 'tunnel_ip', 'selector',
       'active_now', 'active_state', 'last_active_at', 'last_reassign_at', 'last_handshake_at',
       'rx_bytes', 'tx_bytes', 'rx_bytes_per_second', 'tx_bytes_per_second'
@@ -251,7 +252,25 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(schemas.AdminRuntimeConnectionRow.required)
       .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties));
 
+    const lookup = document.paths['/v2/admin/invitation-sources'].get;
+    expect(lookup.operationId).toBe('admin_invitation_sources_v2_admin_invitation_sources_get');
+    expect(lookup.parameters.find((parameter) => parameter.name === 'origin'))
+      .toMatchObject({ required: true, schema: { enum: ['user', 'campaign'] } });
+    expect(lookup.parameters.find((parameter) => parameter.name === 'query')).toMatchObject({ required: false });
+    expect(lookup.parameters.find((parameter) => parameter.name === 'limit').schema.default).toBe(20);
+    expect(lookup.responses['200'].content['application/json'].schema.items)
+      .toEqual({ $ref: '#/components/schemas/AdminInvitationSourceOption' });
+    expect(schemas.AdminInvitationSourceOption.required).toEqual([
+      'origin', 'source_id', 'label', 'secondary_label', 'created_at'
+    ]);
+    expect(schemas.AdminInvitationSourceOption.properties.source_id.format).toBe('uuid');
+    expect(schemas.AdminInvitationSourceOption.properties.origin.enum).toEqual(['user', 'campaign']);
     const query = document.paths['/v2/admin/users'].get.parameters;
+    expect(query.find((parameter) => parameter.name === 'invited_by_origin').schema.anyOf[0].enum)
+      .toEqual(['admin', 'user', 'campaign']);
+    for (const name of ['invited_by_user_id', 'invited_by_campaign_id']) {
+      expect(query.find((parameter) => parameter.name === name).schema.anyOf[0].format).toBe('uuid');
+    }
     expect(query.find((parameter) => parameter.name === 'email')).toMatchObject({
       in: 'query',
       required: false,

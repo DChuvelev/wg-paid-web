@@ -1,4 +1,5 @@
 import type { AdminRuntimeConnectionRow } from '@wg-paid/api';
+import { matchesInvitationSource, type InvitationSourceFilter } from '../invitationSources/invitationSourceDomain';
 
 export const selectors = ['cs1', 'cs2', 'cs3', 'cs4', 'cs5'] as const;
 export const runtimeConnectionsKey = ['admin', 'runtime', 'connections'] as const;
@@ -9,6 +10,7 @@ export type ConnectionSortKey = 'user' | 'status' | 'selector' | 'last_handshake
 export type SortDirection = 'asc' | 'desc';
 
 export interface ConnectionFilters {
+  attribution: InvitationSourceFilter;
   protocols: ReadonlySet<RuntimeProtocol>;
   search: string;
   selectors: ReadonlySet<string>;
@@ -124,9 +126,19 @@ function configurationMatches(row: AdminRuntimeConnectionRow, search: string) {
 }
 
 function rowMatchesFilters(row: AdminRuntimeConnectionRow, filters: ConnectionFilters) {
-  return (filters.statuses.size === 0 || filters.statuses.has(runtimeStatus(row)))
+  return matchesInvitationSource(row, filters.attribution)
+    && (filters.statuses.size === 0 || filters.statuses.has(runtimeStatus(row)))
     && (filters.selectors.size === 0 || filters.selectors.has(row.selector))
     && (filters.protocols.size === 0 || filters.protocols.has(row.protocol));
+}
+
+export function filterRuntimeConnections(rows: Array<AdminRuntimeConnectionRow>, filters: ConnectionFilters) {
+  const search = normalized(filters.search);
+  // Match identities before pruning protocol leaves, preserving existing group-context search.
+  const matchingUsers = new Set(rows.filter((row) => userMatches(row, search)).map((row) => row.user_id));
+  const matchingConfigurations = new Set(rows.filter((row) => configurationMatches(row, search)).map((row) => row.configuration_id));
+  return rows.filter((row) => rowMatchesFilters(row, filters)
+    && (!search || matchingUsers.has(row.user_id) || matchingConfigurations.has(row.configuration_id)));
 }
 
 function mostActiveStatus(rows: Array<AdminRuntimeConnectionRow>) {
@@ -212,9 +224,10 @@ function compareConfigurations(
 export function groupRuntimeConnections(
   rows: Array<AdminRuntimeConnectionRow>,
   filters: ConnectionFilters,
-  sort: ConnectionSort
+  sort: ConnectionSort,
+  filteredRows = filterRuntimeConnections(rows, filters)
 ): Array<RuntimeUserGroup> {
-  const search = normalized(filters.search);
+  const visible = new Set(filteredRows);
   const sourceUsers = new Map<string, Array<AdminRuntimeConnectionRow>>();
   for (const row of rows) {
     const existing = sourceUsers.get(row.user_id) ?? [];
@@ -231,13 +244,9 @@ export function groupRuntimeConnections(
       sourceConfigurations.set(row.configuration_id, existing);
     }
 
-    const matchesUser = !search || sourceUserRows.some((row) => userMatches(row, search));
     const configurations: Array<RuntimeConfigurationGroup> = [];
     for (const [configurationId, sourceConfigurationRows] of sourceConfigurations) {
-      if (search && !matchesUser && !sourceConfigurationRows.some((row) => configurationMatches(row, search))) {
-        continue;
-      }
-      const visibleRows = sourceConfigurationRows.filter((row) => rowMatchesFilters(row, filters));
+      const visibleRows = sourceConfigurationRows.filter((row) => visible.has(row));
       if (visibleRows.length === 0) continue;
       const representative = sourceConfigurationRows[0]!;
       configurations.push({

@@ -7,12 +7,14 @@ import {
   formatBytes,
   formatTimestamp,
   groupRuntimeConnections,
+  filterRuntimeConnections,
   profileIdentity,
   protocolBadge,
   runtimeStatus
 } from './connectionsDomain';
 
 const emptyFilters = () => ({
+  attribution: { origin: 'all' as const },
   protocols: new Set<'wireguard' | 'amneziawg'>(),
   search: '',
   selectors: new Set<string>(),
@@ -21,6 +23,7 @@ const emptyFilters = () => ({
 
 function row(overrides: Partial<AdminRuntimeConnectionRow> = {}): AdminRuntimeConnectionRow {
   return {
+    invited_by_origin: null, invited_by_user_id: null, invited_by_label: null, invited_by_campaign_id: null,
     active_now: false,
     active_state: false,
     configuration_id: 'configuration-1',
@@ -145,4 +148,26 @@ describe('runtime connection presentation', () => {
     expect(groupRuntimeConnections(rows, emptyFilters(), { direction: 'asc', key: 'selector' }).map((group) => group.userId))
       .toEqual(['user-active', 'user-idle']);
   });
+});
+
+
+test('filters Campaign + WG + Now + cs3 and search before grouping while preserving snapshot group totals', () => {
+  const attribution = { origin: 'campaign' as const, selection: { source_id: '00000000-0000-4000-8000-000000000002', label: 'Campaign X', secondary_label: null } };
+  const campaignRow = row({ invited_by_origin: 'campaign', invited_by_campaign_id: attribution.selection.source_id,
+    invited_by_label: 'Renamed campaign', selector: 'cs3', active_now: true, active_state: true, configuration_label: 'Phone' });
+  const rows = [campaignRow,
+    { ...campaignRow, profile_id: 'awg', protocol: 'amneziawg' as const },
+    { ...campaignRow, profile_id: 'other-source', user_id: 'other-user', configuration_id: 'other-config', invited_by_campaign_id: 'other-uuid' },
+    { ...campaignRow, profile_id: 'other-selector', configuration_id: 'cs2-config', selector: 'cs2' },
+    { ...campaignRow, profile_id: 'idle', configuration_id: 'idle-config', active_now: false }
+  ];
+  const filters = { ...emptyFilters(), attribution, search: 'phone', protocols: new Set<'wireguard' | 'amneziawg'>(['wireguard']),
+    statuses: new Set<'now' | 'active' | 'idle' | 'never_seen'>(['now']), selectors: new Set(['cs3']) };
+  const visible = filterRuntimeConnections(rows, filters);
+  expect(visible.map((item) => item.profile_id)).toEqual([campaignRow.profile_id]);
+  const groups = groupRuntimeConnections(rows, filters, { key: 'user', direction: 'asc' }, visible);
+  expect(groups).toHaveLength(1);
+  expect(groups[0]?.configurations[0]).toMatchObject({ totalRows: 2, rows: [campaignRow] });
+  expect(activeRowsForSelector(visible, 'cs3')).toEqual([campaignRow]);
+  expect(filterRuntimeConnections(rows, { ...filters, search: 'missing' })).toEqual([]);
 });

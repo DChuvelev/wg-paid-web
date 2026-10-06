@@ -1,18 +1,20 @@
+import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { AdminRuntimeConnectionRow, AdminRuntimeConnectionsResponse } from '@wg-paid/api';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { AdminApiError, loadRuntimeConnections } from '../../lib/adminApi';
+import { AdminApiError, loadRuntimeConnections, loadInvitationSources } from '../../lib/adminApi';
 import { ConnectionsPanel } from './ConnectionsPanel';
 import { runtimeConnectionsKey } from './connectionsDomain';
 
 vi.mock('../../lib/adminApi', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../lib/adminApi')>(),
-  loadRuntimeConnections: vi.fn()
+  loadRuntimeConnections: vi.fn(), loadInvitationSources: vi.fn()
 }));
 
 function row(overrides: Partial<AdminRuntimeConnectionRow> = {}): AdminRuntimeConnectionRow {
   return {
+    invited_by_origin: null, invited_by_user_id: null, invited_by_label: null, invited_by_campaign_id: null,
     active_now: true, active_state: true, configuration_id: 'configuration-1', configuration_label: null,
     configuration_ordinal: 1, display_name: 'Mitya', email: 'mitya@example.test',
     last_active_at: '2026-09-12T10:02:00Z', last_handshake_at: '2026-09-12T10:01:00Z',
@@ -45,7 +47,10 @@ async function renderPanelWithCachedError(error: AdminApiError, onSessionExpired
   ) };
 }
 
-beforeEach(() => vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot()));
+beforeEach(() => {
+  vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot());
+  vi.mocked(loadInvitationSources).mockResolvedValue([]);
+});
 afterEach(() => vi.clearAllMocks());
 
 describe('ConnectionsPanel', () => {
@@ -61,7 +66,7 @@ describe('ConnectionsPanel', () => {
     expect(screen.queryByText('Studio computer')).toBeNull();
     expect(screen.queryByText('10.253.1.10')).toBeNull();
     expect(within(table).getAllByRole('columnheader').map((header) => header.textContent?.replace(/[↑↓]/g, '').trim())).toEqual([
-      'User', 'Configuration', 'Protocol', 'Status', 'Selector', 'RX rate', 'TX rate', 'RX total', 'TX total', 'Last handshake', 'Last activity'
+      'User', 'Invited by', 'Configuration', 'Protocol', 'Status', 'Selector', 'RX rate', 'TX rate', 'RX total', 'TX total', 'Last handshake', 'Last activity'
     ]);
     expect(screen.getByText(/^1[.,]5 KiB$/)).not.toBeNull();
     expect(screen.getByText('2 KiB/s')).not.toBeNull();
@@ -153,7 +158,7 @@ describe('ConnectionsPanel', () => {
     expect(within(table).getByText('AWG')).not.toBeNull();
   });
 
-  test('text and status filters prune empty groups while selector-board data remains unfiltered', async () => {
+  test('text and status filters use the same filtered rows in table and selector board', async () => {
     vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot({ rows: [
       row({ configuration_id: 'phone', configuration_label: 'Phone', profile_id: 'phone', selector: 'cs1' }),
       row({ active_now: false, configuration_id: 'laptop', configuration_label: 'Laptop', configuration_ordinal: 2, profile_id: 'laptop', selector: 'cs2' })
@@ -167,7 +172,7 @@ describe('ConnectionsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Selectors' }));
     const board = screen.getByLabelText('Active configuration load by selector');
-    expect(within(board).getByText('Phone')).not.toBeNull();
+    expect(within(board).queryByText('Phone')).toBeNull();
     expect(within(board).getByText('Laptop')).not.toBeNull();
   });
 
@@ -180,4 +185,94 @@ describe('ConnectionsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Last activity/ }));
     expect(screen.getByRole('columnheader', { name: /Last activity/ }).getAttribute('aria-sort')).toBe('ascending');
   });
+});
+
+
+test('renders attribution column with Admin/User/Campaign/missing display and no UUIDs', async () => {
+  vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot({ rows: [
+    row({ user_id: 'admin-user', email: 'admin@example.test', profile_id: 'admin-profile', invited_by_origin: 'admin', invited_by_label: 'Custom admin label' }),
+    row({ user_id: 'referred-user', email: 'referred@example.test', profile_id: 'referred-profile', invited_by_origin: 'user', invited_by_user_id: '00000000-0000-4000-8000-000000000001', invited_by_label: 'Alice' }),
+    row({ user_id: 'campaign-user', email: 'campaign@example.test', profile_id: 'campaign-profile', invited_by_origin: 'campaign', invited_by_campaign_id: '00000000-0000-4000-8000-000000000002', invited_by_label: 'Campaign X' }),
+    row({ user_id: 'missing-user', email: 'missing@example.test', profile_id: 'missing-profile' })
+  ] }));
+  renderPanel();
+  const table = await screen.findByRole('table');
+  expect(within(table).getByRole('columnheader', { name: 'Invited by' })).toBeInTheDocument();
+  expect(within(table).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
+  expect(within(table).getByRole('cell', { name: 'User · Alice' })).toBeInTheDocument();
+  expect(within(table).getByRole('cell', { name: 'Campaign · Campaign X' })).toBeInTheDocument();
+  expect(within(table).getByRole('cell', { name: '—' })).toBeInTheDocument();
+  expect(table.textContent).not.toContain('00000000-0000-4000');
+  expect(table.textContent).not.toContain('Custom admin label');
+});
+
+test('origin-only and exact UUID filtering works in both presentations with protocol/status/selector/search', async () => {
+  const campaignId = '00000000-0000-4000-8000-000000000002';
+  const userId = '00000000-0000-4000-8000-000000000001';
+  const campaign = row({ user_id: 'campaign-user', email: 'campaign@example.test', profile_id: 'campaign-wg', configuration_label: 'Phone',
+    invited_by_origin: 'campaign', invited_by_campaign_id: campaignId, invited_by_label: 'Campaign X', selector: 'cs3' });
+  vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot({ rows: [campaign,
+    { ...campaign, profile_id: 'campaign-awg', protocol: 'amneziawg' },
+    { ...campaign, user_id: 'other-campaign-user', email: 'other@example.test', profile_id: 'other-source', configuration_id: 'other-config', invited_by_campaign_id: 'other-campaign-id' },
+    { ...campaign, user_id: 'inactive-user', email: 'inactive@example.test', profile_id: 'inactive', configuration_id: 'inactive-config', active_state: false },
+    row({ user_id: 'user-invited', email: 'user-invited@example.test', profile_id: 'user-invited', invited_by_origin: 'user', invited_by_user_id: userId, invited_by_label: 'Alice' }),
+    row({ user_id: 'admin-invited', email: 'admin-invited@example.test', profile_id: 'admin-invited', invited_by_origin: 'admin' }),
+    row({ user_id: 'missing-invited', email: 'missing-invited@example.test', profile_id: 'missing-invited' })
+  ] }));
+  vi.mocked(loadInvitationSources).mockImplementation(async (options) => [{ origin: options.origin,
+    source_id: options.origin === 'user' ? userId : campaignId, label: options.origin === 'user' ? 'Alice' : 'Campaign X',
+    secondary_label: options.origin === 'user' ? 'alice@example.test' : null, created_at: '2026-01-01T00:00:00Z' }]);
+  renderPanel();
+  await screen.findByRole('table');
+  const origin = screen.getByLabelText('Invited by');
+  fireEvent.change(origin, { target: { value: 'admin' } });
+  expect(within(screen.getByRole('table')).getByText('admin-invited@example.test')).toBeInTheDocument();
+  expect(within(screen.getByRole('table')).queryByText('campaign@example.test')).toBeNull();
+  fireEvent.change(origin, { target: { value: 'user' } });
+  expect(within(screen.getByRole('table')).getByText('user-invited@example.test')).toBeInTheDocument();
+  fireEvent.focus(screen.getByRole('combobox', { name: 'Search inviter' }));
+  fireEvent.click(await screen.findByRole('option', { name: /alice@example.test/ }));
+  expect(within(screen.getByRole('table')).getByText('user-invited@example.test')).toBeInTheDocument();
+  fireEvent.change(origin, { target: { value: 'campaign' } });
+  expect(within(screen.getByRole('table')).getByText('other@example.test')).toBeInTheDocument();
+  fireEvent.focus(screen.getByRole('combobox', { name: 'Search campaign' }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Campaign X' }));
+  expect(within(screen.getByRole('table')).queryByText('other@example.test')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Search user or configuration'), { target: { value: 'phone' } });
+  fireEvent.click(screen.getByLabelText('WG'));
+  fireEvent.click(screen.getByLabelText('Now'));
+  fireEvent.click(screen.getByLabelText('cs3'));
+  const table = screen.getByRole('table');
+  expect(within(table).getByText('campaign@example.test')).toBeInTheDocument();
+  expect(within(table).getByText('inactive@example.test')).toBeInTheDocument();
+  expect(within(table).queryByText('AWG')).toBeNull();
+  expect(within(table).getByText('1 of 2 protocol rows shown')).toBeInTheDocument();
+  expect(within(table).getByText('campaign@example.test').closest('td')).toHaveAttribute('rowspan', '1');
+  fireEvent.click(screen.getByRole('button', { name: 'Selectors' }));
+  const board = screen.getByLabelText('Active configuration load by selector');
+  expect(within(board).getByText('campaign@example.test')).toBeInTheDocument();
+  expect(within(board).queryByText('inactive@example.test')).toBeNull();
+  expect(within(board).queryByText('other@example.test')).toBeNull();
+  expect(within(board).getByText('1 active')).toBeInTheDocument();
+  expect(within(board).getAllByText('No active configurations')).toHaveLength(4);
+  expect(within(board).queryByText('Campaign · Campaign X')).toBeNull();
+  expect(screen.getByLabelText('Search user or configuration')).toHaveValue('phone');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear attribution filter' }));
+  expect(within(board).getByText('other@example.test')).toBeInTheDocument();
+  expect(within(board).getByText('2 active')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Search user or configuration'), { target: { value: 'no matches' } });
+  expect(screen.getByText('No runtime connection rows match the current filters.')).toBeInTheDocument();
+  expect(screen.getByLabelText('Invited by')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+  expect(screen.getByText('No runtime connection rows match the current filters.')).toBeInTheDocument();
+  expect(loadRuntimeConnections).toHaveBeenCalledWith(expect.any(AbortSignal));
+  expect(loadRuntimeConnections).toHaveBeenCalledTimes(1);
+});
+
+test('keeps shared controls accessible for a received empty snapshot', async () => {
+  vi.mocked(loadRuntimeConnections).mockResolvedValue(snapshot({ rows: [] }));
+  renderPanel();
+  await screen.findByText('Snapshot received; it contains no runtime connection rows.');
+  expect(screen.getByLabelText('Invited by')).toBeInTheDocument();
+  expect(screen.queryByText('No runtime connection rows match the current filters.')).toBeNull();
 });

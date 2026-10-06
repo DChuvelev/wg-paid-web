@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 
 export const expectedOpenApi = Object.freeze({
-  canonicalSha256: 'c491d635e4632aa5f19d49eb029fb1d58100378228805a7ddbd1d57803a2e6c5',
-  operations: 80,
-  schemas: 91,
+  canonicalSha256: 'b6ce1bcbcaf2eaaa1669eee5d6e90f30ed8d9aaf427dc75be9b09970efa04718',
+  paths: 72,
+  operations: 81,
+  schemas: 92,
   version: '3.1.0'
 });
 
@@ -78,6 +79,7 @@ export function inspectOpenApi(document) {
 
   return {
     canonicalSha256: fingerprintOpenApi(document),
+    paths: paths && typeof paths === 'object' ? Object.keys(paths).length : 0,
     operations,
     schemas: schemas !== null && typeof schemas === 'object' && !Array.isArray(schemas)
       ? Object.keys(schemas).length

@@ -196,6 +196,32 @@ export type AdminConfigurationCreateResponse = {
 };
 
 /**
+ * AdminInvitationSourceOption
+ */
+export type AdminInvitationSourceOption = {
+    /**
+     * Origin
+     */
+    origin: 'user' | 'campaign';
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Secondary Label
+     */
+    secondary_label: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * AdminInviteLimitUpdateRequest
  */
 export type AdminInviteLimitUpdateRequest = {
@@ -613,6 +639,22 @@ export type AdminRuntimeConnectionRow = {
      * Display Name
      */
     display_name: string | null;
+    /**
+     * Invited By Origin
+     */
+    invited_by_origin: 'admin' | 'user' | 'campaign' | null;
+    /**
+     * Invited By User Id
+     */
+    invited_by_user_id: string | null;
+    /**
+     * Invited By Label
+     */
+    invited_by_label: string | null;
+    /**
+     * Invited By Campaign Id
+     */
+    invited_by_campaign_id: string | null;
     /**
      * Configuration Id
      */
@@ -4590,6 +4632,52 @@ export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetResponses
     200: unknown;
 };
 
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Origin
+         */
+        origin: 'user' | 'campaign';
+        /**
+         * Query
+         */
+        query?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/v2/admin/invitation-sources';
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetError = AdminInvitationSourcesV2AdminInvitationSourcesGetErrors[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetErrors];
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponses = {
+    /**
+     * Response Admin Invitation Sources V2 Admin Invitation Sources Get
+     *
+     * Successful Response
+     */
+    200: Array<AdminInvitationSourceOption>;
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponse = AdminInvitationSourcesV2AdminInvitationSourcesGetResponses[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetResponses];
+
 export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetData = {
     body?: never;
     headers?: {
@@ -4639,6 +4727,18 @@ export type AdminListUsersV2AdminUsersGetData = {
          * Query
          */
         query?: string | null;
+        /**
+         * Invited By Origin
+         */
+        invited_by_origin?: 'admin' | 'user' | 'campaign' | null;
+        /**
+         * Invited By User Id
+         */
+        invited_by_user_id?: string | null;
+        /**
+         * Invited By Campaign Id
+         */
+        invited_by_campaign_id?: string | null;
         /**
          * Limit
          */

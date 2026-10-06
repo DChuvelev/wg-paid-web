@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { invitedBy } from '../invitationSources/invitationSourceDomain';
 import { StatusBadge } from '../../components/StatusBadge';
 import {
   type ConnectionSort,
@@ -33,6 +34,7 @@ export function ConnectionsTable({ groups, onSort, sort }: ConnectionsTableProps
       <table className={styles.connectionsTable}>
         <colgroup>
           <col className={styles.userColumn} />
+          <col className={styles.attributionColumn} />
           <col className={styles.configurationColumn} />
           <col className={styles.protocolColumn} />
           <col className={styles.statusColumn} />
@@ -43,6 +45,7 @@ export function ConnectionsTable({ groups, onSort, sort }: ConnectionsTableProps
         </colgroup>
         <thead><tr>
           {sortableHeader('User', 'user')}
+          <th>Invited by</th>
           <th>Configuration</th>
           <th>Protocol</th>
           {sortableHeader('Status', 'status')}
@@ -76,6 +79,10 @@ export function ConnectionsTable({ groups, onSort, sort }: ConnectionsTableProps
                             </span>
                           </td>
                         ) : null}
+                        <td className={styles.attributionCell}>{invitedBy({
+                          invited_by_origin: row.invited_by_origin,
+                          invited_by_label: row.invited_by_origin === 'admin' ? null : row.invited_by_label
+                        })}</td>
                         {showConfiguration ? (
                           <td className={styles.groupCell} rowSpan={configuration.rows.length}>
                             <span className={styles.stackedIdentity}>

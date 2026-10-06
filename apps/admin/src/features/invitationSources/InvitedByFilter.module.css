@@ -1,0 +1,15 @@
+.filter { display: grid; min-width: 0; gap: 0.6rem; color: #34435a; font-size: 0.875rem; }
+.origin { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.origin label, .lookup label { font-weight: 700; }
+.filter select, .filter input { min-height: 2.5rem; padding: 0.5rem 0.65rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #172033; background: #fff; }
+.filter button { min-height: 2.4rem; padding: 0.4rem 0.6rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #40516c; background: #fff; }
+.lookup { display: grid; min-width: 0; gap: 0.35rem; }
+.lookup input { width: 100%; min-width: 0; }
+.selection { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.selection span, .options li { overflow-wrap: anywhere; }
+.selection small, .options small { display: block; color: #617086; font-weight: 400; }
+.options { max-height: 16rem; overflow-y: auto; margin: 0; padding: 0; border: 1px solid #b9c5d6; border-radius: 0.5rem; background: #fff; list-style: none; }
+.options li { padding: 0.6rem; cursor: pointer; }
+.options li[aria-selected="true"] { font-weight: 700; }
+.options li:hover, .activeOption { background: #eaf1fd; }
+.lookup p { margin: 0; color: #617086; font-size: 0.8rem; }

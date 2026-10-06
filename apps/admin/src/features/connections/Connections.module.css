@@ -21,7 +21,7 @@
 .searchFilter input { width: 100%; min-height: 2.35rem; padding: 0.45rem 0.55rem; border: 1px solid #bdc8d8; border-radius: 0.42rem; background: #fff; }
 .filters > small { grid-column: 1 / -1; color: #718096; font-size: 0.72rem; }
 .tableViewport, .selectorViewport { overflow-x: auto; border: 1px solid #d7dfeb; border-radius: 0.75rem; }
-.connectionsTable { width: 100%; min-width: 104rem; table-layout: fixed; border-collapse: collapse; font-size: 0.8rem; }
+.connectionsTable { width: 100%; min-width: 118rem; table-layout: fixed; border-collapse: collapse; font-size: 0.8rem; }
 .connectionsTable th { position: sticky; top: 0; padding: 0.7rem; color: #52627a; background: #eef3f9; font-size: 0.68rem; text-align: left; text-transform: uppercase; white-space: nowrap; }
 .connectionsTable td { padding: 0.7rem; border-top: 1px solid #e3e8ef; color: #34435a; vertical-align: top; white-space: nowrap; }
 .connectionsTable .groupCell { background: #fbfcfe; white-space: normal; }
@@ -70,3 +70,7 @@
   .viewToggle { width: 100%; }
   .viewToggle button { flex: 1; }
 }
+
+.attributionFilter { grid-column: 1 / -1; }
+.attributionColumn { width: 14rem; }
+.connectionsTable .attributionCell { white-space: normal; overflow-wrap: anywhere; }
