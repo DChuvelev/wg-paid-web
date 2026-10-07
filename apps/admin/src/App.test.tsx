@@ -6,7 +6,7 @@ import type { AdminBulkInviteSummary, AdminInviteSummary, AdminProtocolLimitUpda
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
-  AdminApiError, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers, loadInvitationSources,
+  AdminApiError, createReviewAccess, resetReviewAccess, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers, loadInvitationSources,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
   revokeBulkInviteCampaign, updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
 } from './lib/adminApi';
@@ -15,7 +15,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/adminApi')>();
   return {
     ...actual,
-    checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
+    createReviewAccess: vi.fn(), resetReviewAccess: vi.fn(), checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
     loadInvitationSources: vi.fn(), loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
     reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
     updateInviteRecipient: vi.fn(), updateInviteWireGuardLimit: vi.fn(), updateReferralPolicy: vi.fn()
@@ -597,17 +597,33 @@ describe('admin session and invites', () => {
     await renderInvitesDashboard();
 
     const operational = screen.getByRole('region', { name: 'Active Invites' });
-    expect(within(operational).getByText('pending@example.test')).not.toBeNull();
-    expect(within(operational).getByText('4')).not.toBeNull();
-    expect(within(operational).getByText('Registration email issued')).not.toBeNull();
-    expect(within(operational).getByText('Current link expires')).not.toBeNull();
-    expect(within(operational).queryByText('expired@example.test')).toBeNull();
+    const awaitingRow = within(operational).getByText('Invite INVITEAW').closest('article')!;
+    expect(within(awaitingRow).getByText('pending@example.test')).toBeInTheDocument();
+    expect(within(awaitingRow).getByText('awaiting confirmation')).toBeInTheDocument();
+    expect(within(operational).getByText('Invite INVITE1')).toBeInTheDocument();
     const archive = screen.getByText('Archive (3)');
     expect((archive.closest('details') as HTMLDetailsElement).open).toBe(false);
     fireEvent.click(archive);
-    expect(screen.getByText('expired@example.test')).not.toBeNull();
-    expect(screen.getByText('revoked@example.test')).not.toBeNull();
-    expect(screen.getByText('used@example.test')).not.toBeNull();
+    const archived = screen.getByLabelText('Archived invites');
+    for (const identity of ['Invite INVITEEX', 'Invite INVITERE', 'Invite INVITEUS']) {
+      expect(within(operational).queryByText(identity)).toBeNull();
+      expect(within(archived).getByText(identity)).toBeInTheDocument();
+    }
+    for (const identity of ['Invite INVITE1', 'Invite INVITEAW']) {
+      expect(within(archived).queryByText(identity)).toBeNull();
+    }
+    for (const email of ['expired@example.test', 'revoked@example.test', 'used@example.test']) {
+      expect(within(operational).queryByText(email)).toBeNull();
+      expect(within(archived).getByText(email)).toBeInTheDocument();
+    }
+    expect(within(awaitingRow).getByText('4')).toBeInTheDocument();
+    for (const [label, value] of [
+      ['Registration email issued', awaiting.magic_link_sent_at],
+      ['Current link expires', awaiting.magic_link_expires_at]
+    ] as const) {
+      const timingField = within(awaitingRow).getByText(label).parentElement!;
+      expect(within(timingField).getByText(new Date(value).toLocaleString())).toBeInTheDocument();
+    }
   });
 
   test('uses generated lifecycle actions and refreshes invites after each success', async () => {
@@ -663,6 +679,45 @@ describe('admin session and invites', () => {
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Change invite recipient' })).getByRole('button', { name: 'Clear recipient' }));
     await screen.findByText('The invite is no longer mutable. Current invite state was refreshed.');
     expect(screen.queryByText('Recipient cleared. The invite is now transferable for manual sharing.')).toBeNull();
+  });
+
+  test('locally filters an unfiltered response in Active and Archive without hiding campaign definitions', async () => {
+    const rows: AdminInviteSummary[] = ['user', 'admin', 'campaign'].flatMap((origin, index) => [
+      { ...invite, origin: origin as AdminInviteSummary['origin'], invite_id: `a${index}000000-0000-0000-0000-000000000001`, intended_email: `${origin}-active@example.test`, state: 'active' },
+      { ...invite, origin: origin as AdminInviteSummary['origin'], invite_id: `b${index}000000-0000-0000-0000-000000000001`, intended_email: `${origin}-archive@example.test`, state: 'expired', trial_days: null }
+    ]);
+    vi.mocked(loadInvites).mockResolvedValue(rows);
+    vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([campaign]);
+    await renderInvitesDashboard();
+    const dataset = screen.getByLabelText('Invites and campaigns data');
+    expect(within(dataset).queryByText('campaign-active@example.test')).toBeNull();
+    expect(within(dataset).queryByText('campaign-archive@example.test')).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    await within(dataset).findByText('campaign-active@example.test');
+    expect(within(dataset).getByText('campaign-archive@example.test')).toBeInTheDocument();
+    for (const row of dataset.querySelectorAll('article:has([data-invite-cell])')) {
+      expect(Array.from(row.querySelectorAll('[data-invite-cell]'), (cell) => cell.getAttribute('data-invite-cell')))
+        .toEqual(['Invite', 'Source', 'Recipient', 'Plan', 'Timing', 'Limits', 'Status', 'Actions']);
+    }
+    expect(dataset.querySelectorAll('[aria-label="Invite columns"]')).toHaveLength(2);
+    const archiveRow = within(dataset).getByText('campaign-archive@example.test').closest('article')!;
+    expect(within(archiveRow.querySelector('[data-invite-cell="Limits"]') as HTMLElement).getByText('—')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    expect(within(dataset).queryByText('campaign-active@example.test')).toBeNull();
+    expect(within(dataset).queryByText('campaign-archive@example.test')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Bulk Invite Campaigns' })).toBeInTheDocument();
+    expect(within(dataset).getByText(campaign.label)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'User invites' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Admin invites' }));
+    expect(dataset.querySelectorAll('[data-invite-cell]')).toHaveLength(0);
+    expect(within(dataset).getByText(campaign.label)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
+    await within(dataset).findByText('campaign-active@example.test');
+    expect(within(dataset).getByText('campaign-archive@example.test')).toBeInTheDocument();
+    for (const origin of ['user', 'admin']) {
+      expect(within(dataset).queryByText(`${origin}-active@example.test`)).toBeNull();
+      expect(within(dataset).queryByText(`${origin}-archive@example.test`)).toBeNull();
+    }
   });
 
   test('filters invite origins with repeated typed combinations and makes all-unchecked network-safe', async () => {
@@ -740,6 +795,11 @@ describe('admin session and invites', () => {
     const dataset = screen.getByLabelText('Invites and campaigns data');
     expect(dataset).not.toContainElement(within(campaigns).getByRole('button', { name: 'Create campaign' }));
     expect(dataset).not.toContainElement(within(campaigns).getByLabelText('Label'));
+    expect(within(campaigns).getByLabelText('Label').closest('label')?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
+    expect(within(campaigns).getByLabelText('Expires at').closest('label')?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
+    const policyControls = within(campaigns).getByLabelText('Active invitation limit per attendee').closest('label')?.parentElement;
+    expect(policyControls).toContainElement(within(campaigns).getByRole('checkbox', { name: 'Allow invitations for attendees' }));
+    expect(policyControls?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
     expect(within(dataset).getByRole('heading', { name: 'Active Invites' })).toBeInTheDocument();
     expect(within(campaigns).queryByRole('combobox', { name: 'Campaign plan' })).toBeNull();
     expect(await within(campaigns).findByText('Commercial')).not.toBeNull();
@@ -850,6 +910,39 @@ describe('admin session and invites', () => {
 });
 
 describe('admin area navigation', () => {
+  test('moves review tooling to Administration and preserves existing leave-tab safeguards', async () => {
+    vi.mocked(createReviewAccess).mockResolvedValue({
+      review_url: 'https://access.secret-studio.ru/auth/magic#review=synthetic', expires_at: '2030-01-01T00:00:00Z',
+      user_id: 'review-user', grant_id: 'review-grant', configuration_id: 'review-configuration',
+      wireguard_profile_id: 'review-wg', wireguard_status: 'active', wireguard_tunnel_ip: '10.253.0.2',
+      amneziawg_profile_id: 'review-awg', amneziawg_status: 'active', amneziawg_tunnel_ip: '10.254.0.2'
+    });
+    await renderInvitesDashboard();
+    const invites = screen.getByRole('region', { name: 'Invites' });
+    expect(within(invites).queryByRole('region', { name: 'YooKassa review access' })).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Administration' }));
+    const administration = await screen.findByRole('region', { name: 'Administration' });
+    fireEvent.click(within(administration).getByRole('button', { name: 'Create / reissue YooKassa review link' }));
+    await within(administration).findByLabelText('YooKassa review URL');
+    expect(createReviewAccess).toHaveBeenCalledTimes(1);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(resetReviewAccess).mockResolvedValue({
+      state: 'payment_required', user_id: 'review-user', grant_id: 'review-grant', billing_account_id: 'review-billing',
+      configuration_id: null, retained_succeeded_payments: 1,
+      wireguard_status: 'payment_required', amneziawg_status: 'payment_required'
+    });
+    fireEvent.click(within(administration).getByRole('button', { name: 'Start new review cycle' }));
+    await within(administration).findByText(/New review cycle ready/);
+    expect(resetReviewAccess).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(within(administration).getByLabelText('YooKassa review URL')).toHaveTextContent('#review=synthetic');
+    fireEvent.click(screen.getByRole('link', { name: 'Invites' }));
+    await screen.findByRole('region', { name: 'Invites' });
+    fireEvent.click(screen.getByRole('link', { name: 'Administration' }));
+    await screen.findByRole('region', { name: 'Administration' });
+    expect(screen.queryByLabelText('YooKassa review URL')).toBeNull();
+    expect(checkAdminSession).toHaveBeenCalledTimes(1);
+  });
+
   test('root and unsupported hash routes replace-navigate to Users', async () => {
     window.history.replaceState(null, '', '/#/unsupported');
     renderAdmin();

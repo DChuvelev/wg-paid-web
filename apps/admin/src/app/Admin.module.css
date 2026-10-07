@@ -5,7 +5,7 @@
 .sessionState { display: flex; align-items: center; gap: 0.45rem; margin: 0.6rem 0 0; color: #52627a; font-size: 0.9rem; }
 .sessionState span { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #1d8a4c; box-shadow: 0 0 0 0.2rem #dff4e7; }
 .headerActions { display: flex; align-items: center; gap: 1rem; }
-.headerActions nav { display: flex; gap: 0.3rem; }
+.headerActions nav { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .headerActions nav a { display: inline-flex; align-items: center; min-height: 2.6rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: #40516c; background: transparent; font-weight: 650; text-decoration: none; }
 .headerActions nav a:hover { background: #e8eef8; }
 .headerActions nav a[aria-current="page"] { color: #173e79; background: #dce8fa; }

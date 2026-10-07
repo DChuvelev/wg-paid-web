@@ -124,7 +124,6 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
       </div>
 
       <form className={styles.campaignForm} onSubmit={submit}>
-        <div className={styles.campaignIdentityRow}>
           <label className={`${adminStyles.field} ${styles.campaignLabelField}`}>
             <span>Label</span>
             <input maxLength={160} required value={label} onChange={(event) => setLabel(event.target.value)} />
@@ -145,8 +144,7 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
             <span>Expires at</span>
             <input required type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
           </label>
-        </div>
-        <div className={styles.campaignPolicyRow}>
+          <div className={styles.campaignPolicyControls}>
           <label className={styles.campaignReferralToggle}>
             <input
               checked={recipientReferralsEnabled}
@@ -168,10 +166,10 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
             />
             <small>0 = unlimited.</small>
           </label>
+          </div>
           <button className={`${adminStyles.primaryButton} ${styles.campaignCreateAction}`} disabled={!valid || createMutation.isPending} type="submit">
             {createMutation.isPending ? 'Creating…' : 'Create campaign'}
           </button>
-        </div>
       </form>
 
       {plans && !commercialPlan ? (

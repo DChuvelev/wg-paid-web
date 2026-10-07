@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, NavLink, useLocation } from 'react-router';
 import { productName } from '@wg-paid/common';
+import { AdministrationPanel } from '../features/administration/AdministrationPanel';
 import { InvitesPanel } from '../features/invites/InvitesPanel';
 import { ConnectionsPanel } from '../features/connections/ConnectionsPanel';
 import { UsersPanel } from '../features/users/UsersPanel';
@@ -14,8 +15,8 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboardProps) {
   const location = useLocation();
-  const activeArea = location.pathname === '/users' || location.pathname === '/invites' || location.pathname === '/connections'
-    ? location.pathname.slice(1) as 'users' | 'invites' | 'connections'
+  const activeArea = location.pathname === '/users' || location.pathname === '/invites' || location.pathname === '/connections' || location.pathname === '/administration'
+    ? location.pathname.slice(1) as 'users' | 'invites' | 'connections' | 'administration'
     : null;
   const [logoutPending, setLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState('');
@@ -47,7 +48,7 @@ export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboard
         </div>
         <div className={styles.headerActions}>
           <nav aria-label="Admin areas">
-            {(['users', 'invites', 'connections'] as const).map((area) => (
+            {(['users', 'invites', 'connections', 'administration'] as const).map((area) => (
               <NavLink
                 aria-current={activeArea === area ? 'page' : undefined}
                 key={area}
@@ -69,6 +70,7 @@ export function AdminDashboard({ onSessionExpired, onSignedOut }: AdminDashboard
         <div hidden={activeArea !== 'connections'}>
           <ConnectionsPanel active={activeArea === 'connections'} onSessionExpired={onSessionExpired} />
         </div>
+        <div hidden={activeArea !== 'administration'}><AdministrationPanel active={activeArea === 'administration'} onSessionExpired={onSessionExpired} /></div>
       </main>
     </div>
   );

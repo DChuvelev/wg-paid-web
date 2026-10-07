@@ -18,7 +18,7 @@ import {
 } from '../../lib/adminApi';
 import { BulkInviteCampaigns } from './BulkInviteCampaigns';
 import { InviteOriginFilters } from './InviteOriginFilters';
-import { ReviewAccessControl } from './ReviewAccessControl';
+import { filterInvitesByOrigin } from './inviteDomain';
 import inviteStyles from './Invites.module.css';
 import styles from '../../app/Admin.module.css';
 
@@ -108,6 +108,12 @@ function withoutToken(current: Map<string, EphemeralInviteToken>, inviteId: stri
   return next;
 }
 
+function InviteGridHeader() {
+  return <div className={inviteStyles.inviteGridHeader} aria-label="Invite columns">
+    {['Invite', 'Source', 'Recipient', 'Plan', 'Timing', 'Limits', 'Status', 'Actions'].map((column) => <span key={column}>{column}</span>)}
+  </div>;
+}
+
 function InviteRow({
   invite,
   mutationPending,
@@ -126,34 +132,37 @@ function InviteRow({
   const campaignChild = invite.origin === 'campaign';
   const url = shareToken && invite.state === 'active' && transferable ? shareUrl(invite.invite_id, shareToken) : null;
   return (
-    <article className={styles.inviteRow}>
-      <div className={styles.invitePrimary}>
-        <div className={styles.inviteIdentity}>
-          <strong>Invite {inviteShortCode(invite.invite_id)}</strong>
-          <span title={visibleEmail}>{visibleEmail}</span>
-          <span className={`${inviteStyles.originBadge} ${campaignChild ? inviteStyles.campaignOrigin : ''}`}>{campaignChild ? 'Campaign' : invite.origin}</span>
-          <small>Created {formatDate(invite.created_at)}</small>
-        </div>
-        <StatusBadge status={invite.state} />
+    <article className={inviteStyles.inviteGridRow}>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Invite">
+        <strong>Invite {inviteShortCode(invite.invite_id)}</strong>
       </div>
-      <dl className={styles.inviteMetadata}>
-        {invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? <div><dt>Bound email</dt><dd>{invite.intended_email}</dd></div> : null}
-        <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
-        {campaignChild ? (
-          <>
-            <div><dt>Origin</dt><dd>Campaign</dd></div>
-            <div><dt>Campaign</dt><dd>{invite.bulk_campaign_label || 'Unknown campaign'}</dd></div>
-          </>
-        ) : <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>}
-        <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
-        {invite.trial_days !== null ? <div><dt className={styles.visuallyHidden}>Trial</dt><dd>Trial: {invite.trial_days} days</dd></div> : null}
-        <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
-        {invite.magic_link_sent_at ? <div><dt>Registration email issued</dt><dd>{formatDate(invite.magic_link_sent_at)}</dd></div> : null}
-        {invite.magic_link_expires_at ? <div><dt>Current link expires</dt><dd>{formatDate(invite.magic_link_expires_at)}</dd></div> : null}
-        {invite.resend_available_at ? <div><dt>Resend available</dt><dd>{invite.can_resend ? 'Now' : formatDate(invite.resend_available_at)}</dd></div> : null}
+      <dl className={inviteStyles.inviteCell} data-invite-cell="Source">
+        <div><dt>Origin</dt><dd className={`${inviteStyles.originBadge} ${campaignChild ? inviteStyles.campaignOrigin : ''}`}>{campaignChild ? 'Campaign' : invite.origin}</dd></div>
+        {campaignChild ? <div><dt>Campaign</dt><dd>{invite.bulk_campaign_label || 'Unknown campaign'}</dd></div>
+          : <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>}
       </dl>
+      <dl className={inviteStyles.inviteCell} data-invite-cell="Recipient">
+        <div><dt>Recipient</dt><dd title={visibleEmail}>{visibleEmail}</dd></div>
+        <div><dt>Bound email</dt><dd>{invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? invite.intended_email : '—'}</dd></div>
+      </dl>
+      <dl className={inviteStyles.inviteCell} data-invite-cell="Plan">
+        <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
+      </dl>
+      <dl className={inviteStyles.inviteCell} data-invite-cell="Timing">
+        <div><dt>Created</dt><dd>{formatDate(invite.created_at)}</dd></div>
+        <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
+        <div><dt>Registration email issued</dt><dd>{invite.magic_link_sent_at ? formatDate(invite.magic_link_sent_at) : '—'}</dd></div>
+        <div><dt>Current link expires</dt><dd>{invite.magic_link_expires_at ? formatDate(invite.magic_link_expires_at) : '—'}</dd></div>
+        <div><dt>Resend available</dt><dd>{invite.resend_available_at ? invite.can_resend ? 'Now' : formatDate(invite.resend_available_at) : '—'}</dd></div>
+      </dl>
+      <dl className={inviteStyles.inviteCell} data-invite-cell="Limits">
+        <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
+        <div><dt>Trial</dt><dd>{invite.trial_days !== null ? `Trial: ${invite.trial_days} days` : '—'}</dd></div>
+      </dl>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Status"><StatusBadge status={invite.state} /></div>
+      <div className={`${inviteStyles.inviteCell} ${styles.inviteActions}`} data-invite-cell="Actions">
       {onResend || onChangeRecipient || onChangeLimit || onReissue || onRevoke ? (
-        <div className={styles.inviteActions}>
+        <>
           {invite.can_resend && onResend ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onResend(invite.invite_id)}>Resend email</button> : null}
           {invite.can_change_email && onChangeRecipient ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onChangeRecipient(invite)}>Change recipient</button> : null}
           {transferable && invite.can_reissue_share_link && onReissue ? <button className={styles.secondaryButton} disabled={mutationPending} type="button" onClick={() => onReissue(invite.invite_id)}>Reissue share link</button> : null}
@@ -167,8 +176,9 @@ function InviteRow({
               onClick={() => onRevoke(invite.invite_id)}
             >Revoke</button>
           ) : null}
-        </div>
-      ) : null}
+        </>
+      ) : <span>—</span>}
+      </div>
       {url && onCopy ? (
         <div className={styles.inviteShareLink}>
           <code title={url}>{url}</code>
@@ -406,7 +416,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     return plan ? `${plan.display_name} (${plan.code})` : id ?? 'Unknown plan';
   };
 
-  const visibleInvites = origins.length > 0 ? (invitesQuery.data ?? []) : [];
+  const visibleInvites = filterInvitesByOrigin(invitesQuery.data ?? [], origins);
   const selectedPlan = plansQuery.data?.find((plan) => plan.id === planId);
   const selectedBounds = quantityBounds(selectedPlan);
   const limitPlan = limitTarget?.plan_id ? plansQuery.data?.find((plan) => plan.id === limitTarget.plan_id) : undefined;
@@ -434,7 +444,6 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
       </div>
 
-      <ReviewAccessControl active={active} onSessionExpired={onSessionExpired} />
 
       <form className={`${styles.inviteForm} ${inviteStyles.ordinaryInviteForm} ${trialApplicable ? inviteStyles.ordinaryInviteFormWithTrial : inviteStyles.ordinaryInviteFormWithoutTrial}`} onSubmit={submit}>
         <label className={`${styles.field} ${inviteStyles.invitePlanField}`}>
@@ -527,6 +536,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
       <section className={styles.activeInvites} aria-labelledby="active-invites-title">
         <h3 id="active-invites-title">Active Invites</h3>
         <div className={styles.inviteList}>
+          <InviteGridHeader />
           {activeInvites.length ? activeInvites.map((item) => {
             const campaignChild = item.origin === 'campaign';
             return (
@@ -553,6 +563,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         <details className={styles.inviteArchive}>
           <summary>Archive ({archivedInvites.length})</summary>
           <div className={styles.inviteList} aria-label="Archived invites">
+            <InviteGridHeader />
             {archivedInvites.map((item) => <InviteRow invite={item} key={item.invite_id} mutationPending={false} planName={planName} />)}
           </div>
         </details>

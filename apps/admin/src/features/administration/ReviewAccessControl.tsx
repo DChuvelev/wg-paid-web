@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AdminReviewAccessResponse, AdminReviewResetResponse } from '@wg-paid/api';
 import { AdminApiError, createReviewAccess, isUnauthorized, resetReviewAccess } from '../../lib/adminApi';
 import adminStyles from '../../app/Admin.module.css';
-import styles from './Invites.module.css';
+import styles from './Administration.module.css';
 
 interface ReviewAccessControlProps {
   active: boolean;
