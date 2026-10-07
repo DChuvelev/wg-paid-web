@@ -1,10 +1,11 @@
 import type { AdminRuntimeConnectionRow } from '@wg-paid/api';
 import { activeRowsForSelector, configurationName, protocolBadge, selectors } from './connectionsDomain';
+import adminStyles from '../../app/Admin.module.css';
 import styles from './Connections.module.css';
 
 export function SelectorLoadView({ rows }: { rows: Array<AdminRuntimeConnectionRow> }) {
   return (
-    <div className={styles.selectorViewport}>
+    <div className={`${styles.selectorViewport} ${adminStyles.dataViewport}`}>
       <div className={styles.selectorGrid} aria-label="Active configuration load by selector">
         {selectors.map((selector) => {
           const activeRows = activeRowsForSelector(rows, selector);

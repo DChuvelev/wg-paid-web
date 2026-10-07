@@ -1,4 +1,4 @@
-.app { width: min(100% - 2rem, 92rem); margin: 0 auto; padding: 1.25rem 0 4rem; }
+.app { width: calc(100% - 2rem); margin: 0 auto; padding: 1.25rem 0 4rem; }
 .appHeader { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 1rem 0 1.4rem; }
 .appHeader h1, .loginCard h1 { margin: 0; color: #101828; font-size: clamp(1.8rem, 4vw, 2.7rem); letter-spacing: -0.035em; line-height: 1.08; }
 .eyebrow { margin: 0 0 0.35rem; color: #2857a4; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
@@ -173,7 +173,7 @@
 }
 
 @media (max-width: 48rem) {
-  .app { width: min(100% - 1rem, 92rem); padding-top: 0.5rem; }
+  .app { width: calc(100% - 1rem); padding-top: 0.5rem; }
   .appHeader { align-items: flex-start; }
   .headerActions { align-items: flex-end; flex-direction: column-reverse; gap: 0.5rem; }
   .searchForm { grid-template-columns: minmax(0, 1fr); }
@@ -218,4 +218,18 @@
   .identifier > span { grid-column: 1 / -1; }
   .dialogActions { display: grid; grid-template-columns: 1fr; }
   .dialogActions .dangerButton { grid-row: 1; }
+}
+
+/* Dataset scrolling follows the Users viewport pattern; controls stay outside. */
+.dataViewport { min-width: 0; overflow: auto; max-height: min(66vh, 54rem); }
+
+@media (min-width: 48.001rem) {
+  .app { display: flex; flex-direction: column; height: 100dvh; padding-bottom: 1rem; }
+  .appHeader { flex: none; }
+  .dashboard { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .dashboard > :not([hidden]) { display: flex; min-height: 0; }
+  .dataPanel, .dataSection { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+  .dataPanel > *, .dataSection > * { flex-shrink: 0; }
+  .dataPanel > .dataSection { flex: 1; min-height: 0; }
+  .dataPanel > .dataViewport, .dataSection > .dataViewport, .dataPanel > .userListViewport { flex: 1; min-height: 0; max-height: none; }
 }

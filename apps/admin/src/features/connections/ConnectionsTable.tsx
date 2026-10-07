@@ -12,6 +12,7 @@ import {
   protocolBadge,
   runtimeStatus
 } from './connectionsDomain';
+import adminStyles from '../../app/Admin.module.css';
 import styles from './Connections.module.css';
 
 interface ConnectionsTableProps {
@@ -30,7 +31,7 @@ export function ConnectionsTable({ groups, onSort, sort }: ConnectionsTableProps
   );
 
   return (
-    <div className={styles.tableViewport}>
+    <div className={`${styles.tableViewport} ${adminStyles.dataViewport}`}>
       <table className={styles.connectionsTable}>
         <colgroup>
           <col className={styles.userColumn} />

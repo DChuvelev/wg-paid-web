@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminBulkInviteCreateRequest, AdminBulkInviteCreateResponse, AdminBulkInviteSummary, AdminPlanSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
@@ -16,6 +16,7 @@ import styles from './Invites.module.css';
 const campaignsKey = ['admin', 'bulk-invites'] as const;
 
 interface BulkInviteCampaignsProps {
+  children?: ReactNode;
   active: boolean;
   onSessionExpired: () => void;
   plans: Array<AdminPlanSummary> | undefined;
@@ -25,7 +26,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInviteCampaignsProps) {
+export function BulkInviteCampaigns({ active, children, onSessionExpired, plans }: BulkInviteCampaignsProps) {
   const queryClient = useQueryClient();
   const [label, setLabel] = useState('');
   const [maxRegistrations, setMaxRegistrations] = useState(1);
@@ -112,7 +113,8 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
     && Boolean(commercialPlan && expiresAt);
 
   return (
-    <section className={styles.campaigns} aria-labelledby="bulk-invite-campaigns-title">
+    <section className={`${styles.campaigns} ${adminStyles.dataSection}`} aria-labelledby="bulk-invite-campaigns-title">
+    <div>
       <div className={styles.subsectionHeading}>
         <div>
           <p className={adminStyles.eyebrow}>Conference onboarding</p>
@@ -184,7 +186,11 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
 
       {createResult ? <BulkInviteCreateResult result={createResult} /> : null}
 
-      <div className={styles.campaignList}>
+    </div>
+
+    <div className={adminStyles.dataViewport} aria-label="Invites and campaigns data">
+      {children}
+      <div className={styles.campaignList} aria-labelledby="bulk-invite-campaigns-title">
         {(campaignsQuery.data ?? []).map((campaign) => (
           <article className={styles.campaignRow} key={campaign.campaign_id}>
             <div className={styles.campaignIdentity}>
@@ -210,6 +216,8 @@ export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInv
         ))}
         {campaignsQuery.data?.length === 0 ? <p className={adminStyles.emptyState}>No bulk invite campaigns.</p> : null}
       </div>
+
+    </div>
 
       {revokeTarget ? (
         <ModalDialog title={`Revoke ${revokeTarget.label}?`} onClose={() => !revokeMutation.isPending && setRevokeTarget(null)}>

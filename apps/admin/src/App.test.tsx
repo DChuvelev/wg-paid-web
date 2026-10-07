@@ -737,6 +737,10 @@ describe('admin session and invites', () => {
     window.history.replaceState(null, '', '/#/invites');
     const first = renderAdmin();
     const campaigns = await screen.findByRole('region', { name: 'Bulk Invite Campaigns' });
+    const dataset = screen.getByLabelText('Invites and campaigns data');
+    expect(dataset).not.toContainElement(within(campaigns).getByRole('button', { name: 'Create campaign' }));
+    expect(dataset).not.toContainElement(within(campaigns).getByLabelText('Label'));
+    expect(within(dataset).getByRole('heading', { name: 'Active Invites' })).toBeInTheDocument();
     expect(within(campaigns).queryByRole('combobox', { name: 'Campaign plan' })).toBeNull();
     expect(await within(campaigns).findByText('Commercial')).not.toBeNull();
     await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(true));

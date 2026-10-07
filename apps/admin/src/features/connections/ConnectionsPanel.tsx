@@ -95,7 +95,7 @@ export function ConnectionsPanel({ active, onSessionExpired }: ConnectionsPanelP
   };
 
   return (
-    <section className={adminStyles.sectionCard} id="connections" aria-labelledby="connections-title">
+    <section className={`${adminStyles.sectionCard} ${adminStyles.dataPanel}`} id="connections" aria-labelledby="connections-title">
       <div className={adminStyles.sectionHeading}>
         <div><p className={adminStyles.eyebrow}>Live operations</p><h2 id="connections-title">Connections</h2></div>
         {hasRows ? <span className={adminStyles.count}>{snapshot.rows.length}</span> : null}

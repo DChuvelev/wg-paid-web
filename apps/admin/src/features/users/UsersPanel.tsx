@@ -370,7 +370,7 @@ export function UsersPanel({ onSessionExpired }: UsersPanelProps) {
   );
 
   return (
-    <section className={styles.sectionCard} id="users" aria-labelledby="users-title">
+    <section className={`${styles.sectionCard} ${styles.dataPanel}`} id="users" aria-labelledby="users-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>Accounts & connections</p><h2 id="users-title">Users</h2></div>
         {usersQuery.data ? <span className={styles.loadedCount}>Loaded {rows.length}</span> : null}

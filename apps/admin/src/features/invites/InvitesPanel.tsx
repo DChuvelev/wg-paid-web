@@ -428,7 +428,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     || reissueMutation.isPending || recipientMutation.isPending || limitMutation.isPending;
 
   return (
-    <section className={styles.sectionCard} id="invites" aria-labelledby="invites-title">
+    <section className={`${styles.sectionCard} ${styles.dataPanel}`} id="invites" aria-labelledby="invites-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>Access onboarding</p><h2 id="invites-title">Invites</h2></div>
         {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
@@ -523,6 +523,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         {status || (!origins.length ? 'No invite origins selected.' : invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : visibleInvites.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
       </p>
 
+      <BulkInviteCampaigns active={active} onSessionExpired={onSessionExpired} plans={plansQuery.data}>
       <section className={styles.activeInvites} aria-labelledby="active-invites-title">
         <h3 id="active-invites-title">Active Invites</h3>
         <div className={styles.inviteList}>
@@ -557,7 +558,7 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
         </details>
       ) : null}
 
-      <BulkInviteCampaigns active={active} onSessionExpired={onSessionExpired} plans={plansQuery.data} />
+      </BulkInviteCampaigns>
 
       {recipientTarget ? (
         <ModalDialog title="Change invite recipient" onClose={() => !recipientMutation.isPending && setRecipientTarget(null)}>
