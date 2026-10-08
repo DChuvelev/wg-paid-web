@@ -9,6 +9,19 @@ function anchor(topic: HelpTopicId, data: Partial<HelpAnchor> = {}): HelpAnchor 
 }
 const baseline: CapabilitySnapshot = { invitations: false, addConfiguration: false, commercial: { resolved: true, scope: 'synthetic-grant', count: 1, paid: false, succeededPayments: 0 } };
 
+test.each(['initial', 'manual'] as const)('%s appends support once after the unchanged six topics', (mode) => {
+  const existing = ['userName', 'billing', 'configurationName', 'routing', 'invitations'] as const;
+  const anchors = existing.map((topic) => anchor(topic));
+  const support = anchor('support');
+  const before = orderedSteps(anchors, mode);
+  const after = orderedSteps([support, ...anchors, anchor('support')], mode);
+  expect(after.slice(0, 6)).toEqual(before);
+  expect(after).toHaveLength(7);
+  expect(after[6]).toEqual({ topic: 'support', anchorKey: support.key });
+  support.element.remove();
+  expect(orderedSteps([support, ...anchors], mode)).toEqual(before);
+});
+
 test('first walkthrough includes naming/routing, follows DOM and excludes only manual utilities/unavailable topics', () => {
   const anchors = [anchor('account'), anchor('billing'), anchor('billingPendingPayment'), anchor('billingHistory'), anchor('configurations'),
     anchor('configurationName', { instance: 'one' }), anchor('routing', { instance: 'one' }), anchor('protocols', { instance: 'one' }), anchor('delivery', { instance: 'one' }), anchor('invitations', { available: false }), anchor('help')];

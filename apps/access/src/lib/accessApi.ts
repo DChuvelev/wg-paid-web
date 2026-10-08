@@ -93,6 +93,16 @@ function mutationOptions() {
   return { ...requestOptions(), headers: getCsrfHeaders() };
 }
 
+export async function sendSupportMessage(message: string): Promise<void> {
+  const response = await fetch('/v2/account/support-message', {
+    ...mutationOptions(),
+    method: 'POST',
+    headers: { ...getCsrfHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: message.trim() })
+  });
+  if (response.status !== 200) throw accessApiError(response);
+}
+
 export async function requestLogin(email: string): Promise<number | undefined> {
   const result = await loginRequestV2AuthLoginRequestPost({
     ...mutationOptions(),

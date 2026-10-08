@@ -5,6 +5,7 @@ import { BillingSection } from '../billing/BillingSection';
 import { ReferralsSection } from '../referrals/ReferralsSection';
 import { ConfigurationsSection } from './ConfigurationsSection';
 import { DisplayNameForm } from './DisplayNameForm';
+import { SupportSection } from './SupportSection';
 import styles from './Account.module.css';
 import commercial from './CommercialAccount.module.css';
 import { AccountHelp, HelpEntry } from '../help/AccountHelp';
@@ -31,6 +32,7 @@ function CommercialContent(props: AccountSurfaceProps) {
         <BillingSection account={account} configurations={props.configurations} onUnauthorized={props.onError} />
         <ConfigurationsSection account={account} configurations={props.configurations} onChanged={props.onChanged} onError={props.onError} />
         {account.referrals.enabled ? <ReferralsSection capability={account.referrals} onUnauthorized={props.onError} /> : null}
+        <SupportSection onError={props.onError} />
       </div>
       <HelpEntry />
     </AppShell>

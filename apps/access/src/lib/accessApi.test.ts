@@ -57,6 +57,7 @@ vi.mock('@wg-paid/api', () => ({
 
 import {
   AccessApiError,
+  sendSupportMessage,
   changeInviteEmail,
   createBillingPayment,
   createConfiguration,
@@ -80,6 +81,23 @@ afterEach(() => {
   document.cookie = 'wg_access_csrf=; Max-Age=0; Path=/';
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+test('support uses the authenticated mutation CSRF mechanism and sends only trimmed plain text', async () => {
+  document.cookie = 'wg_access_csrf=csrf%20value; Path=/';
+  const request = vi.fn().mockResolvedValue(new Response('{"status":"sent"}', { status: 200 }));
+  vi.stubGlobal('fetch', request);
+  await expect(sendSupportMessage('  synthetic suggestion \n')).resolves.toBeUndefined();
+  expect(request).toHaveBeenCalledExactlyOnceWith('/v2/account/support-message', {
+    credentials: 'same-origin', method: 'POST',
+    headers: { 'x-csrf-token': 'csrf value', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'synthetic suggestion' })
+  });
+});
+
+test.each([429, 503, 500])('support preserves HTTP %i for bounded frontend feedback', async (status) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('synthetic internal detail', { status })));
+  await expect(sendSupportMessage('synthetic message')).rejects.toMatchObject({ status });
 });
 
 test('loads referrals with same-origin credentials and propagates AbortSignal', async () => {

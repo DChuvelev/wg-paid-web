@@ -5,6 +5,7 @@ import { ReferralsSection } from '../referrals/ReferralsSection';
 import styles from './Account.module.css';
 import { ConfigurationsSection } from './ConfigurationsSection';
 import { DisplayNameForm } from './DisplayNameForm';
+import { SupportSection } from './SupportSection';
 import { AccountHelp, HelpEntry } from '../help/AccountHelp';
 import { useHelpAnchor } from '../help/helpContext';
 
@@ -40,6 +41,7 @@ function PilotContent(props: AccountSurfaceProps) {
       <DisplayNameForm account={account} onError={props.onError} />
       <ConfigurationsSection account={account} configurations={props.configurations} onChanged={props.onChanged} onError={props.onError} />
       {account.referrals.enabled ? <ReferralsSection capability={account.referrals} onUnauthorized={props.onError} /> : null}
+      <SupportSection onError={props.onError} />
       <HelpEntry />
     </AppShell>
   );

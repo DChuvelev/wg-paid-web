@@ -1,4 +1,12 @@
 const en = {
+  supportTitle: 'Ask for support',
+  supportRemaining: '{{count}} characters left',
+  supportSend: 'Send',
+  supportSent: 'Message sent.',
+  supportRateLimited: 'Too many messages. Please try again later.',
+  supportFailed: 'Could not send the message. Please try again later.',
+  helpTitle_support: 'Ask for support',
+  helpBody_support: 'Here you can send the developer your suggestions about how the system works or report a problem.',
   billingRenewSubmit: "Pay for the next period — {{amount}}",
   billingKeepLegend: "Which devices should stay?",
   deviceAddName: "Name device",
@@ -371,6 +379,14 @@ const en = {
 type TranslationKey = keyof typeof en;
 
 const ru: Record<TranslationKey, string> = {
+  supportTitle: 'Написать в поддержку',
+  supportRemaining: 'Осталось: {{count}}',
+  supportSend: 'Отправить',
+  supportSent: 'Сообщение отправлено.',
+  supportRateLimited: 'Слишком много сообщений. Попробуйте позже.',
+  supportFailed: 'Не удалось отправить сообщение. Попробуйте позже.',
+  helpTitle_support: 'Написать в поддержку',
+  helpBody_support: 'Здесь вы можете отправить разработчику свои пожелания по работе системы или сообщить о неполадке.',
   billingRenewSubmit: "Оплатить следующий период — {{amount}}",
   billingKeepLegend: "Какие устройства оставить?",
   deviceAddName: "Назвать устройство",

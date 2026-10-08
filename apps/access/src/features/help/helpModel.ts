@@ -7,7 +7,7 @@ export const topics = {
   billingRetirement: 'billing-retirement', billingActions: 'billing-actions', billingPendingPayment: 'billing-pending-payment',
   billingHistory: 'billing-history', configurations: 'configurations', addConfiguration: 'add-configuration',
   configurationName: 'configuration-name', routing: 'configuration-routing', protocols: 'configuration-protocols',
-  delivery: 'configuration-delivery', invitations: 'invitations', help: 'account-help', returnToAccount: 'return-to-account'
+  delivery: 'configuration-delivery', invitations: 'invitations', help: 'account-help', returnToAccount: 'return-to-account', support: 'support'
 } as const;
 export type HelpTopicId = keyof typeof topics;
 export type DiscoveryId = 'invitations' | 'addConfiguration' | 'commercialConfigurationQuantityIncrease';
@@ -53,7 +53,10 @@ export function orderedSteps(anchors: readonly HelpAnchor[], mode: HelpMode, ins
     .sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic))
     .filter((anchor) => { if (seen.has(anchor.topic)) return false; seen.add(anchor.topic); return true; })
     .map<HelpStep>((anchor) => ({ topic: anchor.topic, anchorKey: anchor.key }))
-    .concat([{ topic: 'returnToAccount', anchorKey: 'return-to-account', informational: true }]);
+    .concat([{ topic: 'returnToAccount', anchorKey: 'return-to-account', informational: true }])
+    .concat(anchors.filter((anchor) => anchor.topic === 'support' && anchor.available !== false && anchor.element.isConnected
+      && (mode !== 'initial' || anchor.initial !== false)).slice(0, 1)
+      .map<HelpStep>((anchor) => ({ topic: anchor.topic, anchorKey: anchor.key })));
 }
 
 export function detectDiscoveries(previous: CapabilitySnapshot | undefined, current: CapabilitySnapshot, acknowledged: Partial<Record<DiscoveryId, number>>): DiscoveryCandidate[] {
