@@ -23,7 +23,7 @@ export function InviteOriginFilters({ onChange, value }: InviteOriginFiltersProp
 
   return (
     <fieldset className={styles.originFilters}>
-      <legend>Invite origin</legend>
+      <legend>Show invite sources</legend>
       <div>
         {options.map((option) => (
           <label key={option.value}>

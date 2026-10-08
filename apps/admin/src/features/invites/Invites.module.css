@@ -1,37 +1,65 @@
-.originFilters { margin: 0.85rem 0; padding: 0.75rem; border: 1px solid #d7dfeb; border-radius: 0.65rem; background: #f8fafc; }
-.originFilters legend { padding: 0 0.25rem; color: #52627a; font-size: 0.7rem; font-weight: 750; text-transform: uppercase; }
-.originFilters > div { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; }
-.originFilters label { display: inline-flex; align-items: center; gap: 0.35rem; color: #40516c; font-size: 0.82rem; }
-.originFilters input { margin: 0; accent-color: #2857a4; }
-.originBadge { display: inline-flex; width: fit-content; margin-top: 0.25rem; padding: 0.15rem 0.4rem; border-radius: 999px; color: #40516c; background: #eef2f7; font-size: 0.68rem; font-weight: 800; text-transform: capitalize; }
-.campaignOrigin { color: #6b3fa0; background: #f2eafa; }
-.ordinaryInviteForm { align-items: end; }
-.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email referrals referralLimit action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(6.5rem, 7.5rem) minmax(15rem, 1fr) max-content minmax(8rem, 9rem) auto; }
-.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email referrals referralLimit action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(15rem, 1fr) max-content minmax(8rem, 9rem) auto; }
+.invitesPanel { min-width: 0; }
+.inviteControls { min-width: 0; }
+.createInviteHeading { margin: 0 0 0.65rem; color: #263750; font-size: 1rem; }
+.ordinaryInviteForm.ordinaryInviteForm { width: max-content; max-width: 100%; margin-inline: auto; align-items: end; }
+.ordinaryInviteForm > label > span, .campaignForm > label > span, .campaignPlanField > span { font-size: 0.75rem; line-height: 1.25; }
+.ordinaryInviteForm > label, .campaignForm > label { gap: 0.25rem; }
+.ordinaryInviteForm small, .campaignForm small { font-size: 0.7rem; line-height: 1.2; }
+.ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email referrals referralLimit action"; grid-template-columns: 12rem 8rem 7rem 28rem 11rem 8rem max-content; }
+.ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email referrals referralLimit action"; grid-template-columns: 12rem 8rem 28rem 11rem 8rem max-content; }
 .invitePlanField { grid-area: plan; }
 .inviteConfigurationsField { grid-area: configurations; }
 .inviteTrialField { grid-area: trial; }
 .inviteEmailField { grid-area: email; }
-.inviteReferralToggle { display: inline-flex; grid-area: referrals; align-items: center; align-self: end; gap: 0.4rem; min-height: 2.75rem; color: #34435a; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
-.inviteReferralToggle input, .campaignReferralToggle input { margin: 0; accent-color: #2857a4; }
 .inviteReferralLimitField { grid-area: referralLimit; }
-.inviteCreateAction { grid-area: action; align-self: end; justify-self: start; white-space: nowrap; }
-.campaigns { margin-top: 1.75rem; padding-top: 1.4rem; border-top: 2px solid #d7dfeb; }
-.subsectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.inviteReferralToggle { grid-area: referrals; }
+.inviteCreateAction { grid-area: action; }
+.inviteReferralToggle, .campaignReferralToggle { display: inline-flex; align-items: center; align-self: end; gap: 0.4rem; min-height: 2.75rem; color: #34435a; font-size: 0.875rem; font-weight: 700; }
+.inviteReferralToggle input, .campaignReferralToggle input { flex: none; margin: 0; accent-color: #2857a4; }
+.inviteCreateAction, .campaignCreateAction { align-self: end; justify-self: start; white-space: nowrap; }
+.campaigns { margin-top: 1rem; padding-top: 0.85rem; border-top: 2px solid #d7dfeb; min-width: 0; }
+.subsectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem; }
 .subsectionHeading h3 { margin: 0; color: #101828; font-size: 1.25rem; }
-.campaignForm { display: flex; flex-wrap: wrap; align-items: end; gap: 0.65rem; padding: 0.75rem; border: 1px solid #d8e1ed; border-radius: 0.75rem; background: #f8fafc; }
-.campaignLabelField { width: 11rem; }
-.campaignPlanField { width: 7rem; }
+.campaignForm { display: grid; grid-template-areas: "label plan maximum trial expires referrals referralLimit action"; grid-template-columns: 14rem 12rem 8rem 7rem 15rem 12rem 8rem max-content; width: max-content; max-width: 100%; margin-inline: auto; align-items: end; gap: 0.65rem; padding: 0.75rem; border: 1px solid #d8e1ed; border-radius: 0.75rem; background: #f8fafc; }
+.campaignForm > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.campaignLabelField { grid-area: label; }
+.campaignPlanField { grid-area: plan; }
+.campaignMaximumField { grid-area: maximum; }
+.campaignTrialField { grid-area: trial; }
+.campaignExpiresField { grid-area: expires; }
+.campaignReferralToggle { grid-area: referrals; }
+.campaignReferralLimitField { grid-area: referralLimit; }
+.campaignCreateAction { grid-area: action; }
 .campaignPlanField strong { display: inline-flex; align-items: center; min-height: 2.75rem; overflow-wrap: anywhere; }
-.campaignMaximumField { width: 7rem; }
-.campaignTrialField { width: 5rem; }
-.campaignExpiresField { width: 13rem; }
-.campaignForm > * { min-width: 0; flex: 0 1 auto; max-width: 100%; }
-.campaignPolicyControls { display: flex; flex-wrap: wrap; align-items: end; gap: 0.65rem; }
-.campaignReferralLimitField { width: 9rem; min-width: 0; max-width: 100%; }
 .campaignForm small { font-size: 0.7rem; }
-.campaignReferralToggle { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.75rem; color: #34435a; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
-.campaignCreateAction { white-space: nowrap; }
+.existingCampaigns { min-width: 0; margin-top: 0.65rem; }
+.existingCampaigns > summary { padding: 0.65rem; color: #2857a4; background: #f4f6f9; border-radius: 0.45rem; cursor: pointer; font-size: 0.82rem; font-weight: 750; }
+.existingCampaigns[open] > summary { margin-bottom: 0.7rem; }
+.existingCampaigns .campaignList { overflow: auto; max-height: min(22vh, 16rem); overscroll-behavior: contain; }
+.inviteRecords { min-width: 0; }
+.inviteRecordsHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin: 0.8rem 0 0.65rem; }
+.inviteRecordsHeading h3 { margin: 0; color: #263750; font-size: 1rem; }
+.originFilters { min-width: 0; margin: 0; padding: 0.5rem 0.75rem; border: 1px solid #d7dfeb; border-radius: 0.65rem; background: #f8fafc; }
+.originFilters legend { padding: 0 0.25rem; color: #52627a; font-size: 0.75rem; font-weight: 750; }
+.originFilters > div { display: flex; flex-wrap: wrap; gap: 0.45rem 1.1rem; }
+.originFilters label { display: inline-flex; align-items: center; gap: 0.35rem; color: #40516c; font-size: 0.82rem; }
+.originFilters input { margin: 0; accent-color: #2857a4; }
+.originBadge { display: inline-flex; width: fit-content; padding: 0.15rem 0.4rem; border-radius: 999px; color: #40516c; background: #eef2f7; font-size: 0.68rem; font-weight: 800; text-transform: capitalize; }
+.campaignOrigin { color: #6b3fa0; background: #f2eafa; }
+.inviteViewport.inviteViewport { min-width: 0; overflow: auto; overscroll-behavior: contain; }
+.inviteTable { --invite-columns: 9rem 11rem 16rem 13rem 20rem 10rem 7rem 17rem; width: calc(109.4rem + 2px); margin-inline: auto; }
+.inviteGridRow, .inviteGridHeader { display: grid; grid-template-columns: var(--invite-columns); gap: 0.7rem; padding: 0.75rem; border: 1px solid #e0e6ee; border-radius: 0.65rem; }
+.inviteGridHeader { color: #52627a; background: #eef3f9; font-size: 0.72rem; font-weight: 800; }
+.inviteCell { min-width: 0; margin: 0; display: grid; align-content: start; gap: 0.35rem; overflow-wrap: anywhere; color: #34435a; font-size: 0.82rem; }
+.inviteCell strong { font-weight: 650; }
+.secondaryValue { color: #68778c; font-size: 0.78rem; }
+.inviteCell[data-invite-cell="Actions"] { display: flex; grid-column: 8; grid-row: 1; align-content: start; justify-content: flex-start; }
+@media (min-width: 48.001rem) {
+  .invitesPanel.invitesPanel { overflow: hidden; }
+  .invitesPanel > .inviteControls { max-height: calc(100% - 16rem); min-height: 0; overflow: auto; flex: 0 1 auto; }
+  .invitesPanel > .inviteRecords { flex: 1 0 14rem; min-height: 14rem; }
+}
+
 .createResult { display: grid; gap: 1rem; margin: 1rem 0; padding: 1rem; border: 2px solid #b42318; border-radius: 0.75rem; background: #fffafa; }
 .createResult h4 { margin: 0; color: #172033; font-size: 1.05rem; }
 .oneTimeWarning { display: grid; gap: 0.3rem; padding: 0.9rem; border-left: 6px solid #b42318; color: #7a2119; background: #fff1ef; }
@@ -50,44 +78,37 @@
 .campaignRow dt { color: #718096; font-size: 0.68rem; font-weight: 750; text-transform: uppercase; }
 .campaignRow dd { overflow-wrap: anywhere; margin: 0.08rem 0 0; color: #40516c; font-size: 0.78rem; }
 
-@media (max-width: 78rem) {
-  .ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email" "referrals referralLimit . action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(6.5rem, 7.5rem) minmax(12rem, 1fr); }
-  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email email" "referrals referralLimit . action"; grid-template-columns: minmax(10rem, 12rem) minmax(7.5rem, 8.5rem) minmax(8rem, 9rem) minmax(12rem, 1fr); }
+@media (max-width: 102rem) {
+  .ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email" "referrals referralLimit action action"; grid-template-columns: 12rem 8rem 7rem 28rem; }
+  .ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email" "referrals referralLimit action"; grid-template-columns: 12rem 8rem 28rem; }
+  .campaignForm { grid-template-areas: "label plan maximum trial expires" "referrals referralLimit action action ."; grid-template-columns: 14rem 12rem 8rem 7rem 15rem; }
 }
-
+@media (max-width: 78rem) {
+  .ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial email" "referrals referralLimit action action"; grid-template-columns: 12rem 8rem 7rem 18rem; }
+  .ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations email" "referrals referralLimit action"; grid-template-columns: 12rem 8rem 18rem; }
+  .campaignForm { grid-template-areas: "label plan maximum trial" "expires referrals referralLimit action"; grid-template-columns: 14rem 12rem 8rem 15rem; }
+}
+@media (max-width: 60rem) {
+  .ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations trial" "email email email" "referrals referralLimit action"; grid-template-columns: 12rem 11rem 8rem; }
+  .ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations ." "email email email" "referrals referralLimit action"; grid-template-columns: 12rem 11rem 8rem; }
+  .inviteEmailField { width: 28rem; max-width: 100%; }
+  .campaignForm { grid-template-areas: "label plan maximum" "expires trial ." "referrals referralLimit action"; grid-template-columns: 15rem 12rem 10rem; }
+}
 @media (max-width: 48rem) {
-  .ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations" "trial email" "referrals referralLimit" "action action"; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations" "email email" "referrals referralLimit" "action action"; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .campaignCreateAction { justify-self: start; }
-  .campaignShareLayout, .campaignRow { grid-template-columns: 1fr; }
+  .ordinaryInviteForm.ordinaryInviteForm { width: 100%; max-width: 31rem; }
+  .ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan configurations" "trial ." "email email" "referrals referralLimit" "action action"; grid-template-columns: repeat(2, minmax(0, 14rem)); }
+  .ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan configurations" "email email" "referrals referralLimit" "action action"; grid-template-columns: repeat(2, minmax(0, 14rem)); }
+  .campaignForm { width: 100%; max-width: 31rem; grid-template-areas: "label plan" "maximum trial" "expires expires" "referrals referralLimit" "action action"; grid-template-columns: repeat(2, minmax(0, 14rem)); }
+  .campaignExpiresField { width: 15rem; max-width: 100%; }
+  .campaignShareLayout, .campaignRow { grid-template-columns: minmax(0, 1fr); }
   .qrBlock { justify-self: start; }
   .campaignRow dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .campaignRow button { justify-self: start; }
 }
-
 @media (max-width: 32rem) {
-  .ordinaryInviteFormWithTrial, .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan" "configurations" "trial" "email" "referrals" "referralLimit" "action"; grid-template-columns: minmax(0, 1fr); }
-  .ordinaryInviteFormWithoutTrial { grid-template-areas: "plan" "configurations" "email" "referrals" "referralLimit" "action"; }
+  .ordinaryInviteForm.ordinaryInviteFormWithTrial { grid-template-areas: "plan" "configurations" "trial" "email" "referrals" "referralLimit" "action"; grid-template-columns: minmax(0, 28rem); }
+  .ordinaryInviteForm.ordinaryInviteFormWithoutTrial { grid-template-areas: "plan" "configurations" "email" "referrals" "referralLimit" "action"; grid-template-columns: minmax(0, 28rem); }
+  .campaignForm { grid-template-areas: "label" "plan" "maximum" "trial" "expires" "referrals" "referralLimit" "action"; grid-template-columns: minmax(0, 28rem); }
   .campaignRow dl { grid-template-columns: minmax(0, 1fr); }
-  .campaignForm > * { flex-basis: 100%; width: 100%; }
-  .campaignPolicyControls > * { flex: 1 1 8rem; }
   .qrBlock { justify-self: stretch; }
-}
-
-.campaignForm .campaignReferralToggle { white-space: normal; width: 9rem; }
-
-.inviteGridRow, .inviteGridHeader { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 1.4fr); gap: 0.7rem; padding: 0.75rem; }
-.inviteGridRow { border: 1px solid #e0e6ee; border-radius: 0.65rem; }
-.inviteGridHeader { color: #52627a; background: #eef3f9; border: 1px solid #e0e6ee; border-radius: 0.65rem; font-size: 0.72rem; font-weight: 800; }
-.inviteCell { min-width: 0; margin: 0; display: grid; align-content: start; gap: 0.45rem; overflow-wrap: anywhere; }
-.inviteCell dt { color: #718096; font-size: 0.68rem; font-weight: 750; }
-.inviteCell dd { margin: 0.08rem 0 0; color: #40516c; font-size: 0.78rem; }
-.inviteCell[data-invite-cell="Actions"] { display: flex; align-content: start; justify-content: flex-end; }
-@media (max-width: 70rem) {
-  .inviteGridHeader { display: none; }
-  .inviteGridRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .inviteCell[data-invite-cell="Actions"] { grid-column: 1 / -1; justify-content: flex-start; }
-}
-@media (max-width: 32rem) {
-  .inviteGridRow { grid-template-columns: minmax(0, 1fr); }
 }

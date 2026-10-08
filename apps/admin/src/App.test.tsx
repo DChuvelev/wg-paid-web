@@ -689,7 +689,22 @@ describe('admin session and invites', () => {
     vi.mocked(loadInvites).mockResolvedValue(rows);
     vi.mocked(loadBulkInviteCampaigns).mockResolvedValue([campaign]);
     await renderInvitesDashboard();
-    const dataset = screen.getByLabelText('Invites and campaigns data');
+    const dataset = screen.getByLabelText('Invite records');
+    const campaigns = screen.getByRole('region', { name: 'Bulk Invite Campaigns' });
+    const disclosure = within(campaigns).getByText('Existing campaigns (1)').closest('details') as HTMLDetailsElement;
+    expect(disclosure.open).toBe(false);
+    expect(disclosure).toContainElement(screen.getByLabelText('Existing campaign list'));
+    expect(dataset).not.toContainElement(disclosure);
+    expect(campaigns.compareDocumentPosition(dataset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const archive = within(dataset).getByText('Archive (2)').closest('details') as HTMLDetailsElement;
+    expect(archive.open).toBe(false);
+    expect(archive.nextElementSibling).toBeNull();
+    const filters = screen.getByRole('group', { name: 'Show invite sources' });
+    expect(filters.parentElement).toContainElement(screen.getByRole('heading', { name: 'Active Invites' }));
+    expect(campaigns).not.toContainElement(filters);
+    fireEvent.click(disclosure.querySelector('summary')!);
+    expect(disclosure.open).toBe(true);
+    expect(within(disclosure).getByRole('button', { name: 'Revoke' })).toBeInTheDocument();
     expect(within(dataset).queryByText('campaign-active@example.test')).toBeNull();
     expect(within(dataset).queryByText('campaign-archive@example.test')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
@@ -699,18 +714,25 @@ describe('admin session and invites', () => {
       expect(Array.from(row.querySelectorAll('[data-invite-cell]'), (cell) => cell.getAttribute('data-invite-cell')))
         .toEqual(['Invite', 'Source', 'Recipient', 'Plan', 'Timing', 'Limits', 'Status', 'Actions']);
     }
-    expect(dataset.querySelectorAll('[aria-label="Invite columns"]')).toHaveLength(2);
+    expect(dataset.querySelectorAll<HTMLElement>('[aria-label="Invite columns"]')).toHaveLength(2);
     const archiveRow = within(dataset).getByText('campaign-archive@example.test').closest('article')!;
+    const activeRow = within(dataset).getByText('campaign-active@example.test').closest('article')!;
+    expect(archiveRow.className).toBe(activeRow.className);
+    expect(activeRow.querySelector('dl')).toBeNull();
+    expect(within(activeRow.querySelector('[data-invite-cell="Source"]') as HTMLElement).getByText('Campaign')).toBeInTheDocument();
+    const headers = dataset.querySelectorAll<HTMLElement>('[aria-label="Invite columns"]');
+    expect(headers[0]!.className).toBe(headers[1]!.className);
+    expect(headers[0]!.parentElement?.parentElement).toContainElement(headers[1]!);
     expect(within(archiveRow.querySelector('[data-invite-cell="Limits"]') as HTMLElement).getByText('—')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
     expect(within(dataset).queryByText('campaign-active@example.test')).toBeNull();
     expect(within(dataset).queryByText('campaign-archive@example.test')).toBeNull();
     expect(screen.getByRole('region', { name: 'Bulk Invite Campaigns' })).toBeInTheDocument();
-    expect(within(dataset).getByText(campaign.label)).toBeInTheDocument();
+    expect(within(screen.getByLabelText('Existing campaign list')).getByText(campaign.label)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'User invites' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Admin invites' }));
     expect(dataset.querySelectorAll('[data-invite-cell]')).toHaveLength(0);
-    expect(within(dataset).getByText(campaign.label)).toBeInTheDocument();
+    expect(within(screen.getByLabelText('Existing campaign list')).getByText(campaign.label)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
     await within(dataset).findByText('campaign-active@example.test');
     expect(within(dataset).getByText('campaign-archive@example.test')).toBeInTheDocument();
@@ -749,8 +771,7 @@ describe('admin session and invites', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Campaign invites' }));
     const email = await screen.findByText('participant@example.test');
     const row = email.closest('article')!;
-    expect(within(row).getAllByText('Campaign').length).toBeGreaterThanOrEqual(2);
-    expect(within(row).getByText('Origin')).not.toBeNull();
+    expect(within(row.querySelector('[data-invite-cell="Source"]') as HTMLElement).getByText('Campaign')).toBeInTheDocument();
     expect(within(row).getAllByText('Conference Parent')).toHaveLength(1);
     expect(within(row).queryByText('Created by')).toBeNull();
     expect(within(row).queryByText('Parent campaign')).toBeNull();
@@ -792,15 +813,17 @@ describe('admin session and invites', () => {
     window.history.replaceState(null, '', '/#/invites');
     const first = renderAdmin();
     const campaigns = await screen.findByRole('region', { name: 'Bulk Invite Campaigns' });
-    const dataset = screen.getByLabelText('Invites and campaigns data');
+    const dataset = screen.getByLabelText('Invite records');
     expect(dataset).not.toContainElement(within(campaigns).getByRole('button', { name: 'Create campaign' }));
     expect(dataset).not.toContainElement(within(campaigns).getByLabelText('Label'));
     expect(within(campaigns).getByLabelText('Label').closest('label')?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
     expect(within(campaigns).getByLabelText('Expires at').closest('label')?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
     const policyControls = within(campaigns).getByLabelText('Active invitation limit per attendee').closest('label')?.parentElement;
     expect(policyControls).toContainElement(within(campaigns).getByRole('checkbox', { name: 'Allow invitations for attendees' }));
-    expect(policyControls?.parentElement).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
-    expect(within(dataset).getByRole('heading', { name: 'Active Invites' })).toBeInTheDocument();
+    expect(policyControls).toBe(within(campaigns).getByRole('button', { name: 'Create campaign' }).closest('form'));
+    expect(within(campaigns).getByRole('checkbox', { name: 'Allow invitations for attendees' }).closest('label')).not.toContainElement(within(campaigns).getByLabelText('Active invitation limit per attendee'));
+    expect(dataset.parentElement).toContainElement(screen.getByRole('heading', { name: 'Active Invites' }));
+    expect(dataset).not.toContainElement(screen.getByRole('group', { name: 'Show invite sources' }));
     expect(within(campaigns).queryByRole('combobox', { name: 'Campaign plan' })).toBeNull();
     expect(await within(campaigns).findByText('Commercial')).not.toBeNull();
     await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(true));
@@ -811,6 +834,9 @@ describe('admin session and invites', () => {
     await waitFor(() => expect((within(campaigns).getByRole('button', { name: 'Create campaign' }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(campaigns).getByRole('button', { name: 'Create campaign' }));
 
+    const historicalList = within(campaigns).getByText('Existing campaigns (0)').closest('details') as HTMLDetailsElement;
+    expect(historicalList.open).toBe(false);
+    expect(historicalList).not.toContainElement(await screen.findByText('IMPORTANT: Save this link or QR now.'));
     const expectedUrl = 'https://access.secret-studio.ru/invite#campaign=campaign-secret';
     await screen.findByText(expectedUrl);
     expect(createBulkInviteCampaign).toHaveBeenCalledWith({
@@ -900,6 +926,7 @@ describe('admin session and invites', () => {
       { ...campaign, campaign_id: 'campaign-revoked', label: 'Revoked campaign', state: 'revoked' }
     ]);
     await renderInvitesDashboard();
+    fireEvent.click(screen.getByText('Existing campaigns (4)'));
     expect(await screen.findAllByRole('button', { name: 'Revoke' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /Delete campaign/i })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));

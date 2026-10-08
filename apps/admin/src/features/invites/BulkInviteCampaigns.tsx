@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AdminBulkInviteCreateRequest, AdminBulkInviteCreateResponse, AdminBulkInviteSummary, AdminPlanSummary } from '@wg-paid/api';
 import { ModalDialog } from '../../components/ModalDialog';
@@ -16,7 +16,6 @@ import styles from './Invites.module.css';
 const campaignsKey = ['admin', 'bulk-invites'] as const;
 
 interface BulkInviteCampaignsProps {
-  children?: ReactNode;
   active: boolean;
   onSessionExpired: () => void;
   plans: Array<AdminPlanSummary> | undefined;
@@ -26,7 +25,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export function BulkInviteCampaigns({ active, children, onSessionExpired, plans }: BulkInviteCampaignsProps) {
+export function BulkInviteCampaigns({ active, onSessionExpired, plans }: BulkInviteCampaignsProps) {
   const queryClient = useQueryClient();
   const [label, setLabel] = useState('');
   const [maxRegistrations, setMaxRegistrations] = useState(1);
@@ -113,8 +112,7 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
     && Boolean(commercialPlan && expiresAt);
 
   return (
-    <section className={`${styles.campaigns} ${adminStyles.dataSection}`} aria-labelledby="bulk-invite-campaigns-title">
-    <div>
+    <section className={styles.campaigns} aria-labelledby="bulk-invite-campaigns-title">
       <div className={styles.subsectionHeading}>
         <div>
           <p className={adminStyles.eyebrow}>Conference onboarding</p>
@@ -144,7 +142,6 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
             <span>Expires at</span>
             <input required type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
           </label>
-          <div className={styles.campaignPolicyControls}>
           <label className={styles.campaignReferralToggle}>
             <input
               checked={recipientReferralsEnabled}
@@ -166,7 +163,6 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
             />
             <small>0 = unlimited.</small>
           </label>
-          </div>
           <button className={`${adminStyles.primaryButton} ${styles.campaignCreateAction}`} disabled={!valid || createMutation.isPending} type="submit">
             {createMutation.isPending ? 'Creating…' : 'Create campaign'}
           </button>
@@ -178,44 +174,42 @@ export function BulkInviteCampaigns({ active, children, onSessionExpired, plans 
         </p>
       ) : null}
 
-      <p className={adminStyles.statusLine} role="status" aria-live="polite">
+      {status || campaignsQuery.isPending || campaignsQuery.isError ? <p className={adminStyles.statusLine} role="status" aria-live="polite">
         {status || (campaignsQuery.isPending ? 'Loading campaigns…' : campaignsQuery.isError ? 'Unable to load campaigns.' : '')}
-      </p>
+      </p> : null}
 
       {createResult ? <BulkInviteCreateResult result={createResult} /> : null}
 
-    </div>
-
-    <div className={adminStyles.dataViewport} aria-label="Invites and campaigns data">
-      {children}
-      <div className={styles.campaignList} aria-labelledby="bulk-invite-campaigns-title">
-        {(campaignsQuery.data ?? []).map((campaign) => (
-          <article className={styles.campaignRow} key={campaign.campaign_id}>
-            <div className={styles.campaignIdentity}>
-              <strong>{campaign.label}</strong>
-              <span>{campaign.used_count} / {campaign.max_registrations} registrations</span>
-            </div>
-            <dl>
-              <div><dt>Trial</dt><dd>{campaign.trial_days} days</dd></div>
-              <div><dt>Expires</dt><dd>{formatDate(campaign.expires_at)}</dd></div>
-              <div><dt>Plan</dt><dd>{planName(campaign.plan_id)}</dd></div>
-              <div>
-                <dt>Attendee invitations</dt>
-                <dd>{campaign.recipient_referrals_enabled ? `Allowed · limit ${campaign.recipient_referral_limit}` : 'Disabled'}</dd>
+      <details className={styles.existingCampaigns}>
+        <summary>Existing campaigns ({campaignsQuery.data?.length ?? 0})</summary>
+        <div className={styles.campaignList} aria-label="Existing campaign list">
+          {(campaignsQuery.data ?? []).map((campaign) => (
+            <article className={styles.campaignRow} key={campaign.campaign_id}>
+              <div className={styles.campaignIdentity}>
+                <strong>{campaign.label}</strong>
+                <span>{campaign.used_count} / {campaign.max_registrations} registrations</span>
               </div>
-            </dl>
-            <StatusBadge status={campaign.state} />
-            {campaign.state === 'active' ? (
-              <button className={adminStyles.dangerTextButton} disabled={revokeMutation.isPending} type="button" onClick={() => setRevokeTarget(campaign)}>
-                Revoke
-              </button>
-            ) : null}
-          </article>
-        ))}
-        {campaignsQuery.data?.length === 0 ? <p className={adminStyles.emptyState}>No bulk invite campaigns.</p> : null}
-      </div>
+              <dl>
+                <div><dt>Trial</dt><dd>{campaign.trial_days} days</dd></div>
+                <div><dt>Expires</dt><dd>{formatDate(campaign.expires_at)}</dd></div>
+                <div><dt>Plan</dt><dd>{planName(campaign.plan_id)}</dd></div>
+                <div>
+                  <dt>Attendee invitations</dt>
+                  <dd>{campaign.recipient_referrals_enabled ? `Allowed · limit ${campaign.recipient_referral_limit}` : 'Disabled'}</dd>
+                </div>
+              </dl>
+              <StatusBadge status={campaign.state} />
+              {campaign.state === 'active' ? (
+                <button className={adminStyles.dangerTextButton} disabled={revokeMutation.isPending} type="button" onClick={() => setRevokeTarget(campaign)}>
+                  Revoke
+                </button>
+              ) : null}
+            </article>
+          ))}
+          {campaignsQuery.data?.length === 0 ? <p className={adminStyles.emptyState}>No bulk invite campaigns.</p> : null}
+        </div>
 
-    </div>
+      </details>
 
       {revokeTarget ? (
         <ModalDialog title={`Revoke ${revokeTarget.label}?`} onClose={() => !revokeMutation.isPending && setRevokeTarget(null)}>

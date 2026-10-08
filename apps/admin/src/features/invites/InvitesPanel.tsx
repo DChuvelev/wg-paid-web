@@ -136,29 +136,28 @@ function InviteRow({
       <div className={inviteStyles.inviteCell} data-invite-cell="Invite">
         <strong>Invite {inviteShortCode(invite.invite_id)}</strong>
       </div>
-      <dl className={inviteStyles.inviteCell} data-invite-cell="Source">
-        <div><dt>Origin</dt><dd className={`${inviteStyles.originBadge} ${campaignChild ? inviteStyles.campaignOrigin : ''}`}>{campaignChild ? 'Campaign' : invite.origin}</dd></div>
-        {campaignChild ? <div><dt>Campaign</dt><dd>{invite.bulk_campaign_label || 'Unknown campaign'}</dd></div>
-          : <div><dt>Created by</dt><dd>{createdBy(invite)}</dd></div>}
-      </dl>
-      <dl className={inviteStyles.inviteCell} data-invite-cell="Recipient">
-        <div><dt>Recipient</dt><dd title={visibleEmail}>{visibleEmail}</dd></div>
-        <div><dt>Bound email</dt><dd>{invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? invite.intended_email : '—'}</dd></div>
-      </dl>
-      <dl className={inviteStyles.inviteCell} data-invite-cell="Plan">
-        <div><dt>Plan</dt><dd>{planName(invite.plan_id)}</dd></div>
-      </dl>
-      <dl className={inviteStyles.inviteCell} data-invite-cell="Timing">
-        <div><dt>Created</dt><dd>{formatDate(invite.created_at)}</dd></div>
-        <div><dt>Invite expires</dt><dd>{formatDate(invite.expires_at)}</dd></div>
-        <div><dt>Registration email issued</dt><dd>{invite.magic_link_sent_at ? formatDate(invite.magic_link_sent_at) : '—'}</dd></div>
-        <div><dt>Current link expires</dt><dd>{invite.magic_link_expires_at ? formatDate(invite.magic_link_expires_at) : '—'}</dd></div>
-        <div><dt>Resend available</dt><dd>{invite.resend_available_at ? invite.can_resend ? 'Now' : formatDate(invite.resend_available_at) : '—'}</dd></div>
-      </dl>
-      <dl className={inviteStyles.inviteCell} data-invite-cell="Limits">
-        <div><dt>Configurations</dt><dd>{invite.wireguard_profile_limit}</dd></div>
-        <div><dt>Trial</dt><dd>{invite.trial_days !== null ? `Trial: ${invite.trial_days} days` : '—'}</dd></div>
-      </dl>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Source">
+        <span className={`${inviteStyles.originBadge} ${campaignChild ? inviteStyles.campaignOrigin : ''}`}>{campaignChild ? 'Campaign' : invite.origin}</span>
+        <span className={inviteStyles.secondaryValue}>{campaignChild ? invite.bulk_campaign_label || 'Unknown campaign' : <><span>Created by</span> <span>{createdBy(invite)}</span></>}</span>
+      </div>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Recipient">
+        <strong title={visibleEmail}>{visibleEmail}</strong>
+        <span className={inviteStyles.secondaryValue}>Bound email: <span>{invite.intended_email && invite.pending_email && invite.pending_email !== invite.intended_email ? invite.intended_email : '—'}</span></span>
+      </div>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Plan">
+        <strong>{planName(invite.plan_id)}</strong>
+      </div>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Timing">
+        <span>Created <span>{formatDate(invite.created_at)}</span></span>
+        <span className={inviteStyles.secondaryValue}>Invite expires <span>{formatDate(invite.expires_at)}</span></span>
+        <span className={inviteStyles.secondaryValue}><span>Registration email issued</span>: <span>{invite.magic_link_sent_at ? formatDate(invite.magic_link_sent_at) : '—'}</span></span>
+        <span className={inviteStyles.secondaryValue}><span>Current link expires</span>: <span>{invite.magic_link_expires_at ? formatDate(invite.magic_link_expires_at) : '—'}</span></span>
+        <span className={inviteStyles.secondaryValue}>Resend available: <span>{invite.resend_available_at ? invite.can_resend ? 'Now' : formatDate(invite.resend_available_at) : '—'}</span></span>
+      </div>
+      <div className={inviteStyles.inviteCell} data-invite-cell="Limits">
+        <span><span>{invite.wireguard_profile_limit}</span> configurations</span>
+        <span className={inviteStyles.secondaryValue}>{invite.trial_days !== null ? `Trial: ${invite.trial_days} days` : '—'}</span>
+      </div>
       <div className={inviteStyles.inviteCell} data-invite-cell="Status"><StatusBadge status={invite.state} /></div>
       <div className={`${inviteStyles.inviteCell} ${styles.inviteActions}`} data-invite-cell="Actions">
       {onResend || onChangeRecipient || onChangeLimit || onReissue || onRevoke ? (
@@ -438,138 +437,143 @@ export function InvitesPanel({ active, onSessionExpired }: InvitesPanelProps) {
     || reissueMutation.isPending || recipientMutation.isPending || limitMutation.isPending;
 
   return (
-    <section className={`${styles.sectionCard} ${styles.dataPanel}`} id="invites" aria-labelledby="invites-title">
+    <section className={`${styles.sectionCard} ${styles.dataPanel} ${inviteStyles.invitesPanel}`} id="invites" aria-labelledby="invites-title">
       <div className={styles.sectionHeading}>
         <div><p className={styles.eyebrow}>Access onboarding</p><h2 id="invites-title">Invites</h2></div>
         {invitesQuery.data ? <span className={styles.count}>{activeInvites.length}</span> : null}
       </div>
 
 
-      <form className={`${styles.inviteForm} ${inviteStyles.ordinaryInviteForm} ${trialApplicable ? inviteStyles.ordinaryInviteFormWithTrial : inviteStyles.ordinaryInviteFormWithoutTrial}`} onSubmit={submit}>
-        <label className={`${styles.field} ${inviteStyles.invitePlanField}`}>
-          <span>Plan</span>
-          <select required value={planId} disabled={plansQuery.isPending || createMutation.isPending} onChange={(event) => selectPlan(event.target.value)}>
-            {plansQuery.data?.map((plan) => <option key={plan.id} value={plan.id}>{plan.display_name} ({plan.code})</option>)}
-          </select>
-        </label>
-        <label className={`${styles.field} ${inviteStyles.inviteConfigurationsField}`}>
-          <span>Number of configurations</span>
-          <input
-            min={selectedBounds.kind === 'invalid' ? undefined : selectedBounds.min}
-            max={selectedBounds.kind === 'commercial' ? selectedBounds.max : undefined}
-            required
-            step="1"
-            type="number"
-            value={profileLimit}
-            disabled={createMutation.isPending || selectedBounds.kind === 'invalid'}
-            onChange={(event) => setProfileLimit(event.target.valueAsNumber)}
-          />
-          {selectedBounds.kind === 'invalid' ? <small className={styles.fieldError}>{selectedBounds.message}</small> : null}
-        </label>
-        {trialApplicable ? (
-          <label className={`${styles.field} ${inviteStyles.inviteTrialField}`}>
-            <span>Trial days</span>
+      <div className={inviteStyles.inviteControls}>
+        <h3 className={inviteStyles.createInviteHeading}>Create Invite</h3>
+        <form aria-label="Create Invite" className={`${styles.inviteForm} ${inviteStyles.ordinaryInviteForm} ${trialApplicable ? inviteStyles.ordinaryInviteFormWithTrial : inviteStyles.ordinaryInviteFormWithoutTrial}`} onSubmit={submit}>
+          <label className={`${styles.field} ${inviteStyles.invitePlanField}`}>
+            <span>Plan</span>
+            <select required value={planId} disabled={plansQuery.isPending || createMutation.isPending} onChange={(event) => selectPlan(event.target.value)}>
+              {plansQuery.data?.map((plan) => <option key={plan.id} value={plan.id}>{plan.display_name} ({plan.code})</option>)}
+            </select>
+          </label>
+          <label className={`${styles.field} ${inviteStyles.inviteConfigurationsField}`}>
+            <span>Number of configurations</span>
             <input
-              aria-label="Trial days"
-              inputMode="numeric"
-              max="30"
-              min="1"
+              min={selectedBounds.kind === 'invalid' ? undefined : selectedBounds.min}
+              max={selectedBounds.kind === 'commercial' ? selectedBounds.max : undefined}
               required
               step="1"
               type="number"
-              value={trialDays}
-              disabled={createMutation.isPending}
-              onChange={(event) => setTrialDays(event.target.value)}
+              value={profileLimit}
+              disabled={createMutation.isPending || selectedBounds.kind === 'invalid'}
+              onChange={(event) => setProfileLimit(event.target.valueAsNumber)}
             />
+            {selectedBounds.kind === 'invalid' ? <small className={styles.fieldError}>{selectedBounds.message}</small> : null}
           </label>
-        ) : null}
-        <label className={`${styles.field} ${inviteStyles.inviteEmailField}`}>
-          <span>Email (optional)</span>
-          <input
-            autoComplete="off"
-            placeholder="Leave blank to create a transferable URL for manual sharing"
-            type="email"
-            value={email}
-            disabled={createMutation.isPending}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          {email.trim() ? <small>The backend sends a registration email directly.</small> : null}
-        </label>
-        <label className={inviteStyles.inviteReferralToggle}>
-          <input
-            checked={recipientReferralsEnabled}
-            type="checkbox"
-            onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
-          /> Allow invitations
-        </label>
-        <label className={`${styles.field} ${inviteStyles.inviteReferralLimitField}`}>
-          <span>Active invitation limit</span>
-          <input
-            aria-label="Active invitation limit"
-            inputMode="numeric"
-            min="0"
-            required
-            step="1"
-            type="number"
-            value={recipientReferralLimit}
-            onChange={(event) => setRecipientReferralLimit(event.target.value)}
-          />
-          <small>0 = unlimited.</small>
-        </label>
-        <button
-          className={`${styles.primaryButton} ${inviteStyles.inviteCreateAction}`}
-          disabled={!planId || createMutation.isPending || !quantityIsValid(profileLimit, selectedBounds)
-            || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit)) || !trialValid}
-          type="submit"
-        >
-          {createMutation.isPending ? 'Creating…' : 'Create invite'}
-        </button>
-      </form>
-
-      <InviteOriginFilters value={origins} onChange={setOrigins} />
-
-      <p className={styles.statusLine} role="status" aria-live="polite">
-        {status || (!origins.length ? 'No invite origins selected.' : invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : visibleInvites.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
-      </p>
-
-      <BulkInviteCampaigns active={active} onSessionExpired={onSessionExpired} plans={plansQuery.data}>
-      <section className={styles.activeInvites} aria-labelledby="active-invites-title">
-        <h3 id="active-invites-title">Active Invites</h3>
-        <div className={styles.inviteList}>
-          <InviteGridHeader />
-          {activeInvites.length ? activeInvites.map((item) => {
-            const campaignChild = item.origin === 'campaign';
-            return (
-            <InviteRow
-              invite={item}
-              key={item.invite_id}
-              mutationPending={mutationPending}
-              planName={planName}
-              shareToken={ephemeralTokens.get(item.invite_id)?.token}
-              copyFeedback={copyFeedback.get(item.invite_id)}
-              onChangeLimit={item.origin === 'admin' ? (target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); } : undefined}
-              onChangeRecipient={campaignChild ? undefined : (target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
-              onCopy={(inviteId, token) => void copyUrl(inviteId, token)}
-              onReissue={campaignChild ? undefined : (inviteId) => reissueMutation.mutate(inviteId)}
-              onResend={campaignChild ? undefined : (inviteId) => resendMutation.mutate(inviteId)}
-              onRevoke={campaignChild ? undefined : setRevokeTarget}
+          {trialApplicable ? (
+            <label className={`${styles.field} ${inviteStyles.inviteTrialField}`}>
+              <span>Trial days</span>
+              <input
+                aria-label="Trial days"
+                inputMode="numeric"
+                max="30"
+                min="1"
+                required
+                step="1"
+                type="number"
+                value={trialDays}
+                disabled={createMutation.isPending}
+                onChange={(event) => setTrialDays(event.target.value)}
+              />
+            </label>
+          ) : null}
+          <label className={`${styles.field} ${inviteStyles.inviteEmailField}`}>
+            <span>Email (optional)</span>
+            <input
+              autoComplete="off"
+              placeholder="Leave blank to create a transferable URL for manual sharing"
+              type="email"
+              value={email}
+              disabled={createMutation.isPending}
+              onChange={(event) => setEmail(event.target.value)}
             />
-            );
-          }) : (invitesQuery.data || !origins.length) ? <p className={styles.emptyState}>No active invites.</p> : null}
+            {email.trim() ? <small>The backend sends a registration email directly.</small> : null}
+          </label>
+          <label className={inviteStyles.inviteReferralToggle}>
+            <input
+              checked={recipientReferralsEnabled}
+              type="checkbox"
+              onChange={(event) => setRecipientReferralsEnabled(event.target.checked)}
+            /> Allow invitations
+          </label>
+          <label className={`${styles.field} ${inviteStyles.inviteReferralLimitField}`}>
+            <span>Active invitation limit</span>
+            <input
+              aria-label="Active invitation limit"
+              inputMode="numeric"
+              min="0"
+              required
+              step="1"
+              type="number"
+              value={recipientReferralLimit}
+              onChange={(event) => setRecipientReferralLimit(event.target.value)}
+            />
+            <small>0 = unlimited.</small>
+          </label>
+          <button
+            className={`${styles.primaryButton} ${inviteStyles.inviteCreateAction}`}
+            disabled={!planId || createMutation.isPending || !quantityIsValid(profileLimit, selectedBounds)
+              || !/^\d+$/.test(recipientReferralLimit) || !Number.isInteger(Number(recipientReferralLimit)) || !trialValid}
+            type="submit"
+          >
+            {createMutation.isPending ? 'Creating…' : 'Create invite'}
+          </button>
+        </form>
+
+        <p className={styles.statusLine} role="status" aria-live="polite">
+          {status || (!origins.length ? 'No invite origins selected.' : invitesQuery.isPending ? 'Loading invites…' : invitesQuery.isError ? 'Unable to load invites.' : visibleInvites.length ? `${activeInvites.length} active invite(s).` : 'No invites.')}
+        </p>
+
+        <BulkInviteCampaigns active={active} onSessionExpired={onSessionExpired} plans={plansQuery.data} />
+      </div>
+
+      <div className={`${styles.dataSection} ${inviteStyles.inviteRecords}`}>
+        <div className={inviteStyles.inviteRecordsHeading}>
+          <h3 id="active-invites-title">Active Invites</h3>
+          <InviteOriginFilters value={origins} onChange={setOrigins} />
         </div>
-      </section>
+        <div className={`${styles.dataViewport} ${inviteStyles.inviteViewport}`} aria-label="Invite records">
+          <div className={inviteStyles.inviteTable}>
+            <section className={styles.inviteList} aria-labelledby="active-invites-title">
+              <InviteGridHeader />
+              {activeInvites.length ? activeInvites.map((item) => {
+                const campaignChild = item.origin === 'campaign';
+                return (
+                <InviteRow
+                  invite={item}
+                  key={item.invite_id}
+                  mutationPending={mutationPending}
+                  planName={planName}
+                  shareToken={ephemeralTokens.get(item.invite_id)?.token}
+                  copyFeedback={copyFeedback.get(item.invite_id)}
+                  onChangeLimit={item.origin === 'admin' ? (target) => { setLimitTarget(target); setLimitDraft(target.wireguard_profile_limit); } : undefined}
+                  onChangeRecipient={campaignChild ? undefined : (target) => { setRecipientTarget(target); setRecipientEmail(target.pending_email ?? target.intended_email ?? ''); }}
+                  onCopy={(inviteId, token) => void copyUrl(inviteId, token)}
+                  onReissue={campaignChild ? undefined : (inviteId) => reissueMutation.mutate(inviteId)}
+                  onResend={campaignChild ? undefined : (inviteId) => resendMutation.mutate(inviteId)}
+                  onRevoke={campaignChild ? undefined : setRevokeTarget}
+                />
+                );
+              }) : (invitesQuery.data || !origins.length) ? <p className={styles.emptyState}>No active invites.</p> : null}
+            </section>
 
-      {archivedInvites.length ? (
-        <details className={styles.inviteArchive}>
-          <summary>Archive ({archivedInvites.length})</summary>
-          <div className={styles.inviteList} aria-label="Archived invites">
-            <InviteGridHeader />
-            {archivedInvites.map((item) => <InviteRow invite={item} key={item.invite_id} mutationPending={false} planName={planName} />)}
+            <details className={styles.inviteArchive}>
+              <summary>Archive ({archivedInvites.length})</summary>
+              <div className={styles.inviteList} aria-label="Archived invites">
+                <InviteGridHeader />
+                {archivedInvites.map((item) => <InviteRow invite={item} key={item.invite_id} mutationPending={false} planName={planName} />)}
+              </div>
+            </details>
           </div>
-        </details>
-      ) : null}
-
-      </BulkInviteCampaigns>
+        </div>
+      </div>
 
       {recipientTarget ? (
         <ModalDialog title="Change invite recipient" onClose={() => !recipientMutation.isPending && setRecipientTarget(null)}>
