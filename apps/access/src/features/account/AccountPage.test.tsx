@@ -1996,7 +1996,7 @@ test('P33 unresolved referral data and a pending referral mutation still suspend
   await screen.findByRole('dialog', { name: 'Routing' });
 });
 
-test('Commercial Help preserves six approved Russian topics and appends support with the existing highlight and completion', async () => {
+test('Commercial Help preserves the first five Russian topics, places support sixth and return last with existing highlight and completion', async () => {
   const end = new Date(Date.now() + 86400000).toISOString();
   const current = commercialAccount('active_paid', { slot_quantity: 1, monthly_amount_kopeks: 29900,
     pending_slot_quantity: 1, pending_period_start: end, pending_period_end: new Date(Date.now() + 31 * 86400000).toISOString(), pending_monthly_amount_kopeks: 29900 });
@@ -2007,7 +2007,7 @@ test('Commercial Help preserves six approved Russian topics and appends support 
   renderApp('/account');
   fireEvent.click(await screen.findByRole('button', { name: 'RU' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Показать кабинет' }, { timeout: 3000 }));
-  const titles = ['Как к вам обращаться?', 'Доступ и оплата', 'Ваше устройство', 'Маршрутизация', 'Приглашения', 'Как вернуться в личный кабинет', 'Написать в поддержку'];
+  const titles = ['Как к вам обращаться?', 'Доступ и оплата', 'Ваше устройство', 'Маршрутизация', 'Приглашения', 'Написать в поддержку', 'Как вернуться в личный кабинет'];
   for (const [index, title] of titles.entries()) {
     const dialog = await screen.findByRole('dialog', { name: title });
     expect(within(dialog).getByText(`Шаг ${index + 1} из 7`)).toBeTruthy();
@@ -2027,18 +2027,18 @@ test('Commercial Help preserves six approved Russian topics and appends support 
     if (index === 2) expect(body).toBe(resources.ru.helpBody_configurationName);
     if (index === 3) expect(body).toBe(resources.ru.helpBody_routing);
     if (index === 4) expect(body).toBe(resources.ru.helpBody_invitations);
-    if (index === 5) {
+    if (index === 6) {
       expect(body).toBe(resources.ru.helpBody_returnToAccount);
       expect(document.querySelector('[data-help-anchor="account"]')?.className).not.toContain('highlight');
       expect(within(dialog).getByRole('button', { name: 'Скопировать адрес' })).toBeTruthy();
     }
-    if (index === 6) {
+    if (index === 5) {
       expect(body).toBe('Здесь вы можете отправить разработчику свои пожелания по работе системы или сообщить о неполадке.');
       const target = screen.getByRole('region', { name: 'Написать в поддержку' });
       expect(target.getAttribute('data-help-anchor')).toBe('support');
       expect(target.className).toContain('highlight'); expect(document.querySelector('[data-help-backdrop]')).toBeTruthy();
       fireEvent.click(within(dialog).getByRole('button', { name: 'Назад' }));
-      const previous = await screen.findByRole('dialog', { name: titles[5] });
+      const previous = await screen.findByRole('dialog', { name: titles[4] });
       expect(target.className).not.toContain('highlight');
       fireEvent.click(within(previous).getByRole('button', { name: 'Далее' }));
       await screen.findByRole('dialog', { name: title });
@@ -2057,7 +2057,7 @@ test('Commercial Help preserves six approved Russian topics and appends support 
   expect(supportHelp.querySelector('#account-help-card-body')!.textContent).toBe('Here you can send the developer your suggestions about how the system works or report a problem.');
   expect(screen.getByRole('region', { name: 'Ask for support' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true);
-  expect(within(supportHelp).getByRole('button', { name: 'Done' })).toBeTruthy();
+  expect(within(supportHelp).getByRole('button', { name: 'Next' })).toBeTruthy();
 }, 15000);
 
 test.each(['pilot', 'commercial'] as const)('%s ordinary account appends support immediately after Invitations', async (surface) => {

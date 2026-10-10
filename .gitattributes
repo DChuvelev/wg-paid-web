@@ -1,0 +1,2 @@
+# Preserve the exact owner export bytes used by the raw SHA-256 provenance guard.
+openapi/openapi.json -text

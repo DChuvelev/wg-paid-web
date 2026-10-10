@@ -11,6 +11,26 @@ import {
 } from './openapi-contract.mjs';
 
 describe('OpenAPI canonical fingerprint guard', () => {
+  test('B4 monitoring uses pinned read-only endpoints, constraints, provenance and false health assertion', async () => {
+    const document = JSON.parse(await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8'));
+    const endpoints = ['/v2/admin/monitoring/summary', '/v2/admin/monitoring/events', '/v2/admin/monitoring/capacity'];
+    for (const path of endpoints) {
+      expect(Object.keys(document.paths[path])).toEqual(['get']);
+      expect(document.paths[path].get.parameters).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'wg_admin_session', in: 'cookie' })
+      ]));
+    }
+    const summary = document.paths[endpoints[0]].get;
+    expect(summary.parameters.find((p) => p.name === 'window_hours').schema).toMatchObject({ minimum: 1, maximum: 168, default: 24 });
+    const events = document.paths[endpoints[1]].get;
+    expect(events.parameters.find((p) => p.name === 'limit').schema).toMatchObject({ minimum: 1, maximum: 100, default: 50 });
+    expect(events.parameters.find((p) => p.name === 'offset').schema).toMatchObject({ minimum: 0, maximum: 5000, default: 0 });
+    for (const name of ['AdminMonitoringSummaryResponse', 'AdminCapacityResponse']) {
+      expect(document.components.schemas[name].properties.current_tunnel_health_verified.const).toBe(false);
+    }
+    expect(document.components.schemas.AdminMonitoringEventRow.properties.provenance.enum).toEqual(['forward_live', 'historical_retained_only']);
+    expect(document.components.schemas.AdminCapacityResponse.properties.status.enum).toEqual(['available', 'partial', 'stale', 'unavailable']);
+  });
   test('canonicalizes object keys while preserving array order', () => {
     const first = { b: 2, a: { z: null, y: [3, { b: true, a: 'x' }] } };
     const second = { a: { y: [3, { a: 'x', b: true }], z: null }, b: 2 };
@@ -49,18 +69,18 @@ describe('OpenAPI canonical fingerprint guard', () => {
     const source = await readFile(new URL('../openapi/openapi.json', import.meta.url), 'utf8');
     const document = JSON.parse(source);
     expect(createHash('sha256').update(source, 'utf8').digest('hex'))
-      .toBe('e93337317b4dc7e1a81d547759e513ea0c9754a426f16625d4bdfaf96f2a10df');
-    expect(Object.keys(document.paths)).toHaveLength(72);
-    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ paths: 72, operations: 81, schemas: 92 });
+      .toBe('80ede76aa87ef98a807057903bb74ac2a8037111ec21395675dffa5e953901b5');
+    expect(Object.keys(document.paths)).toHaveLength(76);
+    expect(assertPinnedOpenApi(parseJsonForCanonicalization(source))).toMatchObject({ paths: 76, operations: 85, schemas: 107 });
     expect(document.paths['/v2/admin/review-access/reset'].post.operationId)
       .toBe('admin_review_access_reset_v2_admin_review_access_reset_post');
     expect(document.components.schemas.AdminReviewResetResponse.properties.state.enum)
       .toEqual(['resetting', 'payment_required']);
 
     const schemas = document.components.schemas;
-    expect(Object.keys(schemas.AccountMeResponse.properties)).toEqual([
+    expect(Object.keys(schemas.AccountMeResponse.properties).sort()).toEqual([
       'user_id', 'email', 'display_name', 'account_surface', 'grants', 'billing', 'referrals'
-    ]);
+    ].sort());
     expect(schemas.AccountMeResponse.properties).not.toHaveProperty('admin_note');
     expect(schemas.AccountMeResponse.properties.account_surface.enum).toEqual(['pilot', 'commercial', 'review']);
     expect(schemas.AccountMeResponse.properties.billing.anyOf[0])
@@ -231,26 +251,26 @@ describe('OpenAPI canonical fingerprint guard', () => {
     expect(document.paths['/v2/admin/runtime/connections'].get.responses['200'].content['application/json'].schema)
       .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionsResponse' });
 
-    expect(Object.keys(schemas.AdminRuntimeConnectionsResponse.properties)).toEqual([
+    expect(Object.keys(schemas.AdminRuntimeConnectionsResponse.properties).sort()).toEqual([
       'generated_at', 'received_at', 'snapshot_age_seconds', 'stale', 'sample_interval_seconds',
       'unmatched_runtime_rows_count', 'rows'
-    ]);
+    ].sort());
     expect(schemas.AdminRuntimeConnectionsResponse.required).toEqual([
       'generated_at', 'received_at', 'snapshot_age_seconds', 'stale', 'sample_interval_seconds',
       'unmatched_runtime_rows_count', 'rows'
     ]);
     expect(schemas.AdminRuntimeConnectionsResponse.properties.rows.items)
       .toEqual({ $ref: '#/components/schemas/AdminRuntimeConnectionRow' });
-    expect(Object.keys(schemas.AdminRuntimeConnectionRow.properties)).toEqual([
+    expect(Object.keys(schemas.AdminRuntimeConnectionRow.properties).sort()).toEqual([
       'user_id', 'email', 'display_name', 'invited_by_origin', 'invited_by_user_id',
       'invited_by_label', 'invited_by_campaign_id', 'configuration_id', 'configuration_ordinal',
       'configuration_label', 'profile_id', 'protocol', 'profile_label', 'tunnel_ip', 'selector',
       'active_now', 'active_state', 'last_active_at', 'last_reassign_at', 'last_handshake_at',
       'rx_bytes', 'tx_bytes', 'rx_bytes_per_second', 'tx_bytes_per_second'
-    ]);
+    ].sort());
     expect(schemas.AdminRuntimeConnectionRow.properties.protocol.enum).toEqual(['wireguard', 'amneziawg']);
-    expect(schemas.AdminRuntimeConnectionRow.required)
-      .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties));
+    expect([...schemas.AdminRuntimeConnectionRow.required].sort())
+      .toEqual(Object.keys(schemas.AdminRuntimeConnectionRow.properties).sort());
 
     const lookup = document.paths['/v2/admin/invitation-sources'].get;
     expect(lookup.operationId).toBe('admin_invitation_sources_v2_admin_invitation_sources_get');

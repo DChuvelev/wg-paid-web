@@ -9,13 +9,13 @@ export type ClientOptions = {
  */
 export type AccountConfigurationCreateResponse = {
     /**
-     * Configuration Id
-     */
-    configuration_id: string;
-    /**
      * Access Grant Id
      */
     access_grant_id: string;
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
     /**
      * Label
      */
@@ -31,27 +31,27 @@ export type AccountConfigurationCreateResponse = {
  */
 export type AccountMeResponse = {
     /**
-     * User Id
+     * Account Surface
      */
-    user_id: string;
-    /**
-     * Email
-     */
-    email: string;
+    account_surface: 'pilot' | 'commercial' | 'review';
+    billing: BillingAccountSummary | null;
     /**
      * Display Name
      */
     display_name: string | null;
     /**
-     * Account Surface
+     * Email
      */
-    account_surface: 'pilot' | 'commercial' | 'review';
+    email: string;
     /**
      * Grants
      */
     grants: Array<GrantSummary>;
-    billing: BillingAccountSummary | null;
     referrals: ReferralCapabilitySummary;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -69,33 +69,33 @@ export type AccountMetadataUpdateRequest = {
  */
 export type AdminBulkInviteCreateRequest = {
     /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
      * Label
      */
     label: string;
-    /**
-     * Plan Id
-     */
-    plan_id: string;
     /**
      * Max Registrations
      */
     max_registrations: number;
     /**
-     * Trial Days
+     * Plan Id
      */
-    trial_days: number;
-    /**
-     * Recipient Referrals Enabled
-     */
-    recipient_referrals_enabled?: boolean;
+    plan_id: string;
     /**
      * Recipient Referral Limit
      */
     recipient_referral_limit?: number;
     /**
-     * Expires At
+     * Recipient Referrals Enabled
      */
-    expires_at: string;
+    recipient_referrals_enabled?: boolean;
+    /**
+     * Trial Days
+     */
+    trial_days: number;
 };
 
 /**
@@ -118,49 +118,260 @@ export type AdminBulkInviteSummary = {
      */
     campaign_id: string;
     /**
-     * Label
+     * Created At
      */
-    label: string;
-    /**
-     * Plan Id
-     */
-    plan_id: string;
-    /**
-     * Max Registrations
-     */
-    max_registrations: number;
-    /**
-     * Used Count
-     */
-    used_count: number;
-    /**
-     * Trial Days
-     */
-    trial_days: number;
-    /**
-     * Recipient Referrals Enabled
-     */
-    recipient_referrals_enabled: boolean;
-    /**
-     * Recipient Referral Limit
-     */
-    recipient_referral_limit: number;
+    created_at: string;
     /**
      * Expires At
      */
     expires_at: string;
     /**
+     * Label
+     */
+    label: string;
+    /**
+     * Max Registrations
+     */
+    max_registrations: number;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit: number;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
      * Revoked At
      */
     revoked_at: string | null;
     /**
-     * Created At
-     */
-    created_at: string;
-    /**
      * State
      */
     state: 'active' | 'full' | 'expired' | 'revoked';
+    /**
+     * Trial Days
+     */
+    trial_days: number;
+    /**
+     * Used Count
+     */
+    used_count: number;
+};
+
+/**
+ * AdminCapacityGuest
+ */
+export type AdminCapacityGuest = {
+    /**
+     * Mem Available Mib
+     */
+    mem_available_mib: number | null;
+    /**
+     * Mem Available Pct
+     */
+    mem_available_pct: number | null;
+    /**
+     * Mem Total Mib
+     */
+    mem_total_mib: number | null;
+    /**
+     * Psi Cpu Avg300
+     */
+    psi_cpu_avg300: number | null;
+    /**
+     * Psi Io Avg300
+     */
+    psi_io_avg300: number | null;
+    /**
+     * Psi Memory Avg300
+     */
+    psi_memory_avg300: number | null;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'unavailable' | 'unknown';
+    /**
+     * Swap Used Mib
+     */
+    swap_used_mib: number | null;
+};
+
+/**
+ * AdminCapacityNic
+ */
+export type AdminCapacityNic = {
+    /**
+     * Link Mbps
+     */
+    link_mbps: number | null;
+    /**
+     * Link Up
+     */
+    link_up: boolean | null;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'unavailable' | 'unknown';
+};
+
+/**
+ * AdminCapacityNode
+ */
+export type AdminCapacityNode = {
+    /**
+     * Cpu Count
+     */
+    cpu_count: number | null;
+    /**
+     * Day Cpu Avg Pct
+     */
+    day_cpu_avg_pct: number | null;
+    /**
+     * Mem Used Pct
+     */
+    mem_used_pct: number | null;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'unavailable' | 'unknown';
+    /**
+     * Week Cpu Avg Pct
+     */
+    week_cpu_avg_pct: number | null;
+};
+
+/**
+ * AdminCapacityResponse
+ */
+export type AdminCapacityResponse = {
+    /**
+     * Age Seconds
+     */
+    age_seconds: number | null;
+    /**
+     * Current Tunnel Health Verified
+     */
+    current_tunnel_health_verified?: false;
+    /**
+     * Freshness Threshold Seconds
+     */
+    freshness_threshold_seconds: number;
+    /**
+     * Generated At Utc
+     */
+    generated_at_utc: string;
+    snapshot: AdminCapacitySnapshot | null;
+    /**
+     * Snapshot At Utc
+     */
+    snapshot_at_utc: string | null;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'stale' | 'unavailable';
+};
+
+/**
+ * AdminCapacitySnapshot
+ */
+export type AdminCapacitySnapshot = {
+    /**
+     * Generated At Utc
+     */
+    generated_at_utc: string;
+    /**
+     * Guests
+     */
+    guests: {
+        [key: string]: AdminCapacityGuest;
+    };
+    nic: AdminCapacityNic;
+    node: AdminCapacityNode;
+    /**
+     * Schema
+     */
+    schema: 'wg-capacity-delivery-v1';
+    /**
+     * Source
+     */
+    source: 'vm130_resource_monitor';
+    /**
+     * Source Status
+     */
+    source_status: 'available' | 'partial' | 'unavailable' | 'unknown';
+    /**
+     * Vms
+     */
+    vms: {
+        [key: string]: AdminCapacityVm;
+    };
+};
+
+/**
+ * AdminCapacityVm
+ */
+export type AdminCapacityVm = {
+    day: AdminCapacityWindow;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'unavailable' | 'unknown';
+    /**
+     * Vcpus
+     */
+    vcpus: number | null;
+    week: AdminCapacityWindow;
+};
+
+/**
+ * AdminCapacityWindow
+ */
+export type AdminCapacityWindow = {
+    /**
+     * Cpu Avg Pct
+     */
+    cpu_avg_pct: number | null;
+    /**
+     * Cpu P95 Pct
+     */
+    cpu_p95_pct: number | null;
+    /**
+     * Diskread P95 Bytes Per Sec
+     */
+    diskread_p95_bytes_per_sec: number | null;
+    /**
+     * Diskwrite P95 Bytes Per Sec
+     */
+    diskwrite_p95_bytes_per_sec: number | null;
+    /**
+     * Latest Age Sec
+     */
+    latest_age_sec: number | null;
+    /**
+     * Mem P95 Pct
+     */
+    mem_p95_pct: number | null;
+    /**
+     * Netin P95 Bytes Per Sec
+     */
+    netin_p95_bytes_per_sec: number | null;
+    /**
+     * Netout P95 Bytes Per Sec
+     */
+    netout_p95_bytes_per_sec: number | null;
+    /**
+     * Points
+     */
+    points: number | null;
+    /**
+     * Status
+     */
+    status: 'available' | 'partial' | 'unavailable' | 'unknown';
 };
 
 /**
@@ -178,13 +389,13 @@ export type AdminConfigurationCreateRequest = {
  */
 export type AdminConfigurationCreateResponse = {
     /**
-     * Configuration Id
-     */
-    configuration_id: string;
-    /**
      * Access Grant Id
      */
     access_grant_id: string;
+    /**
+     * Configuration Id
+     */
+    configuration_id: string;
     /**
      * Label
      */
@@ -200,25 +411,25 @@ export type AdminConfigurationCreateResponse = {
  */
 export type AdminInvitationSourceOption = {
     /**
-     * Origin
+     * Created At
      */
-    origin: 'user' | 'campaign';
-    /**
-     * Source Id
-     */
-    source_id: string;
+    created_at: string;
     /**
      * Label
      */
     label: string;
     /**
+     * Origin
+     */
+    origin: 'user' | 'campaign';
+    /**
      * Secondary Label
      */
     secondary_label: string | null;
     /**
-     * Created At
+     * Source Id
      */
-    created_at: string;
+    source_id: string;
 };
 
 /**
@@ -254,21 +465,21 @@ export type AdminInviteRequest = {
      */
     plan_id: string;
     /**
-     * Wireguard Profile Limit
+     * Recipient Referral Limit
      */
-    wireguard_profile_limit?: number | null;
+    recipient_referral_limit?: number;
     /**
      * Recipient Referrals Enabled
      */
     recipient_referrals_enabled?: boolean;
     /**
-     * Recipient Referral Limit
-     */
-    recipient_referral_limit?: number;
-    /**
      * Trial Days
      */
     trial_days?: number | null;
+    /**
+     * Wireguard Profile Limit
+     */
+    wireguard_profile_limit?: number | null;
 };
 
 /**
@@ -276,13 +487,9 @@ export type AdminInviteRequest = {
  */
 export type AdminInviteResponse = {
     /**
-     * Invite Id
+     * Email Sent
      */
-    invite_id: string;
-    /**
-     * Invite Token
-     */
-    invite_token: string;
+    email_sent: boolean;
     /**
      * Expires At
      */
@@ -292,25 +499,29 @@ export type AdminInviteResponse = {
      */
     intended_email: string | null;
     /**
-     * Wireguard Profile Limit
+     * Invite Id
      */
-    wireguard_profile_limit: number;
+    invite_id: string;
     /**
-     * Recipient Referrals Enabled
+     * Invite Token
      */
-    recipient_referrals_enabled: boolean;
+    invite_token: string;
     /**
      * Recipient Referral Limit
      */
     recipient_referral_limit: number;
     /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
      * Trial Days
      */
     trial_days: number | null;
     /**
-     * Email Sent
+     * Wireguard Profile Limit
      */
-    email_sent: boolean;
+    wireguard_profile_limit: number;
 };
 
 /**
@@ -332,14 +543,6 @@ export type AdminInviteShareTokenResponse = {
  */
 export type AdminInviteSummary = {
     /**
-     * Invite Id
-     */
-    invite_id: string;
-    /**
-     * Origin
-     */
-    origin: 'user' | 'admin' | 'campaign';
-    /**
      * Bulk Campaign Id
      */
     bulk_campaign_id: string | null;
@@ -347,86 +550,6 @@ export type AdminInviteSummary = {
      * Bulk Campaign Label
      */
     bulk_campaign_label: string | null;
-    /**
-     * Intended Email
-     */
-    intended_email: string | null;
-    /**
-     * Pending Email
-     */
-    pending_email: string | null;
-    /**
-     * Plan Id
-     */
-    plan_id: string | null;
-    /**
-     * Wireguard Profile Limit
-     */
-    wireguard_profile_limit: number;
-    /**
-     * Recipient Referrals Enabled
-     */
-    recipient_referrals_enabled: boolean;
-    /**
-     * Recipient Referral Limit
-     */
-    recipient_referral_limit: number;
-    /**
-     * Trial Days
-     */
-    trial_days: number | null;
-    /**
-     * Max Uses
-     */
-    max_uses: number;
-    /**
-     * Used Count
-     */
-    used_count: number;
-    /**
-     * Expires At
-     */
-    expires_at: string | null;
-    /**
-     * Revoked At
-     */
-    revoked_at: string | null;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Created By Kind
-     */
-    created_by_kind: string;
-    /**
-     * Created By User Id
-     */
-    created_by_user_id: string | null;
-    /**
-     * Created By Label
-     */
-    created_by_label: string;
-    /**
-     * State
-     */
-    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
-    /**
-     * Magic Link Sent At
-     */
-    magic_link_sent_at: string | null;
-    /**
-     * Magic Link Expires At
-     */
-    magic_link_expires_at: string | null;
-    /**
-     * Resend Available At
-     */
-    resend_available_at: string | null;
-    /**
-     * Can Resend
-     */
-    can_resend: boolean;
     /**
      * Can Change Email
      */
@@ -436,9 +559,364 @@ export type AdminInviteSummary = {
      */
     can_reissue_share_link: boolean;
     /**
+     * Can Resend
+     */
+    can_resend: boolean;
+    /**
      * Can Revoke
      */
     can_revoke: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Created By Kind
+     */
+    created_by_kind: string;
+    /**
+     * Created By Label
+     */
+    created_by_label: string;
+    /**
+     * Created By User Id
+     */
+    created_by_user_id: string | null;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
+    /**
+     * Intended Email
+     */
+    intended_email: string | null;
+    /**
+     * Invite Id
+     */
+    invite_id: string;
+    /**
+     * Magic Link Expires At
+     */
+    magic_link_expires_at: string | null;
+    /**
+     * Magic Link Sent At
+     */
+    magic_link_sent_at: string | null;
+    /**
+     * Max Uses
+     */
+    max_uses: number;
+    /**
+     * Origin
+     */
+    origin: 'user' | 'admin' | 'campaign';
+    /**
+     * Pending Email
+     */
+    pending_email: string | null;
+    /**
+     * Plan Id
+     */
+    plan_id: string | null;
+    /**
+     * Recipient Referral Limit
+     */
+    recipient_referral_limit: number;
+    /**
+     * Recipient Referrals Enabled
+     */
+    recipient_referrals_enabled: boolean;
+    /**
+     * Resend Available At
+     */
+    resend_available_at: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * State
+     */
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    /**
+     * Trial Days
+     */
+    trial_days: number | null;
+    /**
+     * Used Count
+     */
+    used_count: number;
+    /**
+     * Wireguard Profile Limit
+     */
+    wireguard_profile_limit: number;
+};
+
+/**
+ * AdminMonitoringActivitySummary
+ */
+export type AdminMonitoringActivitySummary = {
+    /**
+     * Complete Minutes
+     */
+    complete_minutes: number;
+    /**
+     * Conflicted Slots Total
+     */
+    conflicted_slots_total: number;
+    /**
+     * Coverage Ratio Over Window
+     */
+    coverage_ratio_over_window: number;
+    /**
+     * Expected Minutes
+     */
+    expected_minutes: number;
+    /**
+     * Last Active Configurations Observed
+     */
+    last_active_configurations_observed: number | null;
+    /**
+     * Last Active Users Observed
+     */
+    last_active_users_observed: number | null;
+    /**
+     * Last Observed Minute Utc
+     */
+    last_observed_minute_utc: string | null;
+    /**
+     * Last Received Age Seconds
+     */
+    last_received_age_seconds: number | null;
+    /**
+     * Last Received At Utc
+     */
+    last_received_at_utc: string | null;
+    /**
+     * Last Selector Peaks Observed
+     */
+    last_selector_peaks_observed: {
+        [key: string]: number | null;
+    };
+    /**
+     * Missing Minutes
+     */
+    missing_minutes: number;
+    /**
+     * Observed Minutes
+     */
+    observed_minutes: number;
+    /**
+     * Partial Minutes
+     */
+    partial_minutes: number;
+    /**
+     * Peak Active Configurations Observed
+     */
+    peak_active_configurations_observed: number | null;
+    /**
+     * Peak Active Users Observed
+     */
+    peak_active_users_observed: number | null;
+    /**
+     * Stale
+     */
+    stale: boolean;
+    /**
+     * Unknown Minutes
+     */
+    unknown_minutes: number;
+    /**
+     * Unmatched Rows Total
+     */
+    unmatched_rows_total: number;
+};
+
+/**
+ * AdminMonitoringEventCount
+ */
+export type AdminMonitoringEventCount = {
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Egress Slot
+     */
+    egress_slot: number | null;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Provenance
+     */
+    provenance: 'forward_live' | 'historical_retained_only';
+    /**
+     * Source Stream
+     */
+    source_stream: 'health' | 'recovery';
+};
+
+/**
+ * AdminMonitoringEventRow
+ */
+export type AdminMonitoringEventRow = {
+    /**
+     * Egress Slot
+     */
+    egress_slot: number | null;
+    /**
+     * Event At Utc
+     */
+    event_at_utc: string;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Observed At Utc
+     */
+    observed_at_utc: string;
+    /**
+     * Provenance
+     */
+    provenance: 'forward_live' | 'historical_retained_only';
+    /**
+     * Result
+     */
+    result: 'pass' | 'failed' | 'other' | 'na';
+    /**
+     * Source Stream
+     */
+    source_stream: 'health' | 'recovery';
+};
+
+/**
+ * AdminMonitoringEventsResponse
+ */
+export type AdminMonitoringEventsResponse = {
+    /**
+     * Generated At Utc
+     */
+    generated_at_utc: string;
+    /**
+     * Has More
+     */
+    has_more: boolean;
+    /**
+     * Limit
+     */
+    limit: number;
+    /**
+     * Offset
+     */
+    offset: number;
+    /**
+     * Rows
+     */
+    rows: Array<AdminMonitoringEventRow>;
+    /**
+     * Window End Utc
+     */
+    window_end_utc: string;
+    /**
+     * Window Start Utc
+     */
+    window_start_utc: string;
+};
+
+/**
+ * AdminMonitoringStreamSummary
+ */
+export type AdminMonitoringStreamSummary = {
+    /**
+     * Continuity
+     */
+    continuity: 'continuous' | 'gap_detected' | 'initial_unknown' | 'stale' | 'error' | null;
+    /**
+     * Gap Count
+     */
+    gap_count: number;
+    /**
+     * Heartbeat Total
+     */
+    heartbeat_total: number;
+    /**
+     * Ingested Events Total
+     */
+    ingested_events_total: number;
+    /**
+     * Last Attempt At Utc
+     */
+    last_attempt_at_utc: string | null;
+    /**
+     * Last Gap First At Utc
+     */
+    last_gap_first_at_utc: string | null;
+    /**
+     * Last Gap Last At Utc
+     */
+    last_gap_last_at_utc: string | null;
+    /**
+     * Last Success At Utc
+     */
+    last_success_at_utc: string | null;
+    /**
+     * Source Stream
+     */
+    source_stream: 'health' | 'recovery';
+    /**
+     * Stale
+     */
+    stale: boolean;
+    /**
+     * Success Age Seconds
+     */
+    success_age_seconds: number | null;
+    /**
+     * Unknown Lines Total
+     */
+    unknown_lines_total: number;
+};
+
+/**
+ * AdminMonitoringSummaryResponse
+ */
+export type AdminMonitoringSummaryResponse = {
+    activity: AdminMonitoringActivitySummary;
+    /**
+     * Current Tunnel Health Verified
+     */
+    current_tunnel_health_verified?: false;
+    /**
+     * Event Observations
+     */
+    event_observations: Array<AdminMonitoringEventCount>;
+    /**
+     * Freshness Threshold Seconds
+     */
+    freshness_threshold_seconds: number;
+    /**
+     * Generated At Utc
+     */
+    generated_at_utc: string;
+    /**
+     * Stream Coverage
+     */
+    stream_coverage: Array<AdminMonitoringStreamSummary>;
+    /**
+     * Window End Utc
+     */
+    window_end_utc: string;
+    /**
+     * Window Hours
+     */
+    window_hours: number;
+    /**
+     * Window Start Utc
+     */
+    window_start_utc: string;
 };
 
 /**
@@ -446,41 +924,41 @@ export type AdminInviteSummary = {
  */
 export type AdminPlanSummary = {
     /**
-     * Id
+     * Active
      */
-    id: string;
+    active: boolean;
     /**
      * Code
      */
     code: string;
     /**
-     * Display Name
+     * Commercial Max Quantity
      */
-    display_name: string;
-    /**
-     * Active
-     */
-    active: boolean;
-    /**
-     * Default Wireguard Limit
-     */
-    default_wireguard_limit: number;
-    /**
-     * Default Amneziawg Limit
-     */
-    default_amneziawg_limit: number;
-    /**
-     * Trial Days
-     */
-    trial_days: number | null;
+    commercial_max_quantity: number | null;
     /**
      * Commercial Min Quantity
      */
     commercial_min_quantity: number | null;
     /**
-     * Commercial Max Quantity
+     * Default Amneziawg Limit
      */
-    commercial_max_quantity: number | null;
+    default_amneziawg_limit: number;
+    /**
+     * Default Wireguard Limit
+     */
+    default_wireguard_limit: number;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Trial Days
+     */
+    trial_days: number | null;
 };
 
 /**
@@ -506,29 +984,29 @@ export type AdminProtocolLimitUpdateResponse = {
      */
     access_grant_id: string;
     /**
-     * Protocol
+     * Can Create
      */
-    protocol: string;
+    can_create: boolean;
     /**
-     * Profile Limit
+     * Disable Jobs Created
      */
-    profile_limit: number;
+    disable_jobs_created: number;
     /**
      * Profile Count
      */
     profile_count: number;
     /**
-     * Can Create
+     * Profile Limit
      */
-    can_create: boolean;
+    profile_limit: number;
+    /**
+     * Protocol
+     */
+    protocol: string;
     /**
      * Retire Profile Ids
      */
     retire_profile_ids: Array<string>;
-    /**
-     * Disable Jobs Created
-     */
-    disable_jobs_created: number;
     /**
      * Retirement In Progress
      */
@@ -539,38 +1017,6 @@ export type AdminProtocolLimitUpdateResponse = {
  * AdminReviewAccessResponse
  */
 export type AdminReviewAccessResponse = {
-    /**
-     * Review Url
-     */
-    review_url: string;
-    /**
-     * Expires At
-     */
-    expires_at: string;
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Grant Id
-     */
-    grant_id: string;
-    /**
-     * Configuration Id
-     */
-    configuration_id: string | null;
-    /**
-     * Wireguard Profile Id
-     */
-    wireguard_profile_id: string | null;
-    /**
-     * Wireguard Status
-     */
-    wireguard_status: string;
-    /**
-     * Wireguard Tunnel Ip
-     */
-    wireguard_tunnel_ip: string | null;
     /**
      * Amneziawg Profile Id
      */
@@ -583,6 +1029,38 @@ export type AdminReviewAccessResponse = {
      * Amneziawg Tunnel Ip
      */
     amneziawg_tunnel_ip: string | null;
+    /**
+     * Configuration Id
+     */
+    configuration_id: string | null;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Grant Id
+     */
+    grant_id: string;
+    /**
+     * Review Url
+     */
+    review_url: string;
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Wireguard Profile Id
+     */
+    wireguard_profile_id: string | null;
+    /**
+     * Wireguard Status
+     */
+    wireguard_status: string;
+    /**
+     * Wireguard Tunnel Ip
+     */
+    wireguard_tunnel_ip: string | null;
 };
 
 /**
@@ -590,17 +1068,9 @@ export type AdminReviewAccessResponse = {
  */
 export type AdminReviewResetResponse = {
     /**
-     * State
+     * Amneziawg Status
      */
-    state: 'resetting' | 'payment_required';
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Grant Id
-     */
-    grant_id: string;
+    amneziawg_status: string;
     /**
      * Billing Account Id
      */
@@ -610,83 +1080,31 @@ export type AdminReviewResetResponse = {
      */
     configuration_id: string | null;
     /**
-     * Wireguard Status
+     * Grant Id
      */
-    wireguard_status: string;
-    /**
-     * Amneziawg Status
-     */
-    amneziawg_status: string;
+    grant_id: string;
     /**
      * Retained Succeeded Payments
      */
     retained_succeeded_payments: number;
+    /**
+     * State
+     */
+    state: 'resetting' | 'payment_required';
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Wireguard Status
+     */
+    wireguard_status: string;
 };
 
 /**
  * AdminRuntimeConnectionRow
  */
 export type AdminRuntimeConnectionRow = {
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Email
-     */
-    email: string;
-    /**
-     * Display Name
-     */
-    display_name: string | null;
-    /**
-     * Invited By Origin
-     */
-    invited_by_origin: 'admin' | 'user' | 'campaign' | null;
-    /**
-     * Invited By User Id
-     */
-    invited_by_user_id: string | null;
-    /**
-     * Invited By Label
-     */
-    invited_by_label: string | null;
-    /**
-     * Invited By Campaign Id
-     */
-    invited_by_campaign_id: string | null;
-    /**
-     * Configuration Id
-     */
-    configuration_id: string;
-    /**
-     * Configuration Ordinal
-     */
-    configuration_ordinal: number;
-    /**
-     * Configuration Label
-     */
-    configuration_label: string | null;
-    /**
-     * Profile Id
-     */
-    profile_id: string;
-    /**
-     * Protocol
-     */
-    protocol: 'wireguard' | 'amneziawg';
-    /**
-     * Profile Label
-     */
-    profile_label: string | null;
-    /**
-     * Tunnel Ip
-     */
-    tunnel_ip: string;
-    /**
-     * Selector
-     */
-    selector: string;
     /**
      * Active Now
      */
@@ -696,33 +1114,93 @@ export type AdminRuntimeConnectionRow = {
      */
     active_state: boolean;
     /**
+     * Configuration Id
+     */
+    configuration_id: string;
+    /**
+     * Configuration Label
+     */
+    configuration_label: string | null;
+    /**
+     * Configuration Ordinal
+     */
+    configuration_ordinal: number;
+    /**
+     * Display Name
+     */
+    display_name: string | null;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Invited By Campaign Id
+     */
+    invited_by_campaign_id: string | null;
+    /**
+     * Invited By Label
+     */
+    invited_by_label: string | null;
+    /**
+     * Invited By Origin
+     */
+    invited_by_origin: 'admin' | 'user' | 'campaign' | null;
+    /**
+     * Invited By User Id
+     */
+    invited_by_user_id: string | null;
+    /**
      * Last Active At
      */
     last_active_at: string | null;
-    /**
-     * Last Reassign At
-     */
-    last_reassign_at: string | null;
     /**
      * Last Handshake At
      */
     last_handshake_at: string | null;
     /**
+     * Last Reassign At
+     */
+    last_reassign_at: string | null;
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+    /**
+     * Profile Label
+     */
+    profile_label: string | null;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
+    /**
      * Rx Bytes
      */
     rx_bytes: number;
-    /**
-     * Tx Bytes
-     */
-    tx_bytes: number;
     /**
      * Rx Bytes Per Second
      */
     rx_bytes_per_second: number;
     /**
+     * Selector
+     */
+    selector: string;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string;
+    /**
+     * Tx Bytes
+     */
+    tx_bytes: number;
+    /**
      * Tx Bytes Per Second
      */
     tx_bytes_per_second: number;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -738,6 +1216,14 @@ export type AdminRuntimeConnectionsResponse = {
      */
     received_at: string | null;
     /**
+     * Rows
+     */
+    rows: Array<AdminRuntimeConnectionRow>;
+    /**
+     * Sample Interval Seconds
+     */
+    sample_interval_seconds: number | null;
+    /**
      * Snapshot Age Seconds
      */
     snapshot_age_seconds: number | null;
@@ -746,17 +1232,9 @@ export type AdminRuntimeConnectionsResponse = {
      */
     stale: boolean;
     /**
-     * Sample Interval Seconds
-     */
-    sample_interval_seconds: number | null;
-    /**
      * Unmatched Runtime Rows Count
      */
     unmatched_runtime_rows_count: number;
-    /**
-     * Rows
-     */
-    rows: Array<AdminRuntimeConnectionRow>;
 };
 
 /**
@@ -774,37 +1252,37 @@ export type AdminSessionLoginRequest = {
  */
 export type AdminSubscriptionResponse = {
     /**
-     * Id
-     */
-    id: string;
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Status
-     */
-    status: string;
-    /**
-     * Plan Code
-     */
-    plan_code: string;
-    /**
      * Auto Renew
      */
     auto_renew: boolean;
     /**
-     * Paid Until
+     * Canceled At
      */
-    paid_until: string;
+    canceled_at: string | null;
     /**
      * Created At
      */
     created_at: string;
     /**
-     * Canceled At
+     * Id
      */
-    canceled_at: string | null;
+    id: string;
+    /**
+     * Paid Until
+     */
+    paid_until: string;
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -812,29 +1290,29 @@ export type AdminSubscriptionResponse = {
  */
 export type AdminUserDeleteResponse = {
     /**
-     * User Id
+     * Disable Jobs Created
      */
-    user_id: string;
+    disable_jobs_created: number;
     /**
      * Email
      */
     email: string;
     /**
-     * Status
+     * Legacy Dependency Count
      */
-    status: 'deleting' | 'deleted' | 'blocked_legacy_dependencies';
-    /**
-     * Disable Jobs Created
-     */
-    disable_jobs_created: number;
+    legacy_dependency_count: number;
     /**
      * Remaining Profiles
      */
     remaining_profiles: number;
     /**
-     * Legacy Dependency Count
+     * Status
      */
-    legacy_dependency_count: number;
+    status: 'deleting' | 'deleted' | 'blocked_legacy_dependencies';
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -842,29 +1320,29 @@ export type AdminUserDeleteResponse = {
  */
 export type AdminUserDetailResponse = {
     /**
-     * Id
+     * Created At
      */
-    id: string;
+    created_at: string;
     /**
      * Email
      */
     email: string | null;
     /**
-     * Created At
+     * Id
      */
-    created_at: string;
+    id: string;
     /**
-     * Subscriptions
+     * Jobs
      */
-    subscriptions: Array<AdminSubscriptionResponse>;
+    jobs: Array<AdminUserJobResponse>;
     /**
      * Peers
      */
     peers: Array<AdminUserPeerResponse>;
     /**
-     * Jobs
+     * Subscriptions
      */
-    jobs: Array<AdminUserJobResponse>;
+    subscriptions: Array<AdminSubscriptionResponse>;
 };
 
 /**
@@ -872,25 +1350,9 @@ export type AdminUserDetailResponse = {
  */
 export type AdminUserJobResponse = {
     /**
-     * Id
-     */
-    id: string;
-    /**
-     * Node Id
-     */
-    node_id: string;
-    /**
      * Action
      */
     action: string;
-    /**
-     * Peer Id
-     */
-    peer_id: string | null;
-    /**
-     * Status
-     */
-    status: string;
     /**
      * Attempts
      */
@@ -900,9 +1362,25 @@ export type AdminUserJobResponse = {
      */
     created_at: string;
     /**
+     * Id
+     */
+    id: string;
+    /**
      * Last Error
      */
     last_error: string | null;
+    /**
+     * Node Id
+     */
+    node_id: string;
+    /**
+     * Peer Id
+     */
+    peer_id: string | null;
+    /**
+     * Status
+     */
+    status: string;
 };
 
 /**
@@ -920,17 +1398,17 @@ export type AdminUserMetadataUpdateRequest = {
  */
 export type AdminUserMetadataUpdateResponse = {
     /**
-     * User Id
+     * Admin Note
      */
-    user_id: string;
+    admin_note: string | null;
     /**
      * Display Name
      */
     display_name: string | null;
     /**
-     * Admin Note
+     * User Id
      */
-    admin_note: string | null;
+    user_id: string;
 };
 
 /**
@@ -938,17 +1416,29 @@ export type AdminUserMetadataUpdateResponse = {
  */
 export type AdminUserPeerResponse = {
     /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Disabled At
+     */
+    disabled_at: string | null;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
      * Id
      */
     id: string;
     /**
-     * User Id
-     */
-    user_id: string;
-    /**
      * Node Id
      */
     node_id: string;
+    /**
+     * Paid Until
+     */
+    paid_until: string;
     /**
      * Public Key
      */
@@ -958,31 +1448,15 @@ export type AdminUserPeerResponse = {
      */
     tunnel_ip: string;
     /**
-     * Paid Until
+     * User Id
      */
-    paid_until: string;
-    /**
-     * Enabled
-     */
-    enabled: boolean;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Disabled At
-     */
-    disabled_at: string | null;
+    user_id: string;
 };
 
 /**
  * AdminUserReferralPolicyResponse
  */
 export type AdminUserReferralPolicyResponse = {
-    /**
-     * User Id
-     */
-    user_id: string;
     /**
      * Enabled
      */
@@ -991,6 +1465,10 @@ export type AdminUserReferralPolicyResponse = {
      * Limit
      */
     limit: number;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -1012,33 +1490,13 @@ export type AdminUserReferralPolicyUpdateRequest = {
  */
 export type AdminUserSummary = {
     /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Email
-     */
-    email: string;
-    /**
-     * Display Name
-     */
-    display_name: string | null;
-    /**
      * Admin Note
      */
     admin_note: string | null;
     /**
-     * Referrals Enabled
+     * Configurations
      */
-    referrals_enabled: boolean;
-    /**
-     * Referral Limit
-     */
-    referral_limit: number;
-    /**
-     * Email Verified At
-     */
-    email_verified_at: string;
+    configurations: Array<ConfigurationSummary>;
     /**
      * Created At
      */
@@ -1048,9 +1506,21 @@ export type AdminUserSummary = {
      */
     deletion_requested_at: string | null;
     /**
-     * Registration Invite Id
+     * Display Name
      */
-    registration_invite_id: string | null;
+    display_name: string | null;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Email Verified At
+     */
+    email_verified_at: string;
+    /**
+     * Grants
+     */
+    grants: Array<GrantSummary>;
     /**
      * Invite Issued At
      */
@@ -1060,9 +1530,17 @@ export type AdminUserSummary = {
      */
     invite_redeemed_at: string | null;
     /**
+     * Invited By Campaign Id
+     */
+    invited_by_campaign_id: string | null;
+    /**
      * Invited By Kind
      */
     invited_by_kind: string | null;
+    /**
+     * Invited By Label
+     */
+    invited_by_label: string | null;
     /**
      * Invited By Origin
      */
@@ -1072,25 +1550,25 @@ export type AdminUserSummary = {
      */
     invited_by_user_id: string | null;
     /**
-     * Invited By Label
-     */
-    invited_by_label: string | null;
-    /**
-     * Invited By Campaign Id
-     */
-    invited_by_campaign_id: string | null;
-    /**
-     * Grants
-     */
-    grants: Array<GrantSummary>;
-    /**
-     * Configurations
-     */
-    configurations: Array<ConfigurationSummary>;
-    /**
      * Profiles
      */
     profiles: Array<ProfileSummary>;
+    /**
+     * Referral Limit
+     */
+    referral_limit: number;
+    /**
+     * Referrals Enabled
+     */
+    referrals_enabled: boolean;
+    /**
+     * Registration Invite Id
+     */
+    registration_invite_id: string | null;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -1098,29 +1576,29 @@ export type AdminUserSummary = {
  */
 export type AdminUserSummaryResponse = {
     /**
-     * Id
+     * Created At
      */
-    id: string;
+    created_at: string;
     /**
      * Email
      */
     email: string | null;
     /**
-     * Created At
+     * Enabled Peers Count
      */
-    created_at: string;
+    enabled_peers_count: number;
     /**
-     * Subscriptions Count
+     * Id
      */
-    subscriptions_count: number;
+    id: string;
     /**
      * Peers Count
      */
     peers_count: number;
     /**
-     * Enabled Peers Count
+     * Subscriptions Count
      */
-    enabled_peers_count: number;
+    subscriptions_count: number;
 };
 
 /**
@@ -1128,37 +1606,41 @@ export type AdminUserSummaryResponse = {
  */
 export type AgentJobResponse = {
     /**
-     * Id
-     */
-    id: string;
-    /**
-     * Node Id
-     */
-    node_id: string;
-    /**
      * Action
      */
     action: string;
     /**
-     * Peer Id
+     * Attempts
      */
-    peer_id: string | null;
+    attempts: number;
     /**
      * Connection Profile Id
      */
     connection_profile_id: string | null;
     /**
-     * Operation Id
+     * Created At
      */
-    operation_id: string | null;
+    created_at: string;
     /**
      * Desired Generation
      */
     desired_generation: string | null;
     /**
+     * Id
+     */
+    id: string;
+    /**
      * Next Attempt At
      */
     next_attempt_at: string | null;
+    /**
+     * Node Id
+     */
+    node_id: string;
+    /**
+     * Operation Id
+     */
+    operation_id: string | null;
     /**
      * Payload Json
      */
@@ -1166,23 +1648,23 @@ export type AgentJobResponse = {
         [key: string]: unknown;
     };
     /**
+     * Peer Id
+     */
+    peer_id: string | null;
+    /**
      * Status
      */
     status: string;
-    /**
-     * Attempts
-     */
-    attempts: number;
-    /**
-     * Created At
-     */
-    created_at: string;
 };
 
 /**
  * AgentPeerResponse
  */
 export type AgentPeerResponse = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
     /**
      * Id
      */
@@ -1191,6 +1673,14 @@ export type AgentPeerResponse = {
      * Node Id
      */
     node_id: string;
+    /**
+     * Paid Until
+     */
+    paid_until: string | null;
+    /**
+     * Preshared Key
+     */
+    preshared_key: string;
     /**
      * Protocol
      */
@@ -1200,21 +1690,9 @@ export type AgentPeerResponse = {
      */
     public_key: string;
     /**
-     * Preshared Key
-     */
-    preshared_key: string;
-    /**
      * Tunnel Ip
      */
     tunnel_ip: string;
-    /**
-     * Paid Until
-     */
-    paid_until: string | null;
-    /**
-     * Enabled
-     */
-    enabled: boolean;
 };
 
 /**
@@ -1236,13 +1714,13 @@ export type AgentRoutingOverrideResponse = {
      */
     configuration_id: string;
     /**
-     * Selector
-     */
-    selector: number;
-    /**
      * Expires At
      */
     expires_at: string;
+    /**
+     * Selector
+     */
+    selector: number;
     /**
      * Variants
      */
@@ -1254,13 +1732,13 @@ export type AgentRoutingOverrideResponse = {
  */
 export type AgentRoutingVariantResponse = {
     /**
-     * Protocol
-     */
-    protocol: 'wireguard' | 'amneziawg';
-    /**
      * Profile Id
      */
     profile_id: string;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
     /**
      * Tunnel Ip
      */
@@ -1276,77 +1754,77 @@ export type BillingAccountSummary = {
      */
     access_grant_id: string;
     /**
-     * Status
+     * Can Add Devices Now
      */
-    status: 'trial' | 'active_paid' | 'past_due' | 'expired';
-    /**
-     * Current Period Start
-     */
-    current_period_start: string;
-    /**
-     * Current Period End
-     */
-    current_period_end: string;
-    /**
-     * Quantity Period Start
-     */
-    quantity_period_start: string;
-    /**
-     * Quantity Period End
-     */
-    quantity_period_end: string;
-    /**
-     * Slot Quantity
-     */
-    slot_quantity: number;
-    /**
-     * Monthly Amount Kopeks
-     */
-    monthly_amount_kopeks: number;
-    /**
-     * Min Slot Quantity
-     */
-    min_slot_quantity: number;
-    /**
-     * Max Slot Quantity
-     */
-    max_slot_quantity: number;
-    /**
-     * Extra Slot Monthly Kopeks
-     */
-    extra_slot_monthly_kopeks: number;
-    /**
-     * Pending Slot Quantity
-     */
-    pending_slot_quantity: number | null;
-    /**
-     * Pending Period Start
-     */
-    pending_period_start: string | null;
-    /**
-     * Pending Period End
-     */
-    pending_period_end: string | null;
-    /**
-     * Pending Monthly Amount Kopeks
-     */
-    pending_monthly_amount_kopeks: number | null;
-    /**
-     * Retirement Configuration Ids
-     */
-    retirement_configuration_ids: Array<string>;
+    can_add_devices_now: boolean;
     /**
      * Can Renew
      */
     can_renew: boolean;
     /**
-     * Can Add Devices Now
-     */
-    can_add_devices_now: boolean;
-    /**
      * Currency
      */
     currency: string;
+    /**
+     * Current Period End
+     */
+    current_period_end: string;
+    /**
+     * Current Period Start
+     */
+    current_period_start: string;
+    /**
+     * Extra Slot Monthly Kopeks
+     */
+    extra_slot_monthly_kopeks: number;
+    /**
+     * Max Slot Quantity
+     */
+    max_slot_quantity: number;
+    /**
+     * Min Slot Quantity
+     */
+    min_slot_quantity: number;
+    /**
+     * Monthly Amount Kopeks
+     */
+    monthly_amount_kopeks: number;
+    /**
+     * Pending Monthly Amount Kopeks
+     */
+    pending_monthly_amount_kopeks: number | null;
+    /**
+     * Pending Period End
+     */
+    pending_period_end: string | null;
+    /**
+     * Pending Period Start
+     */
+    pending_period_start: string | null;
+    /**
+     * Pending Slot Quantity
+     */
+    pending_slot_quantity: number | null;
+    /**
+     * Quantity Period End
+     */
+    quantity_period_end: string;
+    /**
+     * Quantity Period Start
+     */
+    quantity_period_start: string;
+    /**
+     * Retirement Configuration Ids
+     */
+    retirement_configuration_ids: Array<string>;
+    /**
+     * Slot Quantity
+     */
+    slot_quantity: number;
+    /**
+     * Status
+     */
+    status: 'trial' | 'active_paid' | 'past_due' | 'expired';
 };
 
 /**
@@ -1357,10 +1835,6 @@ export type BillingPaymentCreateRequest = {
      * Action
      */
     action?: 'renew' | 'add_now' | 'top_up_next';
-    /**
-     * Target Quantity
-     */
-    target_quantity?: number | null;
     /**
      * Apply Now
      */
@@ -1377,6 +1851,10 @@ export type BillingPaymentCreateRequest = {
      * Retire New Configuration Ordinals
      */
     retire_new_configuration_ordinals?: Array<number>;
+    /**
+     * Target Quantity
+     */
+    target_quantity?: number | null;
 };
 
 /**
@@ -1384,45 +1862,9 @@ export type BillingPaymentCreateRequest = {
  */
 export type BillingPaymentSummary = {
     /**
-     * Payment Id
-     */
-    payment_id: string;
-    /**
-     * Status
-     */
-    status: 'created' | 'pending' | 'succeeded' | 'canceled';
-    /**
-     * Provider Status
-     */
-    provider_status: string | null;
-    /**
-     * Kind
-     */
-    kind: 'initial' | 'manual_renewal' | 'auto_renewal' | 'upgrade';
-    /**
      * Amount Kopeks
      */
     amount_kopeks: number;
-    /**
-     * Currency
-     */
-    currency: string;
-    /**
-     * Quantity Before
-     */
-    quantity_before: number;
-    /**
-     * Quantity After
-     */
-    quantity_after: number;
-    /**
-     * Target Period Start
-     */
-    target_period_start: string | null;
-    /**
-     * Target Period End
-     */
-    target_period_end: string | null;
     /**
      * Calculation
      */
@@ -1430,21 +1872,57 @@ export type BillingPaymentSummary = {
         [key: string]: unknown;
     } | null;
     /**
+     * Confirmation Url
+     */
+    confirmation_url?: string | null;
+    /**
      * Created At
      */
     created_at: string;
     /**
-     * Updated At
+     * Currency
      */
-    updated_at: string;
+    currency: string;
+    /**
+     * Kind
+     */
+    kind: 'initial' | 'manual_renewal' | 'auto_renewal' | 'upgrade';
+    /**
+     * Payment Id
+     */
+    payment_id: string;
+    /**
+     * Provider Status
+     */
+    provider_status: string | null;
+    /**
+     * Quantity After
+     */
+    quantity_after: number;
+    /**
+     * Quantity Before
+     */
+    quantity_before: number;
+    /**
+     * Status
+     */
+    status: 'created' | 'pending' | 'succeeded' | 'canceled';
     /**
      * Succeeded At
      */
     succeeded_at: string | null;
     /**
-     * Confirmation Url
+     * Target Period End
      */
-    confirmation_url?: string | null;
+    target_period_end: string | null;
+    /**
+     * Target Period Start
+     */
+    target_period_start: string | null;
+    /**
+     * Updated At
+     */
+    updated_at: string;
 };
 
 /**
@@ -1510,18 +1988,6 @@ export type BulkInviteRedeemRequest = {
  */
 export type CancelSubscriptionResponse = {
     /**
-     * Subscription Id
-     */
-    subscription_id: string;
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Status
-     */
-    status: string;
-    /**
      * Canceled At
      */
     canceled_at: string | null;
@@ -1533,6 +1999,18 @@ export type CancelSubscriptionResponse = {
      * Job Ids
      */
     job_ids: Array<string>;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Subscription Id
+     */
+    subscription_id: string;
+    /**
+     * User Id
+     */
+    user_id: string;
 };
 
 /**
@@ -1568,33 +2046,17 @@ export type ConfigurationRoutingUpdateRequest = {
  */
 export type ConfigurationSummary = {
     /**
-     * Configuration Id
-     */
-    configuration_id: string;
-    /**
-     * Ordinal
-     */
-    ordinal: number;
-    /**
      * Access Grant Id
      */
     access_grant_id: string;
     /**
-     * Label
+     * Configuration Id
      */
-    label: string | null;
+    configuration_id: string;
     /**
      * Created At
      */
     created_at: string;
-    /**
-     * Updated At
-     */
-    updated_at: string;
-    /**
-     * Routing Mode
-     */
-    routing_mode: 'automatic' | 'forced';
     /**
      * Forced Selector
      */
@@ -1603,6 +2065,22 @@ export type ConfigurationSummary = {
      * Forced Until
      */
     forced_until: string | null;
+    /**
+     * Label
+     */
+    label: string | null;
+    /**
+     * Ordinal
+     */
+    ordinal: number;
+    /**
+     * Routing Mode
+     */
+    routing_mode: 'automatic' | 'forced';
+    /**
+     * Updated At
+     */
+    updated_at: string;
     /**
      * Variants
      */
@@ -1614,18 +2092,18 @@ export type ConfigurationSummary = {
  */
 export type ConfigurationVariantMutation = {
     /**
-     * Protocol
+     * Job Created
      */
-    protocol: 'wireguard' | 'amneziawg';
-    profile: ProfileSummary;
+    job_created: boolean;
     /**
      * Job Id
      */
     job_id: string;
+    profile: ProfileSummary;
     /**
-     * Job Created
+     * Protocol
      */
-    job_created: boolean;
+    protocol: 'wireguard' | 'amneziawg';
 };
 
 /**
@@ -1633,13 +2111,21 @@ export type ConfigurationVariantMutation = {
  */
 export type ConfigurationVariantSummary = {
     /**
-     * Protocol
+     * Created At
      */
-    protocol: 'wireguard' | 'amneziawg';
+    created_at: string;
     /**
      * Profile Id
      */
     profile_id: string;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
+    /**
+     * Ready
+     */
+    ready: boolean;
     /**
      * Status
      */
@@ -1648,14 +2134,6 @@ export type ConfigurationVariantSummary = {
      * Tunnel Ip
      */
     tunnel_ip: string | null;
-    /**
-     * Ready
-     */
-    ready: boolean;
-    /**
-     * Created At
-     */
-    created_at: string;
     /**
      * Updated At
      */
@@ -1667,9 +2145,9 @@ export type ConfigurationVariantSummary = {
  */
 export type DisablePeerResponse = {
     /**
-     * Peer Id
+     * Enabled
      */
-    peer_id: string;
+    enabled: boolean;
     /**
      * Job Id
      */
@@ -1679,6 +2157,10 @@ export type DisablePeerResponse = {
      */
     node_id: string;
     /**
+     * Peer Id
+     */
+    peer_id: string;
+    /**
      * Public Key
      */
     public_key: string;
@@ -1686,10 +2168,6 @@ export type DisablePeerResponse = {
      * Tunnel Ip
      */
     tunnel_ip: string;
-    /**
-     * Enabled
-     */
-    enabled: boolean;
 };
 
 /**
@@ -1697,13 +2175,13 @@ export type DisablePeerResponse = {
  */
 export type ExpireSubscriptionsResponse = {
     /**
-     * Expired Subscription Count
-     */
-    expired_subscription_count: number;
-    /**
      * Disabled Peer Count
      */
     disabled_peer_count: number;
+    /**
+     * Expired Subscription Count
+     */
+    expired_subscription_count: number;
     /**
      * Job Ids
      */
@@ -1729,21 +2207,21 @@ export type FailRequest = {
  */
 export type GrantProtocolLimitSummary = {
     /**
-     * Protocol
+     * Can Create
      */
-    protocol: string;
-    /**
-     * Profile Limit
-     */
-    profile_limit: number;
+    can_create: boolean;
     /**
      * Profile Count
      */
     profile_count: number;
     /**
-     * Can Create
+     * Profile Limit
      */
-    can_create: boolean;
+    profile_limit: number;
+    /**
+     * Protocol
+     */
+    protocol: string;
 };
 
 /**
@@ -1751,41 +2229,41 @@ export type GrantProtocolLimitSummary = {
  */
 export type GrantSummary = {
     /**
-     * Id
+     * Can Create Configuration
      */
-    id: string;
-    /**
-     * Status
-     */
-    status: string;
-    /**
-     * Plan Id
-     */
-    plan_id: string | null;
-    /**
-     * Valid Until
-     */
-    valid_until: string | null;
-    /**
-     * Configuration Limit Management
-     */
-    configuration_limit_management: 'admin' | 'billing';
-    /**
-     * Configuration Limit
-     */
-    configuration_limit: number;
+    can_create_configuration: boolean;
     /**
      * Configuration Count
      */
     configuration_count: number;
     /**
-     * Can Create Configuration
+     * Configuration Limit
      */
-    can_create_configuration: boolean;
+    configuration_limit: number;
+    /**
+     * Configuration Limit Management
+     */
+    configuration_limit_management: 'admin' | 'billing';
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string | null;
     /**
      * Protocol Limits
      */
     protocol_limits: Array<GrantProtocolLimitSummary>;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Valid Until
+     */
+    valid_until: string | null;
 };
 
 /**
@@ -1803,13 +2281,13 @@ export type HttpValidationError = {
  */
 export type InviteChangeEmailRequest = {
     /**
-     * Invite Token
-     */
-    invite_token: string;
-    /**
      * Email
      */
     email: string;
+    /**
+     * Invite Token
+     */
+    invite_token: string;
 };
 
 /**
@@ -1817,13 +2295,13 @@ export type InviteChangeEmailRequest = {
  */
 export type InviteCreateRequest = {
     /**
-     * Note
-     */
-    note?: string | null;
-    /**
      * Max Uses
      */
     max_uses?: number;
+    /**
+     * Note
+     */
+    note?: string | null;
 };
 
 /**
@@ -1841,37 +2319,37 @@ export type InviteInspectRequest = {
  */
 export type InviteInspectResponse = {
     /**
-     * State
+     * Can Change Email
      */
-    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
-    /**
-     * Email Bound
-     */
-    email_bound: boolean;
-    /**
-     * Pending Email Masked
-     */
-    pending_email_masked: string | null;
-    /**
-     * Magic Link Sent At
-     */
-    magic_link_sent_at: string | null;
-    /**
-     * Magic Link Expires At
-     */
-    magic_link_expires_at: string | null;
-    /**
-     * Resend Available At
-     */
-    resend_available_at: string | null;
+    can_change_email: boolean;
     /**
      * Can Resend
      */
     can_resend: boolean;
     /**
-     * Can Change Email
+     * Email Bound
      */
-    can_change_email: boolean;
+    email_bound: boolean;
+    /**
+     * Magic Link Expires At
+     */
+    magic_link_expires_at: string | null;
+    /**
+     * Magic Link Sent At
+     */
+    magic_link_sent_at: string | null;
+    /**
+     * Pending Email Masked
+     */
+    pending_email_masked: string | null;
+    /**
+     * Resend Available At
+     */
+    resend_available_at: string | null;
+    /**
+     * State
+     */
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
 };
 
 /**
@@ -1879,13 +2357,13 @@ export type InviteInspectResponse = {
  */
 export type InviteRedeemRequest = {
     /**
-     * Invite Token
-     */
-    invite_token: string;
-    /**
      * Email
      */
     email: string;
+    /**
+     * Invite Token
+     */
+    invite_token: string;
 };
 
 /**
@@ -1903,33 +2381,33 @@ export type InviteResendRequest = {
  */
 export type InviteResponse = {
     /**
-     * Id
+     * Active
      */
-    id: string;
+    active: boolean;
     /**
      * Code
      */
     code: string;
     /**
-     * Note
+     * Created At
      */
-    note: string | null;
+    created_at: string;
+    /**
+     * Id
+     */
+    id: string;
     /**
      * Max Uses
      */
     max_uses: number;
     /**
+     * Note
+     */
+    note: string | null;
+    /**
      * Used Count
      */
     used_count: number;
-    /**
-     * Active
-     */
-    active: boolean;
-    /**
-     * Created At
-     */
-    created_at: string;
 };
 
 /**
@@ -1937,21 +2415,9 @@ export type InviteResponse = {
  */
 export type JobResponse = {
     /**
-     * Id
-     */
-    id: string;
-    /**
-     * Node Id
-     */
-    node_id: string;
-    /**
      * Action
      */
     action: string;
-    /**
-     * Status
-     */
-    status: string;
     /**
      * Attempts
      */
@@ -1961,9 +2427,21 @@ export type JobResponse = {
      */
     created_at: string;
     /**
+     * Id
+     */
+    id: string;
+    /**
      * Last Error
      */
     last_error: string | null;
+    /**
+     * Node Id
+     */
+    node_id: string;
+    /**
+     * Status
+     */
+    status: string;
 };
 
 /**
@@ -2001,9 +2479,13 @@ export type MagicLinkRecoveryRequest = {
  */
 export type MagicLinkRecoveryResponse = {
     /**
-     * State
+     * Can Resend
      */
-    state: 'expired_registration';
+    can_resend: boolean;
+    /**
+     * Magic Link Ttl Seconds
+     */
+    magic_link_ttl_seconds: number;
     /**
      * Pending Email Masked
      */
@@ -2013,13 +2495,9 @@ export type MagicLinkRecoveryResponse = {
      */
     resend_available_at: string | null;
     /**
-     * Can Resend
+     * State
      */
-    can_resend: boolean;
-    /**
-     * Magic Link Ttl Seconds
-     */
-    magic_link_ttl_seconds: number;
+    state: 'expired_registration';
 };
 
 /**
@@ -2027,17 +2505,25 @@ export type MagicLinkRecoveryResponse = {
  */
 export type PeerResponse = {
     /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
      * Id
      */
     id: string;
     /**
-     * User Id
-     */
-    user_id: string;
-    /**
      * Node Id
      */
     node_id: string;
+    /**
+     * Paid Until
+     */
+    paid_until: string;
     /**
      * Public Key
      */
@@ -2047,17 +2533,9 @@ export type PeerResponse = {
      */
     tunnel_ip: string;
     /**
-     * Paid Until
+     * User Id
      */
-    paid_until: string;
-    /**
-     * Enabled
-     */
-    enabled: boolean;
-    /**
-     * Created At
-     */
-    created_at: string;
+    user_id: string;
 };
 
 /**
@@ -2079,13 +2557,13 @@ export type ProfileCreateRequest = {
      */
     grant_id: string;
     /**
-     * Protocol
-     */
-    protocol?: 'wireguard' | 'amneziawg';
-    /**
      * Label
      */
     label?: string | null;
+    /**
+     * Protocol
+     */
+    protocol?: 'wireguard' | 'amneziawg';
 };
 
 /**
@@ -2102,15 +2580,15 @@ export type ProfileLabelUpdateRequest = {
  * ProfileMutationResponse
  */
 export type ProfileMutationResponse = {
-    profile: ProfileSummary;
-    /**
-     * Job Id
-     */
-    job_id: string;
     /**
      * Job Created
      */
     job_created: boolean;
+    /**
+     * Job Id
+     */
+    job_id: string;
+    profile: ProfileSummary;
 };
 
 /**
@@ -2118,13 +2596,21 @@ export type ProfileMutationResponse = {
  */
 export type ProfileSummary = {
     /**
+     * Access Grant Id
+     */
+    access_grant_id: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
      * Id
      */
     id: string;
     /**
-     * Access Grant Id
+     * Label
      */
-    access_grant_id: string;
+    label: string | null;
     /**
      * Protocol
      */
@@ -2138,14 +2624,6 @@ export type ProfileSummary = {
      */
     tunnel_ip: string | null;
     /**
-     * Label
-     */
-    label: string | null;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
      * Updated At
      */
     updated_at: string;
@@ -2156,6 +2634,14 @@ export type ProfileSummary = {
  */
 export type ReferralCapabilitySummary = {
     /**
+     * Active Count
+     */
+    active_count: number;
+    /**
+     * Can Create
+     */
+    can_create: boolean;
+    /**
      * Enabled
      */
     enabled: boolean;
@@ -2164,17 +2650,9 @@ export type ReferralCapabilitySummary = {
      */
     limit: number;
     /**
-     * Active Count
-     */
-    active_count: number;
-    /**
      * Remaining Count
      */
     remaining_count: number | null;
-    /**
-     * Can Create
-     */
-    can_create: boolean;
 };
 
 /**
@@ -2193,13 +2671,9 @@ export type ReferralInviteCreateResponse = {
  */
 export type ReferralInviteSummary = {
     /**
-     * Invite Id
+     * Can Reissue Share Link
      */
-    invite_id: string;
-    /**
-     * State
-     */
-    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    can_reissue_share_link: boolean;
     /**
      * Created At
      */
@@ -2209,31 +2683,27 @@ export type ReferralInviteSummary = {
      */
     expires_at: string | null;
     /**
-     * Used Count
+     * Invite Id
      */
-    used_count: number;
+    invite_id: string;
     /**
      * Max Uses
      */
     max_uses: number;
     /**
-     * Can Reissue Share Link
+     * State
      */
-    can_reissue_share_link: boolean;
+    state: 'active' | 'awaiting_confirmation' | 'used' | 'revoked' | 'expired';
+    /**
+     * Used Count
+     */
+    used_count: number;
 };
 
 /**
  * RoutingExitCatalogResponse
  */
 export type RoutingExitCatalogResponse = {
-    /**
-     * Generated At
-     */
-    generated_at: string;
-    /**
-     * Observed At
-     */
-    observed_at: string;
     /**
      * Exits
      */
@@ -2244,6 +2714,14 @@ export type RoutingExitCatalogResponse = {
         RoutingExitSummary,
         RoutingExitSummary
     ];
+    /**
+     * Generated At
+     */
+    generated_at: string;
+    /**
+     * Observed At
+     */
+    observed_at: string;
 };
 
 /**
@@ -2251,13 +2729,13 @@ export type RoutingExitCatalogResponse = {
  */
 export type RoutingExitSummary = {
     /**
-     * Selector
-     */
-    selector: number;
-    /**
      * Display Name
      */
     display_name: string;
+    /**
+     * Selector
+     */
+    selector: number;
 };
 
 /**
@@ -2265,27 +2743,19 @@ export type RoutingExitSummary = {
  */
 export type RuntimeExitCatalogEntryRequest = {
     /**
-     * Selector
-     */
-    selector: number;
-    /**
      * Display Name
      */
     display_name: string;
+    /**
+     * Selector
+     */
+    selector: number;
 };
 
 /**
  * RuntimeExitCatalogRequest
  */
 export type RuntimeExitCatalogRequest = {
-    /**
-     * Generated At
-     */
-    generated_at: string;
-    /**
-     * Source Generation
-     */
-    source_generation: string;
     /**
      * Confirm Sha256
      */
@@ -2300,16 +2770,20 @@ export type RuntimeExitCatalogRequest = {
         RuntimeExitCatalogEntryRequest,
         RuntimeExitCatalogEntryRequest
     ];
+    /**
+     * Generated At
+     */
+    generated_at: string;
+    /**
+     * Source Generation
+     */
+    source_generation: string;
 };
 
 /**
  * RuntimeSnapshotAccepted
  */
 export type RuntimeSnapshotAccepted = {
-    /**
-     * Status
-     */
-    status: string;
     /**
      * Received At
      */
@@ -2318,47 +2792,35 @@ export type RuntimeSnapshotAccepted = {
      * Rows
      */
     rows: number;
+    /**
+     * Status
+     */
+    status: string;
 };
 
 /**
  * RuntimeSnapshotRequest
  */
 export type RuntimeSnapshotRequest = {
+    exit_catalog?: RuntimeExitCatalogRequest | null;
     /**
      * Generated At
      */
     generated_at: string;
     /**
-     * Sample Interval Seconds
-     */
-    sample_interval_seconds: number;
-    /**
      * Rows
      */
     rows: Array<RuntimeSnapshotRowRequest>;
-    exit_catalog?: RuntimeExitCatalogRequest | null;
+    /**
+     * Sample Interval Seconds
+     */
+    sample_interval_seconds: number;
 };
 
 /**
  * RuntimeSnapshotRowRequest
  */
 export type RuntimeSnapshotRowRequest = {
-    /**
-     * Profile Id
-     */
-    profile_id: string;
-    /**
-     * Protocol
-     */
-    protocol: 'wireguard' | 'amneziawg';
-    /**
-     * Tunnel Ip
-     */
-    tunnel_ip: string;
-    /**
-     * Selector
-     */
-    selector: string;
     /**
      * Active Now
      */
@@ -2372,25 +2834,41 @@ export type RuntimeSnapshotRowRequest = {
      */
     last_active_at?: string | null;
     /**
+     * Last Handshake At
+     */
+    last_handshake_at?: string | null;
+    /**
      * Last Reassign At
      */
     last_reassign_at?: string | null;
     /**
-     * Last Handshake At
+     * Profile Id
      */
-    last_handshake_at?: string | null;
+    profile_id: string;
+    /**
+     * Protocol
+     */
+    protocol: 'wireguard' | 'amneziawg';
     /**
      * Rx Bytes
      */
     rx_bytes: number;
     /**
-     * Tx Bytes
-     */
-    tx_bytes: number;
-    /**
      * Rx Bytes Per Second
      */
     rx_bytes_per_second: number;
+    /**
+     * Selector
+     */
+    selector: string;
+    /**
+     * Tunnel Ip
+     */
+    tunnel_ip: string;
+    /**
+     * Tx Bytes
+     */
+    tx_bytes: number;
     /**
      * Tx Bytes Per Second
      */
@@ -2402,6 +2880,10 @@ export type RuntimeSnapshotRowRequest = {
  */
 export type SubscriptionCreateRequest = {
     /**
+     * Auto Renew
+     */
+    auto_renew?: boolean;
+    /**
      * Email
      */
     email?: string | null;
@@ -2410,17 +2892,13 @@ export type SubscriptionCreateRequest = {
      */
     months?: number;
     /**
-     * Plan Code
-     */
-    plan_code?: string;
-    /**
      * Node Id
      */
     node_id?: string;
     /**
-     * Auto Renew
+     * Plan Code
      */
-    auto_renew?: boolean;
+    plan_code?: string;
 };
 
 /**
@@ -2428,17 +2906,9 @@ export type SubscriptionCreateRequest = {
  */
 export type SubscriptionCreateResponse = {
     /**
-     * User Id
+     * Client Config
      */
-    user_id: string;
-    /**
-     * Subscription Id
-     */
-    subscription_id: string;
-    /**
-     * Peer Id
-     */
-    peer_id: string;
+    client_config: string;
     /**
      * Job Id
      */
@@ -2448,13 +2918,17 @@ export type SubscriptionCreateResponse = {
      */
     node_id: string;
     /**
-     * Tunnel Ip
-     */
-    tunnel_ip: string;
-    /**
      * Paid Until
      */
     paid_until: string;
+    /**
+     * Peer Id
+     */
+    peer_id: string;
+    /**
+     * Preshared Key
+     */
+    preshared_key: string;
     /**
      * Private Key
      */
@@ -2464,13 +2938,37 @@ export type SubscriptionCreateResponse = {
      */
     public_key: string;
     /**
-     * Preshared Key
+     * Subscription Id
      */
-    preshared_key: string;
+    subscription_id: string;
     /**
-     * Client Config
+     * Tunnel Ip
      */
-    client_config: string;
+    tunnel_ip: string;
+    /**
+     * User Id
+     */
+    user_id: string;
+};
+
+/**
+ * SupportMessageRequest
+ */
+export type SupportMessageRequest = {
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * SupportMessageResponse
+ */
+export type SupportMessageResponse = {
+    /**
+     * Status
+     */
+    status: 'sent';
 };
 
 /**
@@ -2496,25 +2994,25 @@ export type TestPeerRequest = {
  */
 export type TestPeerResponse = {
     /**
-     * User Id
+     * Client Config
      */
-    user_id: string;
-    /**
-     * Peer Id
-     */
-    peer_id: string;
+    client_config: string;
     /**
      * Job Id
      */
     job_id: string;
     /**
-     * Tunnel Ip
-     */
-    tunnel_ip: string;
-    /**
      * Paid Until
      */
     paid_until: string;
+    /**
+     * Peer Id
+     */
+    peer_id: string;
+    /**
+     * Preshared Key
+     */
+    preshared_key: string;
     /**
      * Private Key
      */
@@ -2524,19 +3022,29 @@ export type TestPeerResponse = {
      */
     public_key: string;
     /**
-     * Preshared Key
+     * Tunnel Ip
      */
-    preshared_key: string;
+    tunnel_ip: string;
     /**
-     * Client Config
+     * User Id
      */
-    client_config: string;
+    user_id: string;
 };
 
 /**
  * ValidationError
  */
 export type ValidationError = {
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Input
+     */
+    input?: unknown;
     /**
      * Location
      */
@@ -2549,16 +3057,6 @@ export type ValidationError = {
      * Error Type
      */
     type: string;
-    /**
-     * Input
-     */
-    input?: unknown;
-    /**
-     * Context
-     */
-    ctx?: {
-        [key: string]: unknown;
-    };
 };
 
 export type ListInvitesAdminInvitesGetData = {
@@ -2604,48 +3102,23 @@ export type CreateInviteAdminInvitesPostResponses = {
 
 export type CreateInviteAdminInvitesPostResponse = CreateInviteAdminInvitesPostResponses[keyof CreateInviteAdminInvitesPostResponses];
 
-export type ListPeersAdminPeersGetData = {
+export type ListJobsAdminJobsGetData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/admin/peers';
+    url: '/admin/jobs';
 };
 
-export type ListPeersAdminPeersGetResponses = {
+export type ListJobsAdminJobsGetResponses = {
     /**
-     * Response List Peers Admin Peers Get
+     * Response List Jobs Admin Jobs Get
      *
      * Successful Response
      */
-    200: Array<PeerResponse>;
+    200: Array<JobResponse>;
 };
 
-export type ListPeersAdminPeersGetResponse = ListPeersAdminPeersGetResponses[keyof ListPeersAdminPeersGetResponses];
-
-export type CreateSubscriptionAdminSubscriptionsPostData = {
-    body: SubscriptionCreateRequest;
-    path?: never;
-    query?: never;
-    url: '/admin/subscriptions';
-};
-
-export type CreateSubscriptionAdminSubscriptionsPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateSubscriptionAdminSubscriptionsPostError = CreateSubscriptionAdminSubscriptionsPostErrors[keyof CreateSubscriptionAdminSubscriptionsPostErrors];
-
-export type CreateSubscriptionAdminSubscriptionsPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: SubscriptionCreateResponse;
-};
-
-export type CreateSubscriptionAdminSubscriptionsPostResponse = CreateSubscriptionAdminSubscriptionsPostResponses[keyof CreateSubscriptionAdminSubscriptionsPostResponses];
+export type ListJobsAdminJobsGetResponse = ListJobsAdminJobsGetResponses[keyof ListJobsAdminJobsGetResponses];
 
 export type ExpireSubscriptionsAdminMaintenanceExpireSubscriptionsPostData = {
     body?: never;
@@ -2663,35 +3136,23 @@ export type ExpireSubscriptionsAdminMaintenanceExpireSubscriptionsPostResponses 
 
 export type ExpireSubscriptionsAdminMaintenanceExpireSubscriptionsPostResponse = ExpireSubscriptionsAdminMaintenanceExpireSubscriptionsPostResponses[keyof ExpireSubscriptionsAdminMaintenanceExpireSubscriptionsPostResponses];
 
-export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostData = {
+export type ListPeersAdminPeersGetData = {
     body?: never;
-    path: {
-        /**
-         * Subscription Id
-         */
-        subscription_id: string;
-    };
+    path?: never;
     query?: never;
-    url: '/admin/subscriptions/{subscription_id}/cancel';
+    url: '/admin/peers';
 };
 
-export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors = {
+export type ListPeersAdminPeersGetResponses = {
     /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostError = CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors[keyof CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors];
-
-export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses = {
-    /**
+     * Response List Peers Admin Peers Get
+     *
      * Successful Response
      */
-    200: CancelSubscriptionResponse;
+    200: Array<PeerResponse>;
 };
 
-export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponse = CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses[keyof CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses];
+export type ListPeersAdminPeersGetResponse = ListPeersAdminPeersGetResponses[keyof ListPeersAdminPeersGetResponses];
 
 export type DisablePeerAdminPeersPeerIdDisablePostData = {
     body?: never;
@@ -2723,23 +3184,60 @@ export type DisablePeerAdminPeersPeerIdDisablePostResponses = {
 
 export type DisablePeerAdminPeersPeerIdDisablePostResponse = DisablePeerAdminPeersPeerIdDisablePostResponses[keyof DisablePeerAdminPeersPeerIdDisablePostResponses];
 
-export type ListJobsAdminJobsGetData = {
-    body?: never;
+export type CreateSubscriptionAdminSubscriptionsPostData = {
+    body: SubscriptionCreateRequest;
     path?: never;
     query?: never;
-    url: '/admin/jobs';
+    url: '/admin/subscriptions';
 };
 
-export type ListJobsAdminJobsGetResponses = {
+export type CreateSubscriptionAdminSubscriptionsPostErrors = {
     /**
-     * Response List Jobs Admin Jobs Get
-     *
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateSubscriptionAdminSubscriptionsPostError = CreateSubscriptionAdminSubscriptionsPostErrors[keyof CreateSubscriptionAdminSubscriptionsPostErrors];
+
+export type CreateSubscriptionAdminSubscriptionsPostResponses = {
+    /**
      * Successful Response
      */
-    200: Array<JobResponse>;
+    200: SubscriptionCreateResponse;
 };
 
-export type ListJobsAdminJobsGetResponse = ListJobsAdminJobsGetResponses[keyof ListJobsAdminJobsGetResponses];
+export type CreateSubscriptionAdminSubscriptionsPostResponse = CreateSubscriptionAdminSubscriptionsPostResponses[keyof CreateSubscriptionAdminSubscriptionsPostResponses];
+
+export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Subscription Id
+         */
+        subscription_id: string;
+    };
+    query?: never;
+    url: '/admin/subscriptions/{subscription_id}/cancel';
+};
+
+export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostError = CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors[keyof CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostErrors];
+
+export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: CancelSubscriptionResponse;
+};
+
+export type CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponse = CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses[keyof CancelSubscriptionAdminSubscriptionsSubscriptionIdCancelPostResponses];
 
 export type ListUsersAdminUsersGetData = {
     body?: never;
@@ -2819,30 +3317,159 @@ export type GetUserAdminUsersUserIdGetResponses = {
 
 export type GetUserAdminUsersUserIdGetResponse = GetUserAdminUsersUserIdGetResponses[keyof GetUserAdminUsersUserIdGetResponses];
 
-export type CreateTestPeerDevCreateTestPeerPostData = {
-    body: TestPeerRequest;
+export type GetPendingJobsAgentJobsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
     path?: never;
-    query?: never;
-    url: '/dev/create-test-peer';
+    query: {
+        /**
+         * Node Id
+         */
+        node_id: string;
+        /**
+         * Protocol
+         */
+        protocol?: 'wireguard' | 'amneziawg';
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/agent/jobs';
 };
 
-export type CreateTestPeerDevCreateTestPeerPostErrors = {
+export type GetPendingJobsAgentJobsGetErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type CreateTestPeerDevCreateTestPeerPostError = CreateTestPeerDevCreateTestPeerPostErrors[keyof CreateTestPeerDevCreateTestPeerPostErrors];
+export type GetPendingJobsAgentJobsGetError = GetPendingJobsAgentJobsGetErrors[keyof GetPendingJobsAgentJobsGetErrors];
 
-export type CreateTestPeerDevCreateTestPeerPostResponses = {
+export type GetPendingJobsAgentJobsGetResponses = {
+    /**
+     * Response Get Pending Jobs Agent Jobs Get
+     *
+     * Successful Response
+     */
+    200: Array<AgentJobResponse>;
+};
+
+export type GetPendingJobsAgentJobsGetResponse = GetPendingJobsAgentJobsGetResponses[keyof GetPendingJobsAgentJobsGetResponses];
+
+export type CompleteJobAgentJobsJobIdCompletePostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/agent/jobs/{job_id}/complete';
+};
+
+export type CompleteJobAgentJobsJobIdCompletePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CompleteJobAgentJobsJobIdCompletePostError = CompleteJobAgentJobsJobIdCompletePostErrors[keyof CompleteJobAgentJobsJobIdCompletePostErrors];
+
+export type CompleteJobAgentJobsJobIdCompletePostResponses = {
     /**
      * Successful Response
      */
-    200: TestPeerResponse;
+    200: AgentJobResponse;
 };
 
-export type CreateTestPeerDevCreateTestPeerPostResponse = CreateTestPeerDevCreateTestPeerPostResponses[keyof CreateTestPeerDevCreateTestPeerPostResponses];
+export type CompleteJobAgentJobsJobIdCompletePostResponse = CompleteJobAgentJobsJobIdCompletePostResponses[keyof CompleteJobAgentJobsJobIdCompletePostResponses];
+
+export type FailJobAgentJobsJobIdFailPostData = {
+    body: FailRequest;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/agent/jobs/{job_id}/fail';
+};
+
+export type FailJobAgentJobsJobIdFailPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FailJobAgentJobsJobIdFailPostError = FailJobAgentJobsJobIdFailPostErrors[keyof FailJobAgentJobsJobIdFailPostErrors];
+
+export type FailJobAgentJobsJobIdFailPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AgentJobResponse;
+};
+
+export type FailJobAgentJobsJobIdFailPostResponse = FailJobAgentJobsJobIdFailPostResponses[keyof FailJobAgentJobsJobIdFailPostResponses];
+
+export type StartJobAgentJobsJobIdStartPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Agent-Token
+         */
+        'x-agent-token'?: string | null;
+    };
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/agent/jobs/{job_id}/start';
+};
+
+export type StartJobAgentJobsJobIdStartPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartJobAgentJobsJobIdStartPostError = StartJobAgentJobsJobIdStartPostErrors[keyof StartJobAgentJobsJobIdStartPostErrors];
+
+export type StartJobAgentJobsJobIdStartPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AgentJobResponse;
+};
+
+export type StartJobAgentJobsJobIdStartPostResponse = StartJobAgentJobsJobIdStartPostResponses[keyof StartJobAgentJobsJobIdStartPostResponses];
 
 export type GetEnabledPeersAgentPeersGetData = {
     body?: never;
@@ -2960,160 +3587,6 @@ export type GetActiveRoutingOverridesAgentRoutingOverridesGetResponses = {
 
 export type GetActiveRoutingOverridesAgentRoutingOverridesGetResponse = GetActiveRoutingOverridesAgentRoutingOverridesGetResponses[keyof GetActiveRoutingOverridesAgentRoutingOverridesGetResponses];
 
-export type GetPendingJobsAgentJobsGetData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Agent-Token
-         */
-        'x-agent-token'?: string | null;
-    };
-    path?: never;
-    query: {
-        /**
-         * Node Id
-         */
-        node_id: string;
-        /**
-         * Protocol
-         */
-        protocol?: 'wireguard' | 'amneziawg';
-        /**
-         * Limit
-         */
-        limit?: number;
-    };
-    url: '/agent/jobs';
-};
-
-export type GetPendingJobsAgentJobsGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPendingJobsAgentJobsGetError = GetPendingJobsAgentJobsGetErrors[keyof GetPendingJobsAgentJobsGetErrors];
-
-export type GetPendingJobsAgentJobsGetResponses = {
-    /**
-     * Response Get Pending Jobs Agent Jobs Get
-     *
-     * Successful Response
-     */
-    200: Array<AgentJobResponse>;
-};
-
-export type GetPendingJobsAgentJobsGetResponse = GetPendingJobsAgentJobsGetResponses[keyof GetPendingJobsAgentJobsGetResponses];
-
-export type StartJobAgentJobsJobIdStartPostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Agent-Token
-         */
-        'x-agent-token'?: string | null;
-    };
-    path: {
-        /**
-         * Job Id
-         */
-        job_id: string;
-    };
-    query?: never;
-    url: '/agent/jobs/{job_id}/start';
-};
-
-export type StartJobAgentJobsJobIdStartPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type StartJobAgentJobsJobIdStartPostError = StartJobAgentJobsJobIdStartPostErrors[keyof StartJobAgentJobsJobIdStartPostErrors];
-
-export type StartJobAgentJobsJobIdStartPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AgentJobResponse;
-};
-
-export type StartJobAgentJobsJobIdStartPostResponse = StartJobAgentJobsJobIdStartPostResponses[keyof StartJobAgentJobsJobIdStartPostResponses];
-
-export type CompleteJobAgentJobsJobIdCompletePostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Agent-Token
-         */
-        'x-agent-token'?: string | null;
-    };
-    path: {
-        /**
-         * Job Id
-         */
-        job_id: string;
-    };
-    query?: never;
-    url: '/agent/jobs/{job_id}/complete';
-};
-
-export type CompleteJobAgentJobsJobIdCompletePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CompleteJobAgentJobsJobIdCompletePostError = CompleteJobAgentJobsJobIdCompletePostErrors[keyof CompleteJobAgentJobsJobIdCompletePostErrors];
-
-export type CompleteJobAgentJobsJobIdCompletePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AgentJobResponse;
-};
-
-export type CompleteJobAgentJobsJobIdCompletePostResponse = CompleteJobAgentJobsJobIdCompletePostResponses[keyof CompleteJobAgentJobsJobIdCompletePostResponses];
-
-export type FailJobAgentJobsJobIdFailPostData = {
-    body: FailRequest;
-    headers?: {
-        /**
-         * X-Agent-Token
-         */
-        'x-agent-token'?: string | null;
-    };
-    path: {
-        /**
-         * Job Id
-         */
-        job_id: string;
-    };
-    query?: never;
-    url: '/agent/jobs/{job_id}/fail';
-};
-
-export type FailJobAgentJobsJobIdFailPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type FailJobAgentJobsJobIdFailPostError = FailJobAgentJobsJobIdFailPostErrors[keyof FailJobAgentJobsJobIdFailPostErrors];
-
-export type FailJobAgentJobsJobIdFailPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AgentJobResponse;
-};
-
-export type FailJobAgentJobsJobIdFailPostResponse = FailJobAgentJobsJobIdFailPostResponses[keyof FailJobAgentJobsJobIdFailPostResponses];
-
 export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostData = {
     body: RuntimeSnapshotRequest;
     headers?: {
@@ -3145,505 +3618,58 @@ export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses = {
 
 export type IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponse = IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses[keyof IngestRuntimeSnapshotAgentRuntimeSnapshotPostResponses];
 
-export type AdminSessionLoginV2AdminSessionLoginPostData = {
-    body: AdminSessionLoginRequest;
+export type CreateTestPeerDevCreateTestPeerPostData = {
+    body: TestPeerRequest;
     path?: never;
     query?: never;
-    url: '/v2/admin/session/login';
+    url: '/dev/create-test-peer';
 };
 
-export type AdminSessionLoginV2AdminSessionLoginPostErrors = {
+export type CreateTestPeerDevCreateTestPeerPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AdminSessionLoginV2AdminSessionLoginPostError = AdminSessionLoginV2AdminSessionLoginPostErrors[keyof AdminSessionLoginV2AdminSessionLoginPostErrors];
+export type CreateTestPeerDevCreateTestPeerPostError = CreateTestPeerDevCreateTestPeerPostErrors[keyof CreateTestPeerDevCreateTestPeerPostErrors];
 
-export type AdminSessionLoginV2AdminSessionLoginPostResponses = {
+export type CreateTestPeerDevCreateTestPeerPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: TestPeerResponse;
+};
+
+export type CreateTestPeerDevCreateTestPeerPostResponse = CreateTestPeerDevCreateTestPeerPostResponses[keyof CreateTestPeerDevCreateTestPeerPostResponses];
+
+export type HealthHealthGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/health';
+};
+
+export type HealthHealthGetResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type AdminSessionStatusV2AdminSessionGetData = {
+export type HealthDbHealthDbGetData = {
     body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
     path?: never;
     query?: never;
-    url: '/v2/admin/session';
+    url: '/health/db';
 };
 
-export type AdminSessionStatusV2AdminSessionGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminSessionStatusV2AdminSessionGetError = AdminSessionStatusV2AdminSessionGetErrors[keyof AdminSessionStatusV2AdminSessionGetErrors];
-
-export type AdminSessionStatusV2AdminSessionGetResponses = {
+export type HealthDbHealthDbGetResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
-
-export type AdminSessionLogoutV2AdminSessionLogoutPostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/v2/admin/session/logout';
-};
-
-export type AdminSessionLogoutV2AdminSessionLogoutPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminSessionLogoutV2AdminSessionLogoutPostError = AdminSessionLogoutV2AdminSessionLogoutPostErrors[keyof AdminSessionLogoutV2AdminSessionLogoutPostErrors];
-
-export type AdminSessionLogoutV2AdminSessionLogoutPostResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type AdminSessionLogoutV2AdminSessionLogoutPostResponse = AdminSessionLogoutV2AdminSessionLogoutPostResponses[keyof AdminSessionLogoutV2AdminSessionLogoutPostResponses];
-
-export type AdminReviewAccessV2AdminReviewAccessPostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/v2/admin/review-access';
-};
-
-export type AdminReviewAccessV2AdminReviewAccessPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminReviewAccessV2AdminReviewAccessPostError = AdminReviewAccessV2AdminReviewAccessPostErrors[keyof AdminReviewAccessV2AdminReviewAccessPostErrors];
-
-export type AdminReviewAccessV2AdminReviewAccessPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AdminReviewAccessResponse;
-};
-
-export type AdminReviewAccessV2AdminReviewAccessPostResponse = AdminReviewAccessV2AdminReviewAccessPostResponses[keyof AdminReviewAccessV2AdminReviewAccessPostResponses];
-
-export type AdminReviewAccessResetV2AdminReviewAccessResetPostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/v2/admin/review-access/reset';
-};
-
-export type AdminReviewAccessResetV2AdminReviewAccessResetPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminReviewAccessResetV2AdminReviewAccessResetPostError = AdminReviewAccessResetV2AdminReviewAccessResetPostErrors[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostErrors];
-
-export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AdminReviewResetResponse;
-};
-
-export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponse = AdminReviewAccessResetV2AdminReviewAccessResetPostResponses[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostResponses];
-
-export type AdminListInvitesV2AdminInvitesGetData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Origin
-         */
-        origin?: Array<'user' | 'admin' | 'campaign'> | null;
-    };
-    url: '/v2/admin/invites';
-};
-
-export type AdminListInvitesV2AdminInvitesGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminListInvitesV2AdminInvitesGetError = AdminListInvitesV2AdminInvitesGetErrors[keyof AdminListInvitesV2AdminInvitesGetErrors];
-
-export type AdminListInvitesV2AdminInvitesGetResponses = {
-    /**
-     * Response Admin List Invites V2 Admin Invites Get
-     *
-     * Successful Response
-     */
-    200: Array<AdminInviteSummary>;
-};
-
-export type AdminListInvitesV2AdminInvitesGetResponse = AdminListInvitesV2AdminInvitesGetResponses[keyof AdminListInvitesV2AdminInvitesGetResponses];
-
-export type AdminCreateInviteV2AdminInvitesPostData = {
-    body: AdminInviteRequest;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/v2/admin/invites';
-};
-
-export type AdminCreateInviteV2AdminInvitesPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminCreateInviteV2AdminInvitesPostError = AdminCreateInviteV2AdminInvitesPostErrors[keyof AdminCreateInviteV2AdminInvitesPostErrors];
-
-export type AdminCreateInviteV2AdminInvitesPostResponses = {
-    /**
-     * Successful Response
-     */
-    201: AdminInviteResponse;
-};
-
-export type AdminCreateInviteV2AdminInvitesPostResponse = AdminCreateInviteV2AdminInvitesPostResponses[keyof AdminCreateInviteV2AdminInvitesPostResponses];
-
-export type RedeemInviteRouteV2AuthInvitesRedeemPostData = {
-    body: InviteRedeemRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/invites/redeem';
-};
-
-export type RedeemInviteRouteV2AuthInvitesRedeemPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RedeemInviteRouteV2AuthInvitesRedeemPostError = RedeemInviteRouteV2AuthInvitesRedeemPostErrors[keyof RedeemInviteRouteV2AuthInvitesRedeemPostErrors];
-
-export type RedeemInviteRouteV2AuthInvitesRedeemPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type InspectInviteRouteV2AuthInvitesInspectPostData = {
-    body: InviteInspectRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/invites/inspect';
-};
-
-export type InspectInviteRouteV2AuthInvitesInspectPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type InspectInviteRouteV2AuthInvitesInspectPostError = InspectInviteRouteV2AuthInvitesInspectPostErrors[keyof InspectInviteRouteV2AuthInvitesInspectPostErrors];
-
-export type InspectInviteRouteV2AuthInvitesInspectPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: InviteInspectResponse;
-};
-
-export type InspectInviteRouteV2AuthInvitesInspectPostResponse = InspectInviteRouteV2AuthInvitesInspectPostResponses[keyof InspectInviteRouteV2AuthInvitesInspectPostResponses];
-
-export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostData = {
-    body: BulkInviteInspectRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/bulk-invites/inspect';
-};
-
-export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostError = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors];
-
-export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: BulkInviteInspectResponse;
-};
-
-export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponse = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses];
-
-export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostData = {
-    body: BulkInviteRedeemRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/bulk-invites/redeem';
-};
-
-export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostError = RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors[keyof RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors];
-
-export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type ResendInviteRouteV2AuthInvitesResendPostData = {
-    body: InviteResendRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/invites/resend';
-};
-
-export type ResendInviteRouteV2AuthInvitesResendPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ResendInviteRouteV2AuthInvitesResendPostError = ResendInviteRouteV2AuthInvitesResendPostErrors[keyof ResendInviteRouteV2AuthInvitesResendPostErrors];
-
-export type ResendInviteRouteV2AuthInvitesResendPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostData = {
-    body: InviteChangeEmailRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/invites/change-email';
-};
-
-export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostError = ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors[keyof ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors];
-
-export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type LoginRequestV2AuthLoginRequestPostData = {
-    body: LoginRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/login/request';
-};
-
-export type LoginRequestV2AuthLoginRequestPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type LoginRequestV2AuthLoginRequestPostError = LoginRequestV2AuthLoginRequestPostErrors[keyof LoginRequestV2AuthLoginRequestPostErrors];
-
-export type LoginRequestV2AuthLoginRequestPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostData = {
-    body: MagicLinkRecoveryRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/magic-link/recovery';
-};
-
-export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostError = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors];
-
-export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: MagicLinkRecoveryResponse;
-};
-
-export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponse = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses];
-
-export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostData = {
-    body: MagicLinkRecoveryRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/magic-link/resend';
-};
-
-export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostError = ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors[keyof ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors];
-
-export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostResponses = {
-    /**
-     * Successful Response
-     */
-    202: unknown;
-};
-
-export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostData = {
-    body: MagicLinkConsumeRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/magic-link/consume';
-};
-
-export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostError = ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors[keyof ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors];
-
-export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type AccountMeV2AccountMeGetData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/v2/account/me';
-};
-
-export type AccountMeV2AccountMeGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountMeV2AccountMeGetError = AccountMeV2AccountMeGetErrors[keyof AccountMeV2AccountMeGetErrors];
-
-export type AccountMeV2AccountMeGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: AccountMeResponse;
-};
-
-export type AccountMeV2AccountMeGetResponse = AccountMeV2AccountMeGetResponses[keyof AccountMeV2AccountMeGetResponses];
-
-export type AccountMeUpdateV2AccountMePatchData = {
-    body: AccountMetadataUpdateRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/account/me';
-};
-
-export type AccountMeUpdateV2AccountMePatchErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountMeUpdateV2AccountMePatchError = AccountMeUpdateV2AccountMePatchErrors[keyof AccountMeUpdateV2AccountMePatchErrors];
-
-export type AccountMeUpdateV2AccountMePatchResponses = {
-    /**
-     * Successful Response
-     */
-    200: AccountMeResponse;
-};
-
-export type AccountMeUpdateV2AccountMePatchResponse = AccountMeUpdateV2AccountMePatchResponses[keyof AccountMeUpdateV2AccountMePatchResponses];
 
 export type AccountBillingPaymentsV2AccountBillingPaymentsGetData = {
     body?: never;
@@ -3706,31 +3732,6 @@ export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses = {
 
 export type AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponse = AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses[keyof AccountBillingPaymentCreateV2AccountBillingPaymentsPostResponses];
 
-export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutData = {
-    body: BillingRetirementSelectionRequest;
-    path?: never;
-    query?: never;
-    url: '/v2/account/billing/pending-retirements';
-};
-
-export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutError = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors];
-
-export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses = {
-    /**
-     * Successful Response
-     */
-    200: BillingRetirementSelectionResponse;
-};
-
-export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponse = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses];
-
 export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetData = {
     body?: never;
     path: {
@@ -3761,156 +3762,80 @@ export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses =
 
 export type AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponse = AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses[keyof AccountBillingPaymentV2AccountBillingPaymentsPaymentIdGetResponses];
 
-export type YookassaWebhookV2BillingYookassaWebhookPostData = {
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutData = {
+    body: BillingRetirementSelectionRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/account/billing/pending-retirements';
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutError = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutErrors];
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: BillingRetirementSelectionResponse;
+};
+
+export type AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponse = AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses[keyof AccountBillingPendingRetirementsUpdateV2AccountBillingPendingRetirementsPutResponses];
+
+export type AccountMeV2AccountMeGetData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/v2/billing/yookassa/webhook';
+    url: '/v2/account/me';
 };
 
-export type YookassaWebhookV2BillingYookassaWebhookPostResponses = {
+export type AccountMeV2AccountMeGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountMeV2AccountMeGetError = AccountMeV2AccountMeGetErrors[keyof AccountMeV2AccountMeGetErrors];
+
+export type AccountMeV2AccountMeGetResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: AccountMeResponse;
 };
 
-export type AccountReferralsV2AccountReferralsGetData = {
-    body?: never;
+export type AccountMeV2AccountMeGetResponse = AccountMeV2AccountMeGetResponses[keyof AccountMeV2AccountMeGetResponses];
+
+export type AccountMeUpdateV2AccountMePatchData = {
+    body: AccountMetadataUpdateRequest;
     path?: never;
     query?: never;
-    url: '/v2/account/referrals';
+    url: '/v2/account/me';
 };
 
-export type AccountReferralsV2AccountReferralsGetErrors = {
+export type AccountMeUpdateV2AccountMePatchErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AccountReferralsV2AccountReferralsGetError = AccountReferralsV2AccountReferralsGetErrors[keyof AccountReferralsV2AccountReferralsGetErrors];
+export type AccountMeUpdateV2AccountMePatchError = AccountMeUpdateV2AccountMePatchErrors[keyof AccountMeUpdateV2AccountMePatchErrors];
 
-export type AccountReferralsV2AccountReferralsGetResponses = {
-    /**
-     * Response Account Referrals V2 Account Referrals Get
-     *
-     * Successful Response
-     */
-    200: Array<ReferralInviteSummary>;
-};
-
-export type AccountReferralsV2AccountReferralsGetResponse = AccountReferralsV2AccountReferralsGetResponses[keyof AccountReferralsV2AccountReferralsGetResponses];
-
-export type AccountReferralCreateV2AccountReferralsPostData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/v2/account/referrals';
-};
-
-export type AccountReferralCreateV2AccountReferralsPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountReferralCreateV2AccountReferralsPostError = AccountReferralCreateV2AccountReferralsPostErrors[keyof AccountReferralCreateV2AccountReferralsPostErrors];
-
-export type AccountReferralCreateV2AccountReferralsPostResponses = {
+export type AccountMeUpdateV2AccountMePatchResponses = {
     /**
      * Successful Response
      */
-    201: ReferralInviteCreateResponse;
+    200: AccountMeResponse;
 };
 
-export type AccountReferralCreateV2AccountReferralsPostResponse = AccountReferralCreateV2AccountReferralsPostResponses[keyof AccountReferralCreateV2AccountReferralsPostResponses];
-
-export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostData = {
-    body?: never;
-    path: {
-        /**
-         * Invite Id
-         */
-        invite_id: string;
-    };
-    query?: never;
-    url: '/v2/account/referrals/{invite_id}/share-token/reissue';
-};
-
-export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostError = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors];
-
-export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: ReferralInviteCreateResponse;
-};
-
-export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponse = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses];
-
-export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostData = {
-    body?: never;
-    path: {
-        /**
-         * Invite Id
-         */
-        invite_id: string;
-    };
-    query?: never;
-    url: '/v2/account/referrals/{invite_id}/revoke';
-};
-
-export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostError = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors];
-
-export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: ReferralInviteSummary;
-};
-
-export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponse = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses];
-
-export type LogoutV2AuthLogoutPostData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/v2/auth/logout';
-};
-
-export type LogoutV2AuthLogoutPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type LogoutV2AuthLogoutPostError = LogoutV2AuthLogoutPostErrors[keyof LogoutV2AuthLogoutPostErrors];
-
-export type LogoutV2AuthLogoutPostResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type LogoutV2AuthLogoutPostResponse = LogoutV2AuthLogoutPostResponses[keyof LogoutV2AuthLogoutPostResponses];
+export type AccountMeUpdateV2AccountMePatchResponse = AccountMeUpdateV2AccountMePatchResponses[keyof AccountMeUpdateV2AccountMePatchResponses];
 
 export type AccountProfilesV2AccountProfilesGetData = {
     body?: never;
@@ -4016,31 +3941,6 @@ export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostRespons
 
 export type AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponse = AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses[keyof AccountConfigurationCreateV2AccountProfilesConfigurationsPostResponses];
 
-export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/v2/account/profiles/routing-exits';
-};
-
-export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetError = AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors];
-
-export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: RoutingExitCatalogResponse;
-};
-
-export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponse = AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses];
-
 export type AccountConfigurationUpdateLabelV2AccountProfilesConfigurationsConfigurationIdPatchData = {
     body: ProfileLabelUpdateRequest;
     path: {
@@ -4101,6 +4001,31 @@ export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConf
 
 export type AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponse = AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponses[keyof AccountConfigurationUpdateRoutingV2AccountProfilesConfigurationsConfigurationIdRoutingPutResponses];
 
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/profiles/routing-exits';
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetError = AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetErrors];
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: RoutingExitCatalogResponse;
+};
+
+export type AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponse = AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses[keyof AccountRoutingExitsV2AccountProfilesRoutingExitsGetResponses];
+
 export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchData = {
     body: ProfileLabelUpdateRequest;
     path: {
@@ -4130,6 +4055,34 @@ export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses = 
 };
 
 export type AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponse = AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses[keyof AccountProfileUpdateLabelV2AccountProfilesProfileIdPatchResponses];
+
+export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetData = {
+    body?: never;
+    path: {
+        /**
+         * Profile Id
+         */
+        profile_id: string;
+    };
+    query?: never;
+    url: '/v2/account/profiles/{profile_id}/config';
+};
+
+export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetError = AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors[keyof AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors];
+
+export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type AccountProfileConfigDownloadCreateV2AccountProfilesProfileIdConfigDownloadPostData = {
     body?: never;
@@ -4193,34 +4146,6 @@ export type AccountProfileConfigDownloadV2AccountProfilesProfileIdConfigDownload
     200: unknown;
 };
 
-export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetData = {
-    body?: never;
-    path: {
-        /**
-         * Profile Id
-         */
-        profile_id: string;
-    };
-    query?: never;
-    url: '/v2/account/profiles/{profile_id}/config';
-};
-
-export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetError = AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors[keyof AccountProfileConfigV2AccountProfilesProfileIdConfigGetErrors];
-
-export type AccountProfileConfigV2AccountProfilesProfileIdConfigGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type AccountProfileQrV2AccountProfilesProfileIdQrSvgGetData = {
     body?: never;
     path: {
@@ -4249,38 +4174,142 @@ export type AccountProfileQrV2AccountProfilesProfileIdQrSvgGetResponses = {
     200: unknown;
 };
 
-export type AdminListPlansV2AdminPlansGetData = {
+export type AccountReferralsV2AccountReferralsGetData = {
     body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
     path?: never;
     query?: never;
-    url: '/v2/admin/plans';
+    url: '/v2/account/referrals';
 };
 
-export type AdminListPlansV2AdminPlansGetErrors = {
+export type AccountReferralsV2AccountReferralsGetErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AdminListPlansV2AdminPlansGetError = AdminListPlansV2AdminPlansGetErrors[keyof AdminListPlansV2AdminPlansGetErrors];
+export type AccountReferralsV2AccountReferralsGetError = AccountReferralsV2AccountReferralsGetErrors[keyof AccountReferralsV2AccountReferralsGetErrors];
 
-export type AdminListPlansV2AdminPlansGetResponses = {
+export type AccountReferralsV2AccountReferralsGetResponses = {
     /**
-     * Response Admin List Plans V2 Admin Plans Get
+     * Response Account Referrals V2 Account Referrals Get
      *
      * Successful Response
      */
-    200: Array<AdminPlanSummary>;
+    200: Array<ReferralInviteSummary>;
 };
 
-export type AdminListPlansV2AdminPlansGetResponse = AdminListPlansV2AdminPlansGetResponses[keyof AdminListPlansV2AdminPlansGetResponses];
+export type AccountReferralsV2AccountReferralsGetResponse = AccountReferralsV2AccountReferralsGetResponses[keyof AccountReferralsV2AccountReferralsGetResponses];
+
+export type AccountReferralCreateV2AccountReferralsPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v2/account/referrals';
+};
+
+export type AccountReferralCreateV2AccountReferralsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralCreateV2AccountReferralsPostError = AccountReferralCreateV2AccountReferralsPostErrors[keyof AccountReferralCreateV2AccountReferralsPostErrors];
+
+export type AccountReferralCreateV2AccountReferralsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ReferralInviteCreateResponse;
+};
+
+export type AccountReferralCreateV2AccountReferralsPostResponse = AccountReferralCreateV2AccountReferralsPostResponses[keyof AccountReferralCreateV2AccountReferralsPostResponses];
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostData = {
+    body?: never;
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/account/referrals/{invite_id}/revoke';
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostError = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostErrors];
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReferralInviteSummary;
+};
+
+export type AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponse = AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses[keyof AccountReferralRevokeV2AccountReferralsInviteIdRevokePostResponses];
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostData = {
+    body?: never;
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/account/referrals/{invite_id}/share-token/reissue';
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostError = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostErrors];
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReferralInviteCreateResponse;
+};
+
+export type AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponse = AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses[keyof AccountReferralReissueV2AccountReferralsInviteIdShareTokenReissuePostResponses];
+
+export type AccountSupportMessageV2AccountSupportMessagePostData = {
+    body: SupportMessageRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/account/support-message';
+};
+
+export type AccountSupportMessageV2AccountSupportMessagePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AccountSupportMessageV2AccountSupportMessagePostError = AccountSupportMessageV2AccountSupportMessagePostErrors[keyof AccountSupportMessageV2AccountSupportMessagePostErrors];
+
+export type AccountSupportMessageV2AccountSupportMessagePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: SupportMessageResponse;
+};
+
+export type AccountSupportMessageV2AccountSupportMessagePostResponse = AccountSupportMessageV2AccountSupportMessagePostResponses[keyof AccountSupportMessageV2AccountSupportMessagePostResponses];
 
 export type AdminListBulkInvitesV2AdminBulkInvitesGetData = {
     body?: never;
@@ -4382,6 +4411,197 @@ export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses
 
 export type AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponse = AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses[keyof AdminRevokeBulkInviteV2AdminBulkInvitesCampaignIdRevokePostResponses];
 
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostData = {
+    body: AdminConfigurationCreateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Grant Id
+         */
+        grant_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/grants/{grant_id}/configurations';
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostError = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors];
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: AdminConfigurationCreateResponse;
+};
+
+export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponse = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses];
+
+export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutData = {
+    body: AdminProtocolLimitUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Grant Id
+         */
+        grant_id: string;
+        /**
+         * Protocol
+         */
+        protocol: string;
+    };
+    query?: never;
+    url: '/v2/admin/grants/{grant_id}/protocol-limits/{protocol}';
+};
+
+export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutError = AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors[keyof AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors];
+
+export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminProtocolLimitUpdateResponse;
+};
+
+export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponse = AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses[keyof AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses];
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Origin
+         */
+        origin: 'user' | 'campaign';
+        /**
+         * Query
+         */
+        query?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/v2/admin/invitation-sources';
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetError = AdminInvitationSourcesV2AdminInvitationSourcesGetErrors[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetErrors];
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponses = {
+    /**
+     * Response Admin Invitation Sources V2 Admin Invitation Sources Get
+     *
+     * Successful Response
+     */
+    200: Array<AdminInvitationSourceOption>;
+};
+
+export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponse = AdminInvitationSourcesV2AdminInvitationSourcesGetResponses[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetResponses];
+
+export type AdminListInvitesV2AdminInvitesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Origin
+         */
+        origin?: Array<'user' | 'admin' | 'campaign'> | null;
+    };
+    url: '/v2/admin/invites';
+};
+
+export type AdminListInvitesV2AdminInvitesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminListInvitesV2AdminInvitesGetError = AdminListInvitesV2AdminInvitesGetErrors[keyof AdminListInvitesV2AdminInvitesGetErrors];
+
+export type AdminListInvitesV2AdminInvitesGetResponses = {
+    /**
+     * Response Admin List Invites V2 Admin Invites Get
+     *
+     * Successful Response
+     */
+    200: Array<AdminInviteSummary>;
+};
+
+export type AdminListInvitesV2AdminInvitesGetResponse = AdminListInvitesV2AdminInvitesGetResponses[keyof AdminListInvitesV2AdminInvitesGetResponses];
+
+export type AdminCreateInviteV2AdminInvitesPostData = {
+    body: AdminInviteRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/invites';
+};
+
+export type AdminCreateInviteV2AdminInvitesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminCreateInviteV2AdminInvitesPostError = AdminCreateInviteV2AdminInvitesPostErrors[keyof AdminCreateInviteV2AdminInvitesPostErrors];
+
+export type AdminCreateInviteV2AdminInvitesPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: AdminInviteResponse;
+};
+
+export type AdminCreateInviteV2AdminInvitesPostResponse = AdminCreateInviteV2AdminInvitesPostResponses[keyof AdminCreateInviteV2AdminInvitesPostResponses];
+
 export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchData = {
     body: AdminInviteRecipientUpdateRequest;
     headers?: {
@@ -4417,78 +4637,6 @@ export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchRespon
 };
 
 export type AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponse = AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses[keyof AdminUpdateInviteRecipientV2AdminInvitesInviteIdRecipientPatchResponses];
-
-export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path: {
-        /**
-         * Invite Id
-         */
-        invite_id: string;
-    };
-    query?: never;
-    url: '/v2/admin/invites/{invite_id}/share-token/reissue';
-};
-
-export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostError = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors];
-
-export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: AdminInviteShareTokenResponse;
-};
-
-export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponse = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses];
-
-export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchData = {
-    body: AdminInviteLimitUpdateRequest;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path: {
-        /**
-         * Invite Id
-         */
-        invite_id: string;
-    };
-    query?: never;
-    url: '/v2/admin/invites/{invite_id}/wireguard-limit';
-};
-
-export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchError = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors];
-
-export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses = {
-    /**
-     * Successful Response
-     */
-    200: AdminInviteSummary;
-};
-
-export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponse = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses];
 
 export type AdminResendInviteV2AdminInvitesInviteIdResendPostData = {
     body?: never;
@@ -4562,8 +4710,8 @@ export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses = {
 
 export type AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponse = AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses[keyof AdminRevokeInviteV2AdminInvitesInviteIdRevokePostResponses];
 
-export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostData = {
-    body: AdminConfigurationCreateRequest;
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostData = {
+    body?: never;
     headers?: {
         /**
          * X-Admin-Token
@@ -4572,31 +4720,211 @@ export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostData =
     };
     path: {
         /**
-         * Grant Id
+         * Invite Id
          */
-        grant_id: string;
+        invite_id: string;
     };
     query?: never;
-    url: '/v2/admin/grants/{grant_id}/configurations';
+    url: '/v2/admin/invites/{invite_id}/share-token/reissue';
 };
 
-export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors = {
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostError = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostErrors];
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostError = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostErrors];
 
-export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses = {
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses = {
     /**
      * Successful Response
      */
-    202: AdminConfigurationCreateResponse;
+    200: AdminInviteShareTokenResponse;
 };
 
-export type AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponse = AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses[keyof AdminCreateConfigurationV2AdminGrantsGrantIdConfigurationsPostResponses];
+export type AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponse = AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses[keyof AdminReissueInviteShareTokenV2AdminInvitesInviteIdShareTokenReissuePostResponses];
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchData = {
+    body: AdminInviteLimitUpdateRequest;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path: {
+        /**
+         * Invite Id
+         */
+        invite_id: string;
+    };
+    query?: never;
+    url: '/v2/admin/invites/{invite_id}/wireguard-limit';
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchError = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchErrors];
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminInviteSummary;
+};
+
+export type AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponse = AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses[keyof AdminUpdateInviteWireguardLimitV2AdminInvitesInviteIdWireguardLimitPatchResponses];
+
+export type AdminMonitoringCapacityV2AdminMonitoringCapacityGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/monitoring/capacity';
+};
+
+export type AdminMonitoringCapacityV2AdminMonitoringCapacityGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminMonitoringCapacityV2AdminMonitoringCapacityGetError = AdminMonitoringCapacityV2AdminMonitoringCapacityGetErrors[keyof AdminMonitoringCapacityV2AdminMonitoringCapacityGetErrors];
+
+export type AdminMonitoringCapacityV2AdminMonitoringCapacityGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminCapacityResponse;
+};
+
+export type AdminMonitoringCapacityV2AdminMonitoringCapacityGetResponse = AdminMonitoringCapacityV2AdminMonitoringCapacityGetResponses[keyof AdminMonitoringCapacityV2AdminMonitoringCapacityGetResponses];
+
+export type AdminMonitoringEventsV2AdminMonitoringEventsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Window Hours
+         */
+        window_hours?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/v2/admin/monitoring/events';
+};
+
+export type AdminMonitoringEventsV2AdminMonitoringEventsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminMonitoringEventsV2AdminMonitoringEventsGetError = AdminMonitoringEventsV2AdminMonitoringEventsGetErrors[keyof AdminMonitoringEventsV2AdminMonitoringEventsGetErrors];
+
+export type AdminMonitoringEventsV2AdminMonitoringEventsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminMonitoringEventsResponse;
+};
+
+export type AdminMonitoringEventsV2AdminMonitoringEventsGetResponse = AdminMonitoringEventsV2AdminMonitoringEventsGetResponses[keyof AdminMonitoringEventsV2AdminMonitoringEventsGetResponses];
+
+export type AdminMonitoringSummaryV2AdminMonitoringSummaryGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Window Hours
+         */
+        window_hours?: number;
+    };
+    url: '/v2/admin/monitoring/summary';
+};
+
+export type AdminMonitoringSummaryV2AdminMonitoringSummaryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminMonitoringSummaryV2AdminMonitoringSummaryGetError = AdminMonitoringSummaryV2AdminMonitoringSummaryGetErrors[keyof AdminMonitoringSummaryV2AdminMonitoringSummaryGetErrors];
+
+export type AdminMonitoringSummaryV2AdminMonitoringSummaryGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminMonitoringSummaryResponse;
+};
+
+export type AdminMonitoringSummaryV2AdminMonitoringSummaryGetResponse = AdminMonitoringSummaryV2AdminMonitoringSummaryGetResponses[keyof AdminMonitoringSummaryV2AdminMonitoringSummaryGetResponses];
+
+export type AdminListPlansV2AdminPlansGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/plans';
+};
+
+export type AdminListPlansV2AdminPlansGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminListPlansV2AdminPlansGetError = AdminListPlansV2AdminPlansGetErrors[keyof AdminListPlansV2AdminPlansGetErrors];
+
+export type AdminListPlansV2AdminPlansGetResponses = {
+    /**
+     * Response Admin List Plans V2 Admin Plans Get
+     *
+     * Successful Response
+     */
+    200: Array<AdminPlanSummary>;
+};
+
+export type AdminListPlansV2AdminPlansGetResponse = AdminListPlansV2AdminPlansGetResponses[keyof AdminListPlansV2AdminPlansGetResponses];
 
 export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetData = {
     body?: never;
@@ -4632,7 +4960,7 @@ export type AdminProfileConfigDownloadV2AdminProfilesProfileIdConfigGetResponses
     200: unknown;
 };
 
-export type AdminInvitationSourcesV2AdminInvitationSourcesGetData = {
+export type AdminReviewAccessV2AdminReviewAccessPostData = {
     body?: never;
     headers?: {
         /**
@@ -4641,42 +4969,58 @@ export type AdminInvitationSourcesV2AdminInvitationSourcesGetData = {
         'x-admin-token'?: string | null;
     };
     path?: never;
-    query: {
-        /**
-         * Origin
-         */
-        origin: 'user' | 'campaign';
-        /**
-         * Query
-         */
-        query?: string | null;
-        /**
-         * Limit
-         */
-        limit?: number;
-    };
-    url: '/v2/admin/invitation-sources';
+    query?: never;
+    url: '/v2/admin/review-access';
 };
 
-export type AdminInvitationSourcesV2AdminInvitationSourcesGetErrors = {
+export type AdminReviewAccessV2AdminReviewAccessPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AdminInvitationSourcesV2AdminInvitationSourcesGetError = AdminInvitationSourcesV2AdminInvitationSourcesGetErrors[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetErrors];
+export type AdminReviewAccessV2AdminReviewAccessPostError = AdminReviewAccessV2AdminReviewAccessPostErrors[keyof AdminReviewAccessV2AdminReviewAccessPostErrors];
 
-export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponses = {
+export type AdminReviewAccessV2AdminReviewAccessPostResponses = {
     /**
-     * Response Admin Invitation Sources V2 Admin Invitation Sources Get
-     *
      * Successful Response
      */
-    200: Array<AdminInvitationSourceOption>;
+    200: AdminReviewAccessResponse;
 };
 
-export type AdminInvitationSourcesV2AdminInvitationSourcesGetResponse = AdminInvitationSourcesV2AdminInvitationSourcesGetResponses[keyof AdminInvitationSourcesV2AdminInvitationSourcesGetResponses];
+export type AdminReviewAccessV2AdminReviewAccessPostResponse = AdminReviewAccessV2AdminReviewAccessPostResponses[keyof AdminReviewAccessV2AdminReviewAccessPostResponses];
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/review-access/reset';
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostError = AdminReviewAccessResetV2AdminReviewAccessResetPostErrors[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostErrors];
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: AdminReviewResetResponse;
+};
+
+export type AdminReviewAccessResetV2AdminReviewAccessResetPostResponse = AdminReviewAccessResetV2AdminReviewAccessResetPostResponses[keyof AdminReviewAccessResetV2AdminReviewAccessResetPostResponses];
 
 export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetData = {
     body?: never;
@@ -4708,6 +5052,89 @@ export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses = {
 };
 
 export type AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponse = AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses[keyof AdminRuntimeConnectionsV2AdminRuntimeConnectionsGetResponses];
+
+export type AdminSessionStatusV2AdminSessionGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/session';
+};
+
+export type AdminSessionStatusV2AdminSessionGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminSessionStatusV2AdminSessionGetError = AdminSessionStatusV2AdminSessionGetErrors[keyof AdminSessionStatusV2AdminSessionGetErrors];
+
+export type AdminSessionStatusV2AdminSessionGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type AdminSessionLoginV2AdminSessionLoginPostData = {
+    body: AdminSessionLoginRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/admin/session/login';
+};
+
+export type AdminSessionLoginV2AdminSessionLoginPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminSessionLoginV2AdminSessionLoginPostError = AdminSessionLoginV2AdminSessionLoginPostErrors[keyof AdminSessionLoginV2AdminSessionLoginPostErrors];
+
+export type AdminSessionLoginV2AdminSessionLoginPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type AdminSessionLogoutV2AdminSessionLogoutPostData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Admin-Token
+         */
+        'x-admin-token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/v2/admin/session/logout';
+};
+
+export type AdminSessionLogoutV2AdminSessionLogoutPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AdminSessionLogoutV2AdminSessionLogoutPostError = AdminSessionLogoutV2AdminSessionLogoutPostErrors[keyof AdminSessionLogoutV2AdminSessionLogoutPostErrors];
+
+export type AdminSessionLogoutV2AdminSessionLogoutPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AdminSessionLogoutV2AdminSessionLogoutPostResponse = AdminSessionLogoutV2AdminSessionLogoutPostResponses[keyof AdminSessionLogoutV2AdminSessionLogoutPostResponses];
 
 export type AdminListUsersV2AdminUsersGetData = {
     body?: never;
@@ -4887,68 +5314,275 @@ export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchRe
 
 export type AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponse = AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponses[keyof AdminUpdateUserReferralPolicyV2AdminUsersUserIdReferralPolicyPatchResponses];
 
-export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutData = {
-    body: AdminProtocolLimitUpdateRequest;
-    headers?: {
-        /**
-         * X-Admin-Token
-         */
-        'x-admin-token'?: string | null;
-    };
-    path: {
-        /**
-         * Grant Id
-         */
-        grant_id: string;
-        /**
-         * Protocol
-         */
-        protocol: string;
-    };
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostData = {
+    body: BulkInviteInspectRequest;
+    path?: never;
     query?: never;
-    url: '/v2/admin/grants/{grant_id}/protocol-limits/{protocol}';
+    url: '/v2/auth/bulk-invites/inspect';
 };
 
-export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors = {
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutError = AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors[keyof AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutErrors];
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostError = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostErrors];
 
-export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses = {
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses = {
     /**
      * Successful Response
      */
-    200: AdminProtocolLimitUpdateResponse;
+    200: BulkInviteInspectResponse;
 };
 
-export type AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponse = AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses[keyof AdminSetProtocolLimitV2AdminGrantsGrantIdProtocolLimitsProtocolPutResponses];
+export type InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponse = InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses[keyof InspectBulkInviteRouteV2AuthBulkInvitesInspectPostResponses];
 
-export type HealthHealthGetData = {
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostData = {
+    body: BulkInviteRedeemRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/bulk-invites/redeem';
+};
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostError = RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors[keyof RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostErrors];
+
+export type RedeemBulkInviteRouteV2AuthBulkInvitesRedeemPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostData = {
+    body: InviteChangeEmailRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/change-email';
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostError = ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors[keyof ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostErrors];
+
+export type ChangeInviteEmailRouteV2AuthInvitesChangeEmailPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostData = {
+    body: InviteInspectRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/inspect';
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostError = InspectInviteRouteV2AuthInvitesInspectPostErrors[keyof InspectInviteRouteV2AuthInvitesInspectPostErrors];
+
+export type InspectInviteRouteV2AuthInvitesInspectPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: InviteInspectResponse;
+};
+
+export type InspectInviteRouteV2AuthInvitesInspectPostResponse = InspectInviteRouteV2AuthInvitesInspectPostResponses[keyof InspectInviteRouteV2AuthInvitesInspectPostResponses];
+
+export type RedeemInviteRouteV2AuthInvitesRedeemPostData = {
+    body: InviteRedeemRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/redeem';
+};
+
+export type RedeemInviteRouteV2AuthInvitesRedeemPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RedeemInviteRouteV2AuthInvitesRedeemPostError = RedeemInviteRouteV2AuthInvitesRedeemPostErrors[keyof RedeemInviteRouteV2AuthInvitesRedeemPostErrors];
+
+export type RedeemInviteRouteV2AuthInvitesRedeemPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type ResendInviteRouteV2AuthInvitesResendPostData = {
+    body: InviteResendRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/invites/resend';
+};
+
+export type ResendInviteRouteV2AuthInvitesResendPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResendInviteRouteV2AuthInvitesResendPostError = ResendInviteRouteV2AuthInvitesResendPostErrors[keyof ResendInviteRouteV2AuthInvitesResendPostErrors];
+
+export type ResendInviteRouteV2AuthInvitesResendPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type LoginRequestV2AuthLoginRequestPostData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/login/request';
+};
+
+export type LoginRequestV2AuthLoginRequestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginRequestV2AuthLoginRequestPostError = LoginRequestV2AuthLoginRequestPostErrors[keyof LoginRequestV2AuthLoginRequestPostErrors];
+
+export type LoginRequestV2AuthLoginRequestPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type LogoutV2AuthLogoutPostData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/health';
+    url: '/v2/auth/logout';
 };
 
-export type HealthHealthGetResponses = {
+export type LogoutV2AuthLogoutPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LogoutV2AuthLogoutPostError = LogoutV2AuthLogoutPostErrors[keyof LogoutV2AuthLogoutPostErrors];
+
+export type LogoutV2AuthLogoutPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LogoutV2AuthLogoutPostResponse = LogoutV2AuthLogoutPostResponses[keyof LogoutV2AuthLogoutPostResponses];
+
+export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostData = {
+    body: MagicLinkConsumeRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/magic-link/consume';
+};
+
+export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostError = ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors[keyof ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostErrors];
+
+export type ConsumeMagicLinkRouteV2AuthMagicLinkConsumePostResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type HealthDbHealthDbGetData = {
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostData = {
+    body: MagicLinkRecoveryRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/magic-link/recovery';
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostError = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostErrors];
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: MagicLinkRecoveryResponse;
+};
+
+export type InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponse = InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses[keyof InspectMagicLinkRecoveryRouteV2AuthMagicLinkRecoveryPostResponses];
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostData = {
+    body: MagicLinkRecoveryRequest;
+    path?: never;
+    query?: never;
+    url: '/v2/auth/magic-link/resend';
+};
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostError = ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors[keyof ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostErrors];
+
+export type ResendExpiredMagicLinkRouteV2AuthMagicLinkResendPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type YookassaWebhookV2BillingYookassaWebhookPostData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/health/db';
+    url: '/v2/billing/yookassa/webhook';
 };
 
-export type HealthDbHealthDbGetResponses = {
+export type YookassaWebhookV2BillingYookassaWebhookPostResponses = {
     /**
      * Successful Response
      */

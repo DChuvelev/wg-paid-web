@@ -1,15 +1,15 @@
 # Pinned FastAPI contract
 
-The P34 owner-provided export is the authoritative input. Do not download a live contract during ordinary builds or hand-write schema contents.
+The B4 owner-provided VM121 export (2026-10-10 21:06:56) is the authoritative input. Its extraction provenance is pinned in `B4.provenance.txt`. Do not download a live contract during ordinary builds or hand-write schema contents.
 
 - OpenAPI: `3.1.0`
-- paths: `72`
-- operations: `81`
-- schemas: `92`
-- raw SHA-256: `e93337317b4dc7e1a81d547759e513ea0c9754a426f16625d4bdfaf96f2a10df`
-- canonical SHA-256: `b6ce1bcbcaf2eaaa1669eee5d6e90f30ed8d9aaf427dc75be9b09970efa04718`
+- paths: `76`
+- operations: `85`
+- schemas: `107`
+- raw SHA-256: `80ede76aa87ef98a807057903bb74ac2a8037111ec21395675dffa5e953901b5`
+- canonical SHA-256: `be78d17b979a7d99478c2af2ed6c2af82b934370a7b5f14453c3f26923829301`
 
-P34 adds Admin invitation-source lookup, server-side Users attribution parameters, and runtime connection attribution. Existing account, billing, referral, campaign, review, authentication, and configuration semantics remain unchanged.
+B4 adds read-only Admin monitoring summary, events and capacity schemas/endpoints. The complete export also adds support-message schemas/endpoint; no new Support UI is wired in this release. All existing paths and schemas are semantically identical to the prior pin (object key order differs). Existing account, billing, referral, campaign, review, authentication, and configuration semantics remain unchanged.
 
 The guard recursively sorts object keys, preserves array order and JSON number types, serializes compact UTF-8 JSON, and checks the canonical hash, version, paths, operations, and schemas. The contract test also verifies the raw export hash.
 

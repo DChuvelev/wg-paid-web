@@ -53,10 +53,10 @@ export function orderedSteps(anchors: readonly HelpAnchor[], mode: HelpMode, ins
     .sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic))
     .filter((anchor) => { if (seen.has(anchor.topic)) return false; seen.add(anchor.topic); return true; })
     .map<HelpStep>((anchor) => ({ topic: anchor.topic, anchorKey: anchor.key }))
-    .concat([{ topic: 'returnToAccount', anchorKey: 'return-to-account', informational: true }])
     .concat(anchors.filter((anchor) => anchor.topic === 'support' && anchor.available !== false && anchor.element.isConnected
       && (mode !== 'initial' || anchor.initial !== false)).slice(0, 1)
-      .map<HelpStep>((anchor) => ({ topic: anchor.topic, anchorKey: anchor.key })));
+      .map<HelpStep>((anchor) => ({ topic: anchor.topic, anchorKey: anchor.key })))
+    .concat([{ topic: 'returnToAccount', anchorKey: 'return-to-account', informational: true }]);
 }
 
 export function detectDiscoveries(previous: CapabilitySnapshot | undefined, current: CapabilitySnapshot, acknowledged: Partial<Record<DiscoveryId, number>>): DiscoveryCandidate[] {

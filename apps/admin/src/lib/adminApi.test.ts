@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const sdk = vi.hoisted(() => ({
+  monitoringSummary: vi.fn(), monitoringEvents: vi.fn(), monitoringCapacity: vi.fn(),
   invitationSources: vi.fn(), createBulkInvite: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), listBulkInvites: vi.fn(), listInvites: vi.fn(), listPlans: vi.fn(), listUsers: vi.fn(),
   login: vi.fn(), logout: vi.fn(), reissueInvite: vi.fn(), resendInvite: vi.fn(), revokeInvite: vi.fn(), session: vi.fn(), setLimit: vi.fn(),
   reviewAccess: vi.fn(), resetReview: vi.fn(), revokeBulkInvite: vi.fn(), runtimeConnections: vi.fn(), updateInviteLimit: vi.fn(), updateInviteRecipient: vi.fn(), updateUser: vi.fn(), updateReferralPolicy: vi.fn()
 }));
 
 vi.mock('@wg-paid/api', () => ({
+  adminMonitoringSummaryV2AdminMonitoringSummaryGet: sdk.monitoringSummary,
+  adminMonitoringEventsV2AdminMonitoringEventsGet: sdk.monitoringEvents,
+  adminMonitoringCapacityV2AdminMonitoringCapacityGet: sdk.monitoringCapacity,
   adminInvitationSourcesV2AdminInvitationSourcesGet: sdk.invitationSources,
   adminCreateBulkInviteV2AdminBulkInvitesPost: sdk.createBulkInvite,
   adminCreateInviteV2AdminInvitesPost: sdk.createInvite,
@@ -33,6 +37,7 @@ vi.mock('@wg-paid/api', () => ({
 }));
 
 import {
+  loadMonitoringSummary, loadMonitoringEvents, loadMonitoringCapacity,
   adminProfileConfigUrl,
   AdminApiError,
   createBulkInviteCampaign,
@@ -52,6 +57,27 @@ import {
   updateInviteRecipient,
   updateInviteWireGuardLimit
 } from './adminApi';
+
+test.each([24, 168] as const)('monitoring uses authenticated generated GETs with window %s, bounded paging, and abort signals', async (window) => {
+  const signal = new AbortController().signal;
+  for (const fn of [sdk.monitoringSummary, sdk.monitoringEvents, sdk.monitoringCapacity]) fn.mockResolvedValue({ data: {}, response: new Response(null, { status: 200 }) });
+  await loadMonitoringSummary(window, signal);
+  await loadMonitoringEvents(window, 5000, signal);
+  await loadMonitoringCapacity(signal);
+  expect(sdk.monitoringSummary).toHaveBeenCalledWith({ credentials: 'same-origin', signal, query: { window_hours: window } });
+  expect(sdk.monitoringEvents).toHaveBeenCalledWith({ credentials: 'same-origin', signal, query: { window_hours: window, limit: 50, offset: 5000 } });
+  expect(sdk.monitoringCapacity).toHaveBeenCalledWith({ credentials: 'same-origin', signal });
+});
+
+test.each([-50, 5001, 5050, 0.5, NaN])('monitoring rejects out-of-bounds or off-page offset %s before requesting', async (offset) => {
+  await expect(loadMonitoringEvents(24, offset)).rejects.toThrow(RangeError);
+  expect(sdk.monitoringEvents).not.toHaveBeenCalled();
+});
+
+test.each([401, 403])('monitoring preserves HTTP %s for Admin handling', async (status) => {
+  sdk.monitoringSummary.mockResolvedValue({ response: new Response(null, { status }) });
+  await expect(loadMonitoringSummary(24)).rejects.toMatchObject({ status });
+});
 
 afterEach(() => {
   document.cookie = 'wg_admin_csrf=; Max-Age=0; Path=/';

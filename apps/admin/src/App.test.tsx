@@ -6,6 +6,7 @@ import type { AdminBulkInviteSummary, AdminInviteSummary, AdminProtocolLimitUpda
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
+  loadMonitoringSummary, loadMonitoringEvents, loadMonitoringCapacity,
   AdminApiError, createReviewAccess, resetReviewAccess, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers, loadInvitationSources,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
   revokeBulkInviteCampaign, updateInviteRecipient, updateInviteWireGuardLimit, updateReferralPolicy
@@ -15,6 +16,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/adminApi')>();
   return {
     ...actual,
+    loadMonitoringSummary: vi.fn(), loadMonitoringEvents: vi.fn(), loadMonitoringCapacity: vi.fn(),
     createReviewAccess: vi.fn(), resetReviewAccess: vi.fn(), checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
     loadInvitationSources: vi.fn(), loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
     reissueInviteShareLink: vi.fn(), resendAdminInvite: vi.fn(), revokeInvite: vi.fn(), setWireGuardLimit: vi.fn(), updateAdminNote: vi.fn(),
@@ -178,6 +180,9 @@ async function openDeleteDialog() {
 }
 
 beforeEach(() => {
+  vi.mocked(loadMonitoringSummary).mockRejectedValue(new AdminApiError(503));
+  vi.mocked(loadMonitoringEvents).mockRejectedValue(new AdminApiError(503));
+  vi.mocked(loadMonitoringCapacity).mockRejectedValue(new AdminApiError(503));
   vi.mocked(loadInvitationSources).mockResolvedValue([]);
   window.history.replaceState(null, '', '/#/users');
   vi.mocked(checkAdminSession).mockResolvedValue(true);
@@ -221,6 +226,8 @@ describe('admin session and invites', () => {
     vi.mocked(checkAdminSession).mockResolvedValue(false);
     renderAdmin();
     const secretInput = await screen.findByLabelText('Admin secret');
+    expect(loadMonitoringSummary).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Операторский мониторинг' })).toBeNull();
     const secret = 'a'.repeat(32);
     fireEvent.change(secretInput, { target: { value: secret } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -945,10 +952,14 @@ describe('admin area navigation', () => {
       amneziawg_profile_id: 'review-awg', amneziawg_status: 'active', amneziawg_tunnel_ip: '10.254.0.2'
     });
     await renderInvitesDashboard();
+    expect(loadMonitoringSummary).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Операторский мониторинг' })).toBeNull();
     const invites = screen.getByRole('region', { name: 'Invites' });
     expect(within(invites).queryByRole('region', { name: 'YooKassa review access' })).toBeNull();
     fireEvent.click(screen.getByRole('link', { name: 'Administration' }));
     const administration = await screen.findByRole('region', { name: 'Administration' });
+    expect(within(administration).getByRole('heading', { name: 'Операторский мониторинг' })).toBeVisible();
+    expect(loadMonitoringSummary).toHaveBeenCalledWith(24, expect.any(AbortSignal));
     fireEvent.click(within(administration).getByRole('button', { name: 'Create / reissue YooKassa review link' }));
     await within(administration).findByLabelText('YooKassa review URL');
     expect(createReviewAccess).toHaveBeenCalledTimes(1);

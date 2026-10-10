@@ -1,4 +1,7 @@
 import {
+  adminMonitoringSummaryV2AdminMonitoringSummaryGet,
+  adminMonitoringEventsV2AdminMonitoringEventsGet,
+  adminMonitoringCapacityV2AdminMonitoringCapacityGet,
   adminCreateBulkInviteV2AdminBulkInvitesPost,
   adminCreateInviteV2AdminInvitesPost,
   adminDeleteUserV2AdminUsersUserIdDelete,
@@ -80,6 +83,23 @@ const requestOptions = (signal?: AbortSignal) => ({
   ...(signal ? { signal } : {})
 });
 const mutationOptions = () => ({ ...requestOptions(), headers: getAdminCsrfHeaders() });
+
+export async function loadMonitoringSummary(windowHours: 24 | 168, signal?: AbortSignal) {
+  return requireData(await adminMonitoringSummaryV2AdminMonitoringSummaryGet({
+    ...requestOptions(signal), query: { window_hours: windowHours }
+  }));
+}
+
+export async function loadMonitoringEvents(windowHours: 24 | 168, offset: number, signal?: AbortSignal) {
+  if (!Number.isInteger(offset) || offset < 0 || offset > 5000 || offset % 50 !== 0) throw new RangeError('Invalid events offset');
+  return requireData(await adminMonitoringEventsV2AdminMonitoringEventsGet({
+    ...requestOptions(signal), query: { window_hours: windowHours, limit: 50, offset }
+  }));
+}
+
+export async function loadMonitoringCapacity(signal?: AbortSignal) {
+  return requireData(await adminMonitoringCapacityV2AdminMonitoringCapacityGet(requestOptions(signal)));
+}
 
 interface ApiResult<T> {
   data?: T;
