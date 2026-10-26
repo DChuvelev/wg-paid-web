@@ -6,6 +6,11 @@ import { spawnSync } from 'node:child_process';
 import { assertPinnedOpenApi, parseJsonForCanonicalization } from './openapi-contract.mjs';
 
 const input = new URL('../openapi/openapi.json', import.meta.url);
+const broadcastBytes = await readFile(new URL('../openapi/broadcasts.json', import.meta.url));
+if (createHash('sha256').update(broadcastBytes).digest('hex') !== '41024f4eafc734285629f7c4fb8e192df043f431d917500d9861aeeaad74163f') {
+  console.error('Pinned broadcasts OpenAPI verification failed.');
+  process.exit(1);
+}
 
 let bytes;
 try {

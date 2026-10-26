@@ -1,4 +1,13 @@
 import {
+  historyV2AdminBroadcastsGet,
+  draftV2AdminBroadcastsPost,
+  previewV2AdminBroadcastsPreviewPost,
+  detailV2AdminBroadcastsCampaignIdGet,
+  pauseV2AdminBroadcastsCampaignIdPausePost,
+  resumeV2AdminBroadcastsCampaignIdResumePost,
+  sendV2AdminBroadcastsCampaignIdSendPost,
+  testSendV2AdminBroadcastsCampaignIdTestPost,
+  type BroadcastCompose,
   adminMonitoringSummaryV2AdminMonitoringSummaryGet,
   adminMonitoringEventsV2AdminMonitoringEventsGet,
   adminMonitoringCapacityV2AdminMonitoringCapacityGet,
@@ -83,6 +92,41 @@ const requestOptions = (signal?: AbortSignal) => ({
   ...(signal ? { signal } : {})
 });
 const mutationOptions = () => ({ ...requestOptions(), headers: getAdminCsrfHeaders() });
+
+export async function loadBroadcasts(signal?: AbortSignal) {
+  return requireData(await historyV2AdminBroadcastsGet({ ...requestOptions(signal), query: { limit: 100 } }));
+}
+
+export async function loadBroadcast(campaignId: string, signal?: AbortSignal) {
+  return requireData(await detailV2AdminBroadcastsCampaignIdGet({ ...requestOptions(signal), path: { campaign_id: campaignId } }));
+}
+
+export async function previewBroadcast(body: BroadcastCompose) {
+  return requireData(await previewV2AdminBroadcastsPreviewPost({ ...mutationOptions(), body }));
+}
+
+export async function createBroadcast(body: BroadcastCompose) {
+  return requireData(await draftV2AdminBroadcastsPost({ ...mutationOptions(), body }));
+}
+
+export async function testBroadcast(campaignId: string) {
+  // The contract deliberately leaves the response untyped. Only HTTP success is consumed.
+  requireSuccess(await testSendV2AdminBroadcastsCampaignIdTestPost({ ...mutationOptions(), path: { campaign_id: campaignId } }));
+}
+
+export async function sendBroadcast(campaignId: string, recipientCount: number) {
+  return requireData(await sendV2AdminBroadcastsCampaignIdSendPost({
+    ...mutationOptions(), path: { campaign_id: campaignId }, body: { confirmed_recipient_count: recipientCount }
+  }));
+}
+
+export async function pauseBroadcast(campaignId: string) {
+  return requireData(await pauseV2AdminBroadcastsCampaignIdPausePost({ ...mutationOptions(), path: { campaign_id: campaignId } }));
+}
+
+export async function resumeBroadcast(campaignId: string) {
+  return requireData(await resumeV2AdminBroadcastsCampaignIdResumePost({ ...mutationOptions(), path: { campaign_id: campaignId } }));
+}
 
 export async function loadMonitoringSummary(windowHours: 24 | 168, signal?: AbortSignal) {
   return requireData(await adminMonitoringSummaryV2AdminMonitoringSummaryGet({

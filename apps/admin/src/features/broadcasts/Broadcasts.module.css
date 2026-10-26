@@ -1,0 +1,17 @@
+.panel { display: grid; gap: 1rem; min-width: 0; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid #d7dfeb; }
+.panel h3, .panel h4, .panel p { margin: 0; }
+.editor, .card { display: grid; gap: 0.8rem; min-width: 0; padding: 1rem; border: 1px solid #d7dfeb; border-radius: 0.75rem; background: #f8fafc; }
+.editor fieldset { display: grid; gap: 0.8rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.editor textarea { width: 100%; min-height: 10rem; resize: vertical; padding: 0.65rem; border: 1px solid #b9c5d6; border-radius: 0.5rem; color: #172033; background: #fff; font: inherit; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: inherit; }
+.history { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.history button { display: grid; gap: 0.3rem; width: 100%; text-align: left; overflow-wrap: anywhere; }
+.counts { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; margin: 0; }
+.counts dd { margin: 0.2rem 0 0; font-weight: 750; }
+.confirmation { display: grid; gap: 0.7rem; padding: 1rem; border: 1px solid #b42318; border-radius: 0.5rem; background: #fff4f2; }
+.note { color: #52627a; }
+@media (max-width: 760px) {
+  .actions { align-items: stretch; flex-direction: column; }
+  .editor, .card { padding: 0.8rem; }
+}

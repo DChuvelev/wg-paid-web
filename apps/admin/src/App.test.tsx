@@ -6,6 +6,7 @@ import type { AdminBulkInviteSummary, AdminInviteSummary, AdminProtocolLimitUpda
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from './App';
 import {
+  loadBroadcasts,
   loadMonitoringSummary, loadMonitoringEvents, loadMonitoringCapacity,
   AdminApiError, createReviewAccess, resetReviewAccess, checkAdminSession, createBulkInviteCampaign, createInvite, deleteUser, loadBulkInviteCampaigns, loadInvites, loadPlans, loadRuntimeConnections, loadUsers, loadInvitationSources,
   loginAdmin, logoutAdmin, reissueInviteShareLink, resendAdminInvite, revokeInvite, setWireGuardLimit, updateAdminNote,
@@ -16,6 +17,7 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/adminApi')>();
   return {
     ...actual,
+    loadBroadcasts: vi.fn().mockResolvedValue([]),
     loadMonitoringSummary: vi.fn(), loadMonitoringEvents: vi.fn(), loadMonitoringCapacity: vi.fn(),
     createReviewAccess: vi.fn(), resetReviewAccess: vi.fn(), checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
     loadInvitationSources: vi.fn(), loadPlans: vi.fn(), loadRuntimeConnections: vi.fn(), loadUsers: vi.fn(), loginAdmin: vi.fn(), logoutAdmin: vi.fn(), revokeBulkInviteCampaign: vi.fn(),
@@ -953,6 +955,7 @@ describe('admin area navigation', () => {
     });
     await renderInvitesDashboard();
     expect(loadMonitoringSummary).not.toHaveBeenCalled();
+    expect(loadBroadcasts).not.toHaveBeenCalled();
     expect(screen.queryByRole('heading', { name: 'Операторский мониторинг' })).toBeNull();
     const invites = screen.getByRole('region', { name: 'Invites' });
     expect(within(invites).queryByRole('region', { name: 'YooKassa review access' })).toBeNull();
@@ -960,6 +963,8 @@ describe('admin area navigation', () => {
     const administration = await screen.findByRole('region', { name: 'Administration' });
     expect(within(administration).getByRole('heading', { name: 'Операторский мониторинг' })).toBeVisible();
     expect(loadMonitoringSummary).toHaveBeenCalledWith(24, expect.any(AbortSignal));
+    expect(within(administration).getByRole('heading', { name: 'Рассылки' })).toBeVisible();
+    expect(loadBroadcasts).toHaveBeenCalledWith(expect.any(AbortSignal));
     fireEvent.click(within(administration).getByRole('button', { name: 'Create / reissue YooKassa review link' }));
     await within(administration).findByLabelText('YooKassa review URL');
     expect(createReviewAccess).toHaveBeenCalledTimes(1);

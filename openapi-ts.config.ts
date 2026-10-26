@@ -1,6 +1,6 @@
 import { defineConfig } from '@hey-api/openapi-ts';
 
-export default defineConfig({
+export default defineConfig([{
   input: './openapi/openapi.json',
   output: './packages/api/src/generated',
   plugins: [
@@ -8,4 +8,12 @@ export default defineConfig({
     '@hey-api/typescript',
     { name: '@hey-api/sdk', client: '@hey-api/client-fetch' }
   ]
-});
+}, {
+  input: './openapi/broadcasts.json',
+  output: './packages/api/src/generated-broadcasts',
+  plugins: [
+    { name: '@hey-api/client-fetch' },
+    '@hey-api/typescript',
+    { name: '@hey-api/sdk', client: '@hey-api/client-fetch' }
+  ]
+}]);

@@ -1,5 +1,6 @@
 import { ReviewAccessControl } from './ReviewAccessControl';
 import { MonitoringPanel } from '../monitoring/MonitoringPanel';
+import { BroadcastsPanel } from '../broadcasts/BroadcastsPanel';
 import styles from '../../app/Admin.module.css';
 
 export function AdministrationPanel({ active, onSessionExpired }: { active: boolean; onSessionExpired: () => void }) {
@@ -9,6 +10,7 @@ export function AdministrationPanel({ active, onSessionExpired }: { active: bool
       <div className={styles.dataViewport}>
         <ReviewAccessControl active={active} onSessionExpired={onSessionExpired} />
         {active ? <MonitoringPanel onSessionExpired={onSessionExpired} /> : null}
+        {active ? <BroadcastsPanel onSessionExpired={onSessionExpired} /> : null}
       </div>
     </section>
   );
