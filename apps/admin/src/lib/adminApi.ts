@@ -6,7 +6,9 @@ import {
   pauseV2AdminBroadcastsCampaignIdPausePost,
   resumeV2AdminBroadcastsCampaignIdResumePost,
   sendV2AdminBroadcastsCampaignIdSendPost,
-  testSendV2AdminBroadcastsCampaignIdTestPost,
+  testSendV2AdminBroadcastsCampaignIdTestPost
+} from '@wg-paid/api/broadcasts';
+import {
   type BroadcastCompose,
   adminMonitoringSummaryV2AdminMonitoringSummaryGet,
   adminMonitoringEventsV2AdminMonitoringEventsGet,
