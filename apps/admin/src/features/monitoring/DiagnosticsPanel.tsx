@@ -6,7 +6,7 @@ const stateText = {
   queued: 'Задание в очереди.',
   running: 'Идёт сбор диагностики.',
   ready: 'Архив готов к скачиванию.',
-  partial: 'Архив готов к скачиванию.',
+  partial: 'Архив готов к скачиванию (частичный результат).',
   failed: 'Не удалось собрать диагностику.',
   expired: 'Срок хранения архива истёк.'
 };
@@ -54,6 +54,7 @@ export function DiagnosticsPanel({ onSessionExpired }: { onSessionExpired: () =>
     <section className={styles.card} aria-labelledby="system-diagnostics-title">
       <h4 id="system-diagnostics-title">Диагностика системы</h4>
       <p>VM130 собирает данные инфраструктуры. VM121 хранит архив и выдаёт его в течение 30 минут после завершения сбора.</p>
+      <p>Подробные предупреждения и исходные наблюдения содержатся в скачиваемом ZIP.</p>
       {status && <p role="status">{status}</p>}
       {state === 'partial' && (
         <p className={styles.note}>Данные собраны в ограниченном режиме (review scope); это не итоговая оценка здоровья всей сети.</p>

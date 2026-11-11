@@ -6,6 +6,18 @@ export type MonitoringWindow = 24 | 168;
 export const vmKeys = ['vm100', 'vm101', 'vm103', 'vm130'] as const;
 export const guestKeys = ['vm103', 'vm121', 'vm130'] as const;
 export const slots = [1, 2, 3, 4, 5] as const;
+export const eventStreams = ['health', 'recovery'] as const;
+
+export function eventCountsForSlot(observations: AdminMonitoringSummaryResponse['event_observations'], slot: number | null) {
+  const totals = {
+    health: { forward_live: 0, historical_retained_only: 0 },
+    recovery: { forward_live: 0, historical_retained_only: 0 }
+  };
+  for (const observation of observations) {
+    if (observation.egress_slot === slot) totals[observation.source_stream][observation.provenance] += observation.count;
+  }
+  return totals;
+}
 
 export function numberText(value: number | null | undefined, unit = '') {
   return typeof value === 'number' && Number.isFinite(value) ? `${Number(value.toFixed(2))}${unit}` : '—';

@@ -134,6 +134,8 @@ test.each(['ready', 'partial'] as const)('downloads %s once and releases the tem
   const view = mount();
   fireEvent.click(start());
   await advance();
+  expect(screen.getByText('Подробные предупреждения и исходные наблюдения содержатся в скачиваемом ZIP.')).toBeVisible();
+  expect(screen.getByText(state === 'ready' ? 'Архив готов к скачиванию.' : 'Архив готов к скачиванию (частичный результат).')).toBeVisible();
   if (state === 'ready') expect(screen.queryByText(/review scope/)).toBeNull();
   const button = zip();
   expect(button).toBeEnabled();

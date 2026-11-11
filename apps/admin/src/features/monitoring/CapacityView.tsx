@@ -14,7 +14,7 @@ export function CapacityView({ data }: { data: AdminCapacityResponse }) {
       <div className={styles.scroll} tabIndex={0} role="region" aria-label="Ресурсы виртуальных машин">
         <table className={styles.table}>
           <caption>VM100 / VM101 / VM103 / VM130 — сутки и неделя</caption>
-          <thead><tr>{['VM / vCPU / статус', 'Период / статус', 'CPU avg / p95 (%)', 'RAM p95 (%)', 'Сеть in / out p95', 'Диск read / write p95', 'Возраст / точки'].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
+          <thead><tr>{['VM / vCPU / статус', 'Период / статус', 'CPU avg / p95 (%)', 'RAM p95 (%)', 'Сеть in / out · исторический p95', 'Диск read / write p95', 'Возраст / точки'].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
           <tbody>{vmKeys.flatMap((key) => {
             const vm = snapshot.vms[key];
             return (['day', 'week'] as const).map((period) => {
