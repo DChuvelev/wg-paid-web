@@ -207,7 +207,11 @@ test('unmount cancels outstanding GETs and query configuration has no recurring 
   });
   const view = mount();
   await waitFor(() => expect(requestSignal).toBeDefined());
-  for (const query of view.client.getQueryCache().getAll()) expect(query.options).not.toHaveProperty('refetchInterval');
+  const monitoringQueries = view.client.getQueryCache().findAll({ queryKey: ['admin', 'monitoring'] });
+  expect(monitoringQueries).toHaveLength(3);
+  for (const query of monitoringQueries) expect(query.options).not.toHaveProperty('refetchInterval');
+  expect(screen.getByRole('region', { name: 'Диагностика системы' })).toBeVisible();
+  expect(view.client.getQueryCache().find({ queryKey: ['admin', 'diagnostic', null] })?.isActive()).toBe(false);
   view.unmount();
   await act(async () => {});
   expect(requestSignal!.aborted).toBe(true);

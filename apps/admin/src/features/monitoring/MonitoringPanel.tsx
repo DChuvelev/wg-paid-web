@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AdminApiError, isUnauthorized, loadMonitoringCapacity, loadMonitoringEvents, loadMonitoringSummary } from '../../lib/adminApi';
 import { CapacityView } from './CapacityView';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { SummaryView } from './SummaryView';
 import { diagnosticSummary, eventsPageSize, maxEventsOffset, nextEventsOffset, provenanceText, resultText, utcText, type MonitoringWindow } from './monitoringDomain';
 import styles from './Monitoring.module.css';
@@ -11,7 +12,7 @@ function endpointError(error: unknown) {
   return error instanceof AdminApiError && error.status === 403 ? 'Доступ запрещён (403).' : 'Не удалось загрузить данные.';
 }
 
-// Mounted only in the active Administration area. No background polling or privileged mutations.
+// Mounted only in the active Administration area.
 export function MonitoringPanel({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [windowHours, setWindowHours] = useState<MonitoringWindow>(24);
   const [offset, setOffset] = useState(0);
@@ -67,5 +68,6 @@ export function MonitoringPanel({ onSessionExpired }: { onSessionExpired: () => 
     {events.data?.has_more && offset === maxEventsOffset ? <p>Достигнут предел просмотра событий.</p> : null}
     {capacity.isError ? <p role="alert">Ресурсы: {endpointError(capacity.error)}</p> : null}
     {capacity.data ? <CapacityView data={capacity.data} /> : null}
+    <DiagnosticsPanel onSessionExpired={onSessionExpired} />
   </section>;
 }

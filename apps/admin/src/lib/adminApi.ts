@@ -8,6 +8,7 @@ import {
   sendV2AdminBroadcastsCampaignIdSendPost,
   testSendV2AdminBroadcastsCampaignIdTestPost
 } from '@wg-paid/api/broadcasts';
+import { client } from '@wg-paid/api/client';
 import {
   type BroadcastCompose,
   adminMonitoringSummaryV2AdminMonitoringSummaryGet,
@@ -93,7 +94,7 @@ const requestOptions = (signal?: AbortSignal) => ({
   credentials: 'same-origin' as const,
   ...(signal ? { signal } : {})
 });
-const mutationOptions = () => ({ ...requestOptions(), headers: getAdminCsrfHeaders() });
+const mutationOptions = (signal?: AbortSignal) => ({ ...requestOptions(signal), headers: getAdminCsrfHeaders() });
 
 export async function loadBroadcasts(signal?: AbortSignal) {
   return requireData(await historyV2AdminBroadcastsGet({ ...requestOptions(signal), query: { limit: 100 } }));
@@ -169,6 +170,72 @@ function requireData<T>(result: ApiResult<T>, fallback?: string): T {
 function requireSuccess(result: ApiResult<unknown>, fallback?: string) {
   if (result.response?.ok) return;
   throw new AdminApiError(result.response?.status, errorDetail(result.error, fallback));
+}
+
+const diagnosticsUrl = '/v2/admin/diagnostics';
+const diagnosticStates = ['queued', 'running', 'ready', 'partial', 'failed', 'expired'] as const;
+type DiagnosticState = typeof diagnosticStates[number];
+
+export function isDiagnosticId(value: unknown): value is string {
+  return typeof value === 'string' && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(value);
+}
+
+function isDiagnosticState(value: unknown): value is DiagnosticState {
+  return diagnosticStates.some((state) => state === value);
+}
+
+// Project the fields used by the UI from the frozen B4D R07 contract.
+// The pinned generated SDK has no Diagnostics operations yet.
+function diagnosticJob(data: unknown, expectedId?: string) {
+  if (!data || typeof data !== 'object' ||
+      !('request_id' in data) || !isDiagnosticId(data.request_id) ||
+      (expectedId && data.request_id !== expectedId) ||
+      !('state' in data) || !isDiagnosticState(data.state) ||
+      !('created_at' in data) || typeof data.created_at !== 'string' ||
+      !('expires_at' in data) || typeof data.expires_at !== 'string') {
+    throw new AdminApiError();
+  }
+  const createdAt = Date.parse(data.created_at);
+  const expiresAt = Date.parse(data.expires_at);
+  if (!Number.isFinite(createdAt) || !Number.isFinite(expiresAt)) throw new AdminApiError();
+  return {
+    id: data.request_id,
+    state: data.state,
+    createdAt,
+    expiresAt,
+    errorCode: 'error_code' in data && typeof data.error_code === 'string' ? data.error_code : null
+  };
+}
+
+export type DiagnosticJob = ReturnType<typeof diagnosticJob>;
+
+export async function createDiagnostic(signal: AbortSignal) {
+  const result = await client.post({
+    ...mutationOptions(signal), url: diagnosticsUrl, cache: 'no-store', redirect: 'error', parseAs: 'json'
+  });
+  const data = requireData(result);
+  if (result.response?.status !== 200 && result.response?.status !== 202) throw new AdminApiError();
+  return diagnosticJob(data);
+}
+
+export async function loadDiagnostic(id: string, signal: AbortSignal) {
+  const result = await client.get({
+    ...requestOptions(signal), url: `${diagnosticsUrl}/{id}`, path: { id },
+    cache: 'no-store', redirect: 'error', parseAs: 'json'
+  });
+  return diagnosticJob(requireData(result), id);
+}
+
+export async function downloadDiagnostic(id: string, signal: AbortSignal) {
+  const result = await client.get({
+    ...requestOptions(signal), url: `${diagnosticsUrl}/{id}/download`, path: { id },
+    cache: 'no-store', redirect: 'error', parseAs: 'blob'
+  });
+  const blob = requireData(result);
+  if (!(blob instanceof Blob) || blob.type !== 'application/zip' || blob.size === 0) throw new AdminApiError();
+  const disposition = result.response?.headers.get('Content-Disposition') ?? '';
+  const filename = /(?:^|;)\s*filename="([a-z\d_-]+\.zip)"/i.exec(disposition)?.[1] ?? 'WG_PAID_MGTS_DIAGNOSTICS.zip';
+  return { blob, filename };
 }
 
 export async function checkAdminSession() {

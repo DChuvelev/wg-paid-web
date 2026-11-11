@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminDashboard } from './app/AdminDashboard';
 import { LoginPage } from './features/auth/LoginPage';
+import { clearDiagnosticId } from './features/monitoring/useDiagnostic';
 import { checkAdminSession } from './lib/adminApi';
 import styles from './app/Admin.module.css';
 
@@ -17,6 +18,7 @@ export function App() {
   });
 
   const endSession = useCallback((message: string) => {
+    clearDiagnosticId();
     void queryClient.cancelQueries({ queryKey: ['admin'] });
     queryClient.removeQueries({
       queryKey: ['admin'],

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./broadcasts": "./src/broadcasts.ts"
+    "./broadcasts": "./src/broadcasts.ts",
+    "./client": "./src/generated/client.gen.ts"
   }
 }
