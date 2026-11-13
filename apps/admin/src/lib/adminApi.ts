@@ -1,3 +1,4 @@
+import { overviewV2AdminBillingOverviewGet as billingOverview, accountsV2AdminBillingAccountsGet as billingAccounts, paymentsV2AdminBillingPaymentsGet as billingPayments, accountDetailV2AdminBillingAccountsAccountIdGet as billingAccount } from '@wg-paid/api/billing';
 import {
   historyV2AdminBroadcastsGet,
   draftV2AdminBroadcastsPost,
@@ -427,4 +428,26 @@ export async function deleteUser(userId: string): Promise<AdminUserDeleteRespons
     ...mutationOptions(),
     path: { user_id: userId }
   }), 'Unable to delete user.');
+}
+
+export async function loadBillingOverview(days: import('@wg-paid/api/billing').LookbackDays, scope: BillingAccountsQuery['scope'], signal?: AbortSignal) {
+  return requireData(await billingOverview({ ...requestOptions(signal), cache: 'no-store', query: { days, scope } }));
+}
+export type BillingAccountsQuery = NonNullable<import('@wg-paid/api/billing').AccountsV2AdminBillingAccountsGetData['query']>;
+export type BillingPaymentsQuery = NonNullable<import('@wg-paid/api/billing').PaymentsV2AdminBillingPaymentsGetData['query']>;
+function billingBounds(query: { limit?: number; offset?: number }) {
+  if (!Number.isInteger(query.limit) || query.limit! < 1 || query.limit! > 100 || !Number.isInteger(query.offset) || query.offset! < 0 || query.offset! > 5000) throw new RangeError('Invalid Billing page');
+}
+export async function loadBillingAccounts(query: BillingAccountsQuery, signal?: AbortSignal) {
+  billingBounds(query);
+  if (Array.from(query.query ?? '').length > 120) throw new RangeError('Billing search exceeds 120 characters');
+  return requireData(await billingAccounts({ ...requestOptions(signal), cache: 'no-store', query }));
+}
+export async function loadBillingPayments(query: BillingPaymentsQuery, signal?: AbortSignal) {
+  billingBounds(query);
+  return requireData(await billingPayments({ ...requestOptions(signal), cache: 'no-store', query }));
+}
+export async function loadBillingAccount(accountId: string, limit: number, signal?: AbortSignal) {
+  billingBounds({ limit, offset: 0 });
+  return requireData(await billingAccount({ ...requestOptions(signal), cache: 'no-store', path: { account_id: accountId }, query: { limit } }));
 }

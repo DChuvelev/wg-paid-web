@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['.tools/**', '**/dist/**', '**/node_modules/**', '**/generated/**', '**/generated-broadcasts/**'] },
+  { ignores: ['.tools/**', '**/dist/**', '**/node_modules/**', '**/generated/**', '**/generated-broadcasts/**', '**/generated-billing/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

@@ -17,6 +17,10 @@ vi.mock('./lib/adminApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/adminApi')>();
   return {
     ...actual,
+    loadBillingOverview: vi.fn().mockResolvedValue({ as_of_utc: '2026-11-01T00:00:00Z', accounts_by_status: {}, period_start_utc: '2026-11-01T00:00:00Z', period_end_utc: '2026-11-01T00:00:00Z' }),
+    loadBillingAccounts: vi.fn().mockResolvedValue({ as_of_utc: '2026-11-01T00:00:00Z', rows: [], total: 0, has_more: false }),
+    loadBillingPayments: vi.fn().mockResolvedValue({ as_of_utc: '2026-11-01T00:00:00Z', rows: [], total: 0, has_more: false }),
+    loadBillingAccount: vi.fn(),
     loadBroadcasts: vi.fn().mockResolvedValue([]),
     loadMonitoringSummary: vi.fn(), loadMonitoringEvents: vi.fn(), loadMonitoringCapacity: vi.fn(),
     createReviewAccess: vi.fn(), resetReviewAccess: vi.fn(), checkAdminSession: vi.fn(), createBulkInviteCampaign: vi.fn(), createInvite: vi.fn(), deleteUser: vi.fn(), loadBulkInviteCampaigns: vi.fn(), loadInvites: vi.fn(),
@@ -1658,4 +1662,23 @@ describe('Users attribution filtering', () => {
     expect(loadUsers).toHaveBeenLastCalledWith(expect.objectContaining({ invited_by_origin: 'user', offset: 0 }), expect.any(AbortSignal));
   }, 20000);
 
+});
+
+
+test('Billing direct hash survives login, fifth navigation link and logout clears Billing', async () => {
+  window.history.replaceState(null, '', '/#/billing');
+  vi.mocked(checkAdminSession).mockResolvedValue(false);
+  renderAdmin();
+  fireEvent.change(await screen.findByLabelText('Admin secret'), { target: { value: 'a'.repeat(32) } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await screen.findByRole('heading', { name: 'Billing' });
+  expect(window.location.hash).toBe('#/billing');
+  expect(screen.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
+  fireEvent.click(screen.getByRole('link', { name: 'Users' }));
+  expect(screen.queryByRole('heading', { name: 'Billing' })).toBeNull();
+  fireEvent.click(screen.getByRole('link', { name: 'Billing' }));
+  await screen.findByRole('heading', { name: 'Billing' });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  await screen.findByText('Signed out.');
+  expect(screen.queryByRole('heading', { name: 'Billing' })).toBeNull();
 });

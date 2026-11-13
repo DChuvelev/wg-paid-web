@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./broadcasts": "./src/broadcasts.ts",
-    "./client": "./src/generated/client.gen.ts"
+    "./client": "./src/generated/client.gen.ts",
+    "./billing": "./src/billing.ts"
   }
 }

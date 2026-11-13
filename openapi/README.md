@@ -36,3 +36,13 @@ The OpenAPI input's structural 220-character subject limit remains unchanged.
 `services/admin_broadcast_worker.py` also defines completed/completed_with_uncertain
 and pending/in_flight/smtp_accepted/uncertain/skipped recipient counters.
 Unknown states remain visible with their original names and have no action buttons.
+
+## Billing R01B
+
+`VM121.billing-r01a.source.json` preserves the owner-provided installed R01A
+export bytes (90 paths / 100 operations / 120 schemas). No live API is used.
+`billing.json` is the deterministic GET-only projection verified by
+`scripts/billing-contract.mjs`: four paths, four operations, ten transitively
+referenced schemas. Generation fails closed on source/projection mismatch.
+The Billing SDK is exposed only through `@wg-paid/api/billing`.
+B4, Broadcasts and the ZIP-aware Diagnostics transport remain unchanged.

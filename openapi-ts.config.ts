@@ -16,4 +16,8 @@ export default defineConfig([{
     '@hey-api/typescript',
     { name: '@hey-api/sdk', client: '@hey-api/client-fetch' }
   ]
+}, {
+  input: './openapi/billing.json',
+  output: './packages/api/src/generated-billing',
+  plugins: [{ name: '@hey-api/client-fetch' }, '@hey-api/typescript', { name: '@hey-api/sdk', client: '@hey-api/client-fetch' }]
 }]);

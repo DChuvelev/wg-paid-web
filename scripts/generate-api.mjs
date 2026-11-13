@@ -1,9 +1,12 @@
+import { verifyBilling } from './billing-contract.mjs';
 import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { assertPinnedOpenApi, parseJsonForCanonicalization } from './openapi-contract.mjs';
+
+await verifyBilling();
 
 const input = new URL('../openapi/openapi.json', import.meta.url);
 const broadcastBytes = await readFile(new URL('../openapi/broadcasts.json', import.meta.url));
